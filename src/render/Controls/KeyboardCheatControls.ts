@@ -2,6 +2,7 @@ import type { Action, ActionReturn } from 'svelte/action';
 import { MapRuntime, type Game, type Store, mapMusicTrack, type PlayerInventory, ticksPerSecond } from '../../doom';
 import { allWeapons, giveWeapon } from '../../doom/things/weapons';
 import { useAppContext } from '../DoomContext';
+import { get, type Writable } from 'svelte/store';
 
 export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): ActionReturn => {
     const doc = node.ownerDocument;
@@ -21,6 +22,7 @@ export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): Ac
 
     const update = (game: Game) => {
         const showPlayerInfo = useAppContext().settings.showPlayerInfo;
+        const editor = useAppContext().editor;
         cheatStrings = [
             new CheatCode(game, 'idclip', toggleFn(game.settings.noclip, 'No clipping mode')),
             new CheatCode(game, 'idspispopd', toggleFn(game.settings.noclip, 'No clipping mode')),
@@ -33,13 +35,16 @@ export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): Ac
             new CheatCode(game, 'idchoppers', idchoppers),
             // only shows the message
             new CheatCode(game, 'idbehold', (game) => game.map?.val?.player?.hudMessage?.set('inVuln, Str, Inviso, Rad, Allmap, or Lite-amp')),
-            // actually applies hte powerup
+            // actually applies the powerup
             new CheatCode(game, 'idbeholdv', idbeholdInvulnerable),
             new CheatCode(game, 'idbeholds', idbeholdBerserk),
             new CheatCode(game, 'idbeholdi', idbeholdInvisible),
             new CheatCode(game, 'idbeholdr', idbeholdRadiation),
             new CheatCode(game, 'idbeholda', idbeholdAllMap),
             new CheatCode(game, 'idbeholdl', idbeholdLiteAmp),
+            // helpful debug cheats
+            new CheatCode(game, 'fly', toggleFn(game.settings.freeFly, 'Free fly')),
+            new CheatCode(game, 'inspect', toggleInspector(editor)),
         ];
     };
     update(game);
@@ -77,9 +82,19 @@ class CheatCode {
     }
 }
 
-const toggleFn = (e: Store<boolean>, message: string) => (game: Game) => {
-    e.set(!e.val);
-    game.map.val?.player?.hudMessage?.set(message + ' ' + (e.val ? 'ON' : 'OFF'));
+const toggleInspector = (editor: Writable<any>) => (game: Game) => {
+    const e = get(editor);
+    game.map.val?.player?.hudMessage?.set('Map inspector ' + (e.active ? 'OFF' : 'ON'));
+    editor.update(v => {
+        v.selected = null;
+        v.active = !v.active;
+        return v;
+    });
+}
+
+const toggleFn = (v: Store<boolean>, message: string) => (game: Game) => {
+    v.set(!v.val);
+    game.map.val?.player?.hudMessage?.set(message + ' ' + (v.val ? 'ON' : 'OFF'));
 };
 
 const idbehold = (powerup: (inv: PlayerInventory) => void) => (game: Game) => {
