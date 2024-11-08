@@ -352,6 +352,8 @@ export class MapObject {
     }
 
     touchingSector(sector: Sector) {
+        // Why won't this work with nodejs 22? It won't work for iOS anyway
+        // return this.subsectorMap.keys().find(ss => ss.sector === sector) !== undefined;
         for (const ss of this.subsectorMap.keys()) {
             if (ss.sector === sector) {
                 return true;
