@@ -2,7 +2,7 @@
 import { MapObject, PlayerMapObject } from "./map-object";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
-import { zeroVec, type LineDef, type Sector, hittableThing } from "./map-data";
+import { zeroVec, type LineDef, type Sector, hittableThing, traceThings } from "./map-data";
 import { _T } from "./text";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
@@ -993,7 +993,7 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
         if (mobj.isMonster) {
             // monsters cannot teleport if a hittable mobj is blocking teleport landing
             let blocked = false;
-            map.data.traceMove(tpos, zeroVec, mobj.info.radius, mobj.info.height, hit => {
+            map.data.traceMove(tpos, zeroVec, mobj.info.radius, mobj.info.height, traceThings, hit => {
                 blocked = Boolean('mobj' in hit && hit.mobj.info.flags & hittableThing);
                 return !blocked;
             });

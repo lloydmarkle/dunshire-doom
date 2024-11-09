@@ -3,7 +3,7 @@ import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, signedLineDistance, ToRadians, type Vertex, randInt } from "./math";
-import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall } from "./map-data";
+import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall, traceThings, traceAll } from "./map-data";
 import { ticksPerSecond, type GameTime, tickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -345,7 +345,7 @@ export class MapObject {
             return; // monsters only telefrag in level 30
         }
         // telefrag anything in our way
-        this.map.data.traceMove(this.position.val, zeroVec, this.info.radius, this.info.height, hit => {
+        this.map.data.traceMove(this.position.val, zeroVec, this.info.radius, this.info.height, traceThings, hit => {
             if ('mobj' in hit) {
                 // skip non shootable things and (obviously) don't hit ourselves
                 if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) || hit.mobj === this) {
@@ -427,7 +427,7 @@ export class MapObject {
         while (blocker) {
             blocker = null;
             vec.copy(start).add(this.velocity);
-            this.map.data.traceMove(start, this.velocity, this.info.radius, this.info.height, hit => {
+            this.map.data.traceMove(start, this.velocity, this.info.radius, this.info.height, traceAll, hit => {
                 if ('mobj' in hit) {
                     // kind of like PIT_CheckThing
                     const ignoreHit = (false

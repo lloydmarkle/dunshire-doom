@@ -7,7 +7,7 @@ import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond } from "../game";
-import { hitSkyFlat, type HandleTraceHit, type Sector, hitSkyWall } from "../map-data";
+import { hitSkyFlat, type HandleTraceHit, type Sector, hitSkyWall, traceThings, traceWalls, traceAll } from "../map-data";
 import { itemPickedUp, noPickUp } from "./pickup";
 import type { MessageId } from "../text";
 import { propagateSound } from "./monsters";
@@ -435,7 +435,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
                 Math.sin(angle) * scanRange,
                 0);
             aim.target = null; // must clear before running the trace otherwise we could get stale data
-            mobj.map.data.traceRay(shooter.position.val, tDir, aim.fn);
+            mobj.map.data.traceRay(shooter.position.val, tDir, traceThings | traceWalls, aim.fn);
             if (!aim.target) {
                 continue;
             }
@@ -473,14 +473,14 @@ class ShotTracer {
             0);
 
         let aim = aimTrace(shooter, this.start.z, range);
-        shooter.map.data.traceRay(this.start, this.direction, aim.fn);
+        shooter.map.data.traceRay(this.start, this.direction, traceThings | traceWalls, aim.fn);
         if (!aim.target) {
             // try aiming slightly left to see if we hit a target
             dir = shooter.direction.val + Math.PI / 40;
             this.direction.x = Math.cos(dir) * range;
             this.direction.y = Math.sin(dir) * range;
             aimTrace(shooter, this.start.z, range);
-            shooter.map.data.traceRay(this.start, this.direction, aim.fn);
+            shooter.map.data.traceRay(this.start, this.direction, traceThings | traceWalls, aim.fn);
         }
         if (!aim.target) {
             // try aiming slightly right to see if we hit a target
@@ -488,7 +488,7 @@ class ShotTracer {
             this.direction.x = Math.cos(dir) * range;
             this.direction.y = Math.sin(dir) * range;
             aimTrace(shooter, this.start.z, range);
-            shooter.map.data.traceRay(this.start, this.direction, aim.fn);
+            shooter.map.data.traceRay(this.start, this.direction, traceThings | traceWalls, aim.fn);
         }
 
         this._lastAngle = aim.target ? dir : shooter.direction.val;
@@ -515,7 +515,7 @@ class ShotTracer {
 
         this.map = shooter.map;
 
-        shooter.map.data.traceRay(this.start, this.direction, hit => {
+        shooter.map.data.traceRay(this.start, this.direction, traceAll, hit => {
             const hitZ = this.direction.z * hit.fraction + this.start.z;
             if ('mobj' in hit) {
                 const ignoreHit = (false

@@ -368,12 +368,12 @@ export class MapData {
         return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
     }
 
-    traceRay(start: Vector3, move: Vector3, onHit: HandleTraceHit) {
-        this.bspTracer(start, move, 0, 0, onHit);
+    traceRay(start: Vector3, move: Vector3, types: number, onHit: HandleTraceHit) {
+        this.bspTracer(start, move, 0, 0, types, onHit);
     }
 
-    traceMove(start: Vector3, move: Vector3, radius: number, height: number, onHit: HandleTraceHit) {
-        this.bspTracer(start, move, radius, height, onHit);
+    traceMove(start: Vector3, move: Vector3, radius: number, height: number, types: number, onHit: HandleTraceHit) {
+        this.bspTracer(start, move, radius, height, types, onHit);
     }
 
     traceSubsectors(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) {
@@ -443,11 +443,15 @@ function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
     return _aabbAabbOverlap
 }
 
+export const traceThings = 1;
+export const traceWalls = 2;
+export const traceFlats = 4;
+export const traceAll = traceThings | traceWalls | traceFlats;
 function createBspTracer(root: TreeNode) {
     const subsectorTrace = createSubsectorTrace(root);
     const nVec = new Vector3();
 
-    return (start: Vector3, move: Vector3, radius: number, height: number, onHit: HandleTraceHit) => {
+    return (start: Vector3, move: Vector3, radius: number, height: number, traceType: number, onHit: HandleTraceHit) => {
         const allowZeroDot = move.x !== 0 || move.y !== 0 || move.z !== 0;
         let hits: TraceHit[] = [];
         function notify() {
@@ -471,6 +475,7 @@ function createBspTracer(root: TreeNode) {
         let firstSubsec = true;
         subsectorTrace(start, move,radius, subsector => {
             // collide with things
+            if (traceType & traceThings) {
             for (const mobj of subsector.mobjs) {
                 // like wall collisions, we allow the collision if the movement is away from the other mobj
                 nVec.set(start.x - mobj.position.val.x, start.y - mobj.position.val.y, 0);
@@ -487,7 +492,8 @@ function createBspTracer(root: TreeNode) {
                     hits.push({ subsector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
                 }
             }
-
+        }
+if (traceType & traceWalls) {
             // collide with walls
             for (const seg of subsector.segs) {
                 // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
@@ -511,7 +517,8 @@ function createBspTracer(root: TreeNode) {
                     hits.push({ subsector, overlap, point, side, line: seg.linedef, fraction: hit.u });
                 }
             }
-
+        }
+        if (traceType & traceFlats) {
             // collide with floor or ceiling
             const floorHit = move.z < 0 && flatHit('floor', subsector, subsector.sector.zFloor.val);
             if (floorHit) {
@@ -521,7 +528,7 @@ function createBspTracer(root: TreeNode) {
             if (ceilHit) {
                 hits.push(ceilHit);
             }
-
+        }
             // always search more than one subsec because we may be on the edge of two
             // so we need to at least look at both (and sort hits) before we notify
             if (firstSubsec) {

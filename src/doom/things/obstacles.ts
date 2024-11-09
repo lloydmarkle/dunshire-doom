@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex } from '../doom-things-info';
 import { MapObject } from '../map-object';
-import { zeroVec } from '../map-data';
+import { traceThings, traceWalls, zeroVec } from '../map-data';
 
 export const obstacles: ThingType[] = [
     { type: 25, class: 'O', description: 'Impaled human' },
@@ -56,7 +56,7 @@ export function radiusDamage(damage: number, mobj: MapObject, source: MapObject)
     // use a map so we don't hit the same object multiple times
     let hits = new Map<MapObject, number>();
     const height = Infinity; // explosions don't check z in doom
-    mobj.map.data.traceMove(mobj.position.val, zeroVec, damage + 32, height, hit => {
+    mobj.map.data.traceMove(mobj.position.val, zeroVec, damage + 32, height, traceThings, hit => {
         if ('mobj' in hit) {
             const skipHit = (false
                 || !(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) // not shootable
@@ -107,7 +107,7 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     let zTop = (mobj2.position.val.z + mobj2.info.height) - _losStart.z;
     let zBottom = mobj2.position.val.z - _losStart.z;
 
-    mobj1.map.data.traceRay(mobj1.position.val, _losVec, hit => {
+    mobj1.map.data.traceRay(mobj1.position.val, _losVec, traceWalls, hit => {
         if ('line' in hit) {
             if (!hit.line.left) {
                 // we've hit a solid wall so line of sight is false

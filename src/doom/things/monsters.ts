@@ -4,7 +4,7 @@ import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatS
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement, traceThings, traceWalls, traceAll } from '../map-data';
 import { attackRange, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
 import { exitLevel } from '../specials';
 
@@ -151,7 +151,7 @@ const archvileActions: ActionMap = {
         if (mobj.movedir !== MoveDirection.None) {
             let corpseMobj: MapObject;
             _moveVec.copy(_directionTable[mobj.movedir]).multiplyScalar(mobj.info.speed);
-            mobj.map.data.traceMove(mobj.position.val, _moveVec, mobj.info.radius, mobj.info.height, hit => {
+            mobj.map.data.traceMove(mobj.position.val, _moveVec, mobj.info.radius, mobj.info.height, traceThings, hit => {
                 const foundCorpse = ('mobj' in hit)
                     // TODO: Doom also check mobj.state.ticks, should we?
                     && (hit.mobj.info.flags & MFFlags.MF_CORPSE)
@@ -916,7 +916,7 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
     // (players nad floating monsters can though)
     const maxFloorChangeOK = (mobj.info.flags & MFFlags.MF_FLOAT) || maxFloorChange(mobj, move, moveRadius) <= maxStepSize;
 
-    mobj.map.data.traceMove(start, move, moveRadius, mobj.info.height, hit => {
+    mobj.map.data.traceMove(start, move, moveRadius, mobj.info.height, traceThings | traceWalls, hit => {
         if ('mobj' in hit) {
             const skipHit = false
                 || (hit.mobj === mobj) // don't collide with yourself
