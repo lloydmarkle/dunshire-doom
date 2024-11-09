@@ -20,8 +20,8 @@ const params = {
 // neat little hack https://stackoverflow.com/a/75007985
 import { setFlagsFromString } from 'v8';
 import { runInNewContext } from 'vm';
-import { DoomWad, Game, MapRuntime, store, WadFile } from '../doom';
-import { createAppContext } from '../render/DoomContext';
+import { DoomWad, Game, MapRuntime, WadFile } from '../doom';
+import { createDefaultSettings } from '../render/DoomContext';
 setFlagsFromString('--expose_gc');
 const megabyte = 1024 * 1024;
 
@@ -47,23 +47,7 @@ describe('perf', () => {
         const wad = new DoomWad(params.wadNames.join('+'), wads);
         // TODO: we use some browser APIs here but if we can separate those a little better, we can save some code here
         // const settings = createAppContext().settings;
-        const settings: any = {
-            timescale: store(1),
-            freelook: store(false),
-            skipInitialSpawn: store(false),
-            xyAimAssist: store(false),
-            zAimAssist: store(false),
-            noclip: store(false),
-            alwaysRun: store(false),
-            freeFly: store(false),
-            maxLostSouls: store(0),
-            randomNumbers: store('table'),
-            monsterAI: store('enabled'),
-            shotTraceSeconds: store(0),
-            compassMove: store(false),
-            invicibility: store(false),
-            cameraMode: store('1p'),
-        }
+        const settings = createDefaultSettings();
         const game = new Game(wad, 4, settings);
         game.startMap(new MapRuntime(params.mapName, game));
         // let the game idle for a few seconds before measuring

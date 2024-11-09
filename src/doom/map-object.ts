@@ -78,7 +78,9 @@ export class MapObject {
     readonly renderShadow = store(false);
 
     get isDead() { return this.health.val <= 0; }
-    get onGround() { return this.position.val.z <= this.zFloor; }
+    protected _isMoving = false;
+    protected _onGround = true;
+    get onGround() { return this.position.val.z <= this._zFloor; }
     get isMonster() { return this.spec.class === 'M'; }
     get type() { return this.spec.moType; }
     get description() { return this.spec.description; }
@@ -141,7 +143,7 @@ export class MapObject {
         this.sectorChanged = sector => {
             // check that we are on the ground before updating zFloor because if we were on the ground before
             // change, we want to force object to the ground after the change
-            const onGround = this.onGround;
+            const onGround = this.position.val.z <= this._zFloor;
             this._zCeil = lowestZCeil(sector, sector.zCeil.val);
             this._zFloor = fromCeiling
                 ? this.zCeil - this.info.height
@@ -184,6 +186,7 @@ export class MapObject {
                 // first time setting sector so set zpos based on sector containing the object center
                 p.z = sector.zFloor.val;
             }
+            this._onGround = p.z <= this._zFloor;
             if (this.sector.val !== sector) {
                 this.sector.set(sector);
             }
@@ -203,6 +206,9 @@ export class MapObject {
     get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
 
     tick() {
+        this._isMoving = this.velocity.lengthSq() > stopVelocity;
+        this._onGround = this.position.val.z <= this._zFloor;
+
         this.applyFriction();
         this.updatePosition();
         this.applyGravity();
@@ -212,7 +218,7 @@ export class MapObject {
     }
 
     protected applyFriction() {
-        if (this.onGround && !(this.info.flags & (MFFlags.MF_MISSILE | MFFlags.MF_SKULLFLY))) {
+        if (this._onGround && this._isMoving && !(this.info.flags & (MFFlags.MF_MISSILE | MFFlags.MF_SKULLFLY))) {
             // friction (not z because gravity)
             this.velocity.x *= friction;
             this.velocity.y *= friction;
@@ -385,7 +391,7 @@ export class MapObject {
                 }
             }
         }
-        if (this.onGround) {
+        if (this._onGround) {
             this.velocity.z = 0;
             this.position.val.z = this.zFloor;
         } else {
@@ -398,7 +404,7 @@ export class MapObject {
 
     // kind of P_XYMovement
     protected updatePosition() {
-        if (this.velocity.lengthSq() < stopVelocity) {
+        if (!this._isMoving) {
             return;
         }
 
@@ -414,6 +420,7 @@ export class MapObject {
         }
 
         // cyclomatic complexity of the code below: about 1 bazillion.
+        const isMissile = this.info.flags & MFFlags.MF_MISSILE;
         const start = this.position.val;
         hitCount += 1;
         let blocker: TraceHit = 1 as any;
@@ -421,8 +428,6 @@ export class MapObject {
             blocker = null;
             vec.copy(start).add(this.velocity);
             this.map.data.traceMove(start, this.velocity, this.info.radius, this.info.height, hit => {
-                const isMissile = this.info.flags & MFFlags.MF_MISSILE;
-
                 if ('mobj' in hit) {
                     // kind of like PIT_CheckThing
                     const ignoreHit = (false
@@ -657,6 +662,9 @@ export class PlayerMapObject extends MapObject {
     }
 
     tick() {
+        this._isMoving = this.velocity.manhattanLength() > 0.01;
+        this._onGround = this.position.val.z <= this._zFloor;
+
         this.applyFriction();
         this.applyGravity();
         this._state.tick();
