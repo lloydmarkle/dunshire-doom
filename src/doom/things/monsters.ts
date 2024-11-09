@@ -759,7 +759,8 @@ const _directionTable = Object.fromEntries([
 const _findPlayerVec1 = new Vector3();
 const _findPlayerVec2 = new Vector3();
 function findPlayerTarget(mobj: MapObject, allAround = false) {
-    for (const player of mobj.map.players) {
+    for (let i = 0; i < mobj.map.players.length; i++) {
+        const player = mobj.map.players[i];
         if (player.isDead) {
             continue;
         }

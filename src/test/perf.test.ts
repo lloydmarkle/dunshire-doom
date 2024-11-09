@@ -8,6 +8,7 @@ const params = {
     wadNames: [
         'doom2',
         'oversaturationrc1',
+        // 'cosmogenesis',
         // 'nuts',
     ],
     mapName: 'MAP01',
@@ -24,6 +25,11 @@ import { DoomWad, Game, MapRuntime, WadFile } from '../doom';
 import { createDefaultSettings } from '../render/DoomContext';
 setFlagsFromString('--expose_gc');
 const megabyte = 1024 * 1024;
+
+if (!process.env.WADROOT) {
+    console.error('Missing env variable WADROOT')
+    process.exit(1);
+}
 
 // https://stackoverflow.com/questions/7343890
 const stats = (arr: number[], usePopulation = false) => {

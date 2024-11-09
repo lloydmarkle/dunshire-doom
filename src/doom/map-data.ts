@@ -252,6 +252,7 @@ export class MapData {
     readonly vertexes: Vertex[];
     readonly sectors: Sector[];
     readonly nodes: TreeNode[];
+    readonly rejects: Uint8Array;
     readonly blockMapBounds: Bounds;
 
     constructor(lumps: Lump[]) {
@@ -265,6 +266,7 @@ export class MapData {
             lumps[5], // segs
         );
 
+        this.rejects = lumps[9].data;
         const blockmap = blockmapLump(lumps[10]);
         this.blockMapBounds = {
             top: blockmap.originY + blockmap.numRows * 128,
