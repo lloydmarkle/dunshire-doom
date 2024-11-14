@@ -79,6 +79,17 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
     return lindefs;
 }
 
+export const linedefSlope = (() => {
+    const rs = { dx: 0, dy: 0, length: 0 };
+    return (ld: LineDef) => {
+        rs.dx = ld.v[1].x - ld.v[0].x;
+        rs.dy = ld.v[1].y - ld.v[0].y;
+        rs.length = Math.sqrt(rs.dx * rs.dx + rs.dy * rs.dy);
+        return rs;
+    }
+})();
+
+
 export interface SideDef {
     xOffset: Store<number>;
     yOffset: Store<number>;

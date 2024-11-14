@@ -1,9 +1,10 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import type { MapTextureAtlas } from "./TextureAtlas";
-import { HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Store, type Vertex, type WallTextureType } from "../../doom";
+import { linedefSlope, HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Vertex, type WallTextureType } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
+import { linedefScrollSpeed } from '../../doom/specials';
 
 // https://github.com/mrdoob/three.js/issues/17361
 function flipWindingOrder(geometry: BufferGeometry) {
@@ -130,10 +131,26 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         return useLeft ? (textureL ?? textureR) : (textureR ?? textureL);
     }
 
+    const applyWallSpecials = (ld: LineDef, geo: BufferGeometry) => {
+        if (ld.special === 48) {
+            for (let i = 0; i < geo.attributes.position.count; i++) {
+                geo.attributes.doomOffset.array[i * 2] = 1;
+            }
+        } else if (ld.special === 85) {
+            for (let i = 0; i < geo.attributes.position.count; i++) {
+                geo.attributes.doomOffset.array[i * 2] = -1;
+            }
+        }
+        if (ld.special === 255) {
+            for (let i = 0; i < geo.attributes.position.count; i++) {
+                geo.attributes.doomOffset.array[i * 2] = ld.right.xOffset.initial;
+                geo.attributes.doomOffset.array[i * 2 + 1] = ld.right.yOffset.initial;
+            }
+        }
+    }
+
     const addLinedef = (ld: LineDef): LindefUpdater => {
-        const vx = ld.v[1].x - ld.v[0].x;
-        const vy = ld.v[1].y - ld.v[0].y;
-        const width = Math.sqrt(vx * vx + vy * vy);
+        const { dx, dy, length: width } = linedefSlope(ld);
         const result: LindefUpdater = {
             lower: null,
             upper: null,
@@ -150,7 +167,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             x: (ld.v[1].x + ld.v[0].x) * 0.5,
             y: (ld.v[1].y + ld.v[0].y) * 0.5,
         };
-        const angle = Math.atan2(vy, vx);
+        const angle = Math.atan2(dy, dx);
 
         // these values don't matter because they get reset by the linedef updaters before being rendered
         const top = 1;
@@ -179,23 +196,6 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         let builder = geoBuilder;
         if (ld.special === 260) {
             builder = translucencyBuilder;
-        }
-        function applySpecials(geo: BufferGeometry) {
-            if (ld.special === 48) {
-                for (let i = 0; i < geo.attributes.position.count; i++) {
-                    geo.attributes.doomOffset.array[i * 2] = 1;
-                }
-            } else if (ld.special === 85) {
-                for (let i = 0; i < geo.attributes.position.count; i++) {
-                    geo.attributes.doomOffset.array[i * 2] = -1;
-                }
-            }
-            if (ld.special === 255) {
-                for (let i = 0; i < geo.attributes.position.count; i++) {
-                    geo.attributes.doomOffset.array[i * 2] = ld.right.xOffset.initial;
-                    geo.attributes.doomOffset.array[i * 2 + 1] = ld.right.yOffset.initial;
-                }
-            }
         }
 
         // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
@@ -231,7 +231,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 const geo = builder.createWallGeo(width, height, mid, top, angle);
                 const idx = builder.addWallGeometry(geo, ld.right.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
-                applySpecials(geo);
+                applyWallSpecials(ld, geo);
 
                 result.upper = m => {
                     let useLeft = ld.left.sector.zCeil > ld.right.sector.zCeil;
@@ -254,7 +254,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 const geo = builder.createWallGeo(width, height, mid, top, angle);
                 const idx = builder.addWallGeometry(geo, ld.right.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
-                applySpecials(geo);
+                applyWallSpecials(ld, geo);
 
                 result.lower = m => {
                     let useLeft = ld.right.sector.zFloor > ld.left.sector.zFloor;
@@ -294,7 +294,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 const geo = builder.createWallGeo(width, height, mid, top, angle + Math.PI);
                 const idx = builder.addWallGeometry(geo, ld.left.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
-                applySpecials(geo);
+                applyWallSpecials(ld, geo);
 
                 result.midLeft = middleUpdater(idx, ld.left);
             }
@@ -302,7 +302,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 const geo = builder.createWallGeo(width, height, mid, top, angle);
                 const idx = builder.addWallGeometry(geo, ld.right.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
-                applySpecials(geo);
+                applyWallSpecials(ld, geo);
 
                 result.midRight = middleUpdater(idx, ld.right);
             }
@@ -311,7 +311,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             const geo = builder.createWallGeo(width, height, mid, top, angle);
             const idx = builder.addWallGeometry(geo, ld.right.sector.num);
             geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
-            applySpecials(geo);
+            applyWallSpecials(ld, geo);
 
             result.single = m => {
                 const height = ld.right.sector.zCeil - ld.right.sector.zFloor;
@@ -324,14 +324,30 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         return result;
     }
 
+    const applySectorSpecials = (rs: RenderSector, geo: BufferGeometry, ceiling: boolean) => {
+        for (let ld of rs.taggedLines) {
+            const needsScrolling = (ceiling && ld.special === 250)
+                || (!ceiling && (ld.special === 251 || ld.special == 253));
+            if (needsScrolling) {
+                let { dx, dy } = linedefScrollSpeed(ld);
+                for (let i = 0; i < geo.attributes.position.count; i++) {
+                    geo.attributes.doomOffset.array[i * 2 + 0] = dx;
+                    geo.attributes.doomOffset.array[i * 2 + 1] = -dy; // flip y!!
+                }
+            }
+        }
+    }
+
     const addSector = (rs: RenderSector): [GeoInfo, GeoInfo, GeoInfo[]] => {
         const floorGeo =  rs.geometry.clone();
         const floor = flatGeoBuilder(rs.sector.floorFlat).addFlatGeometry(floorGeo, rs.sector.num);
+        applySectorSpecials(rs, floorGeo, false);
 
         const ceilGeo = rs.geometry.clone();
         // flip over triangles for ceiling
         flipWindingOrder(ceilGeo);
         const ceil = flatGeoBuilder(rs.sector.ceilFlat).addFlatGeometry(ceilGeo, rs.sector.num);
+        applySectorSpecials(rs, ceilGeo, true);
 
         let extras: GeoInfo[] = [];
         for (const extra of rs.extraFlats) {
@@ -341,6 +357,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             }
             const flat = extra.ceil ? extra.flatSector.ceilFlat : extra.flatSector.floorFlat;
             extras.push(flatGeoBuilder(flat).addFlatGeometry(geo, extra.lightSector.num));
+            applySectorSpecials(rs, geo, extra.ceil);
         }
         return [ceil, floor, extras];
     }

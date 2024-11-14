@@ -1,9 +1,9 @@
 import { store, type Store } from "./store";
-import { MapData, type LineDef, type Thing, type Action, type Sector } from "./map-data";
+import { type MapData, type LineDef, type Thing, type Action, type Sector } from "./map-data";
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
-import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
+import { pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, tickTime } from "./game";
 import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
@@ -360,6 +360,12 @@ export class MapRuntime {
                         wall.right.yOffset.update(n => n += wall.right.yOffset.initial);
                     });
                 }
+            }
+        }
+
+        for (const ld of this.data.linedefs) {
+            if (ld.special === 252 || ld.special === 253) {
+                pusherAction(this, ld);
             }
         }
 

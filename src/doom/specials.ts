@@ -2,8 +2,10 @@
 import { MapObject, PlayerMapObject } from "./map-object";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
-import { zeroVec, type LineDef, type Sector, hittableThing } from "./map-data";
+import { zeroVec, type LineDef, type Sector, hittableThing, linedefSlope } from "./map-data";
 import { _T } from "./text";
+import { findMoveBlocker } from "./things/monsters";
+import { Vector3 } from "three";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -1268,4 +1270,40 @@ export function exitLevel(mobj: MapObject, target: 'secret' | 'normal', nextMapO
     });
     mobj.map.game.map.set(null);
     mobj.map.dispose();
+}
+
+//
+// Pushers
+//
+export const linedefScrollSpeed = (linedef: LineDef) => {
+    const slope = linedefSlope(linedef);
+    const len = Math.floor(slope.length / 32);
+    slope.dx = Math.sign(slope.dx) * len;
+    slope.dy = Math.sign(slope.dy) * len;
+    return slope;
+}
+
+export function pusherAction(map: MapRuntime, linedef: LineDef) {
+    let specials = [];
+    let movement = new Vector3();
+
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
+    const { dx, dy } = linedefScrollSpeed(linedef);
+    movement.set(dx, dy, 0);
+    for (const sector of sectors) {
+        const action = () => {
+            const mobjs = sectorObjects(map, sector);
+
+            for (let i = 0; i < mobjs.length; i++) {
+                specials.length = 0;
+                const blocker = findMoveBlocker(mobjs[i], movement, specials);
+                if (!blocker) {
+                    mobjs[i].position.add(movement);
+                    mobjs[i].positionChanged();
+                    // TODO: trigger specials?
+                }
+            }
+        };
+        map.addAction(action);
+    }
 }

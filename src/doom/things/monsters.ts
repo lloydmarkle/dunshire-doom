@@ -914,7 +914,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
 }
 
 const _moveEnd = new Vector3();
-function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
+export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
     // a simplified (and subtly different) version of the move trace from MapObject.updatePosition()
     let blocker: TraceHit = null;
     const start = mobj.position;
