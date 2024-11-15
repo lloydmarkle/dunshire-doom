@@ -568,6 +568,13 @@ function createBspTracer(root: TreeNode) {
                     hits.push(ceilHit);
                 }
             }
+            if (params.hitFlat && firstSubsec) {
+                // already colliding with a ceiling (like a crusher)
+                if (subsector.sector.zCeil - subsector.sector.zFloor - params.height < 0) {
+                    const point = params.start.clone().addScaledVector(params.move, 0);
+                    hits.push({ flat: 'ceil', subsector, point, overlap: 0, fraction: 0 });
+                }
+            }
 
             // always search more than one subsec because we may be on the edge of two
             // so we need to at least look at both (and sort hits) before we notify

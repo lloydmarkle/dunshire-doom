@@ -986,6 +986,11 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
                 }
             }
             return !(blocker = hit);
+        },
+        hitFlat: hit => {
+            const sec = hit.subsector.sector;
+            const crushed = (sec.zCeil - sec.zFloor < mobj.info.height)
+            return !(blocker = crushed ? hit : null);
         }
     });
     return blocker;
