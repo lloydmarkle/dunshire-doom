@@ -6,7 +6,7 @@ import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement } from '../map-data';
 import { attackRange, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
-import { exitLevel } from '../specials';
+import { exitLevel, telefragTargets, teleportReorientMove } from '../specials';
 
 export const monsters: ThingType[] = [
     { type: 7, class: 'M', description: 'Spiderdemon' },
@@ -135,7 +135,8 @@ const doom2BossActions: ActionMap = {
             monster.setState(monster.info.seestate);
         }
         // call teleport to telefrag anything in the way
-        monster.teleport(target, monster.sector.val);
+        teleportReorientMove(monster, target);
+        telefragTargets(monster);
 
         // teleport flame
         const fog = mobj.map.spawn(MapObjectIndex.MT_SPAWNFIRE, tpos.x, tpos.y, tpos.z);

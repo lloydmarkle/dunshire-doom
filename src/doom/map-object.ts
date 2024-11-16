@@ -344,32 +344,6 @@ export class MapObject {
         this._state.setState(stateIndex, tickOffset);
     }
 
-    teleport(target: MapObject, sector: Sector) {
-        this.velocity.set(0, 0, 0);
-        this.position.set(target.position.x, target.position.y, sector.zFloor);
-        this.positionChanged();
-        this.direction = target.direction;
-
-        if (this.isMonster && this.map.name !== 'MAP30') {
-            return; // monsters only telefrag in level 30
-        }
-        // telefrag anything in our way
-        this.map.data.traceMove({
-            start: this.position,
-            move: zeroVec,
-            radius: this.info.radius,
-            height: this.info.height,
-            hitObject: hit => {
-                // skip non shootable things and (obviously) don't hit ourselves
-                if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) || hit.mobj === this) {
-                    return true;
-                }
-                hit.mobj.damage(10_000, this, this);
-                return true;
-            }
-        });
-    }
-
     touchingSector(sector: Sector) {
         // Why won't this work with nodejs 22? It won't work for iOS anyway
         // return this.subsectorMap.keys().find(ss => ss.sector === sector) !== undefined;
@@ -804,11 +778,6 @@ export class PlayerMapObject extends MapObject {
 
         // TODO: some map stats
         this.weapon.val.deactivate();
-    }
-
-    teleport(target: MapObject, sector: Sector): void {
-        this.reactiontime = 18; // freeze player after teleporting
-        super.teleport(target, sector);
     }
 
     xyMove(): void {

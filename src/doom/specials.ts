@@ -6,6 +6,7 @@ import { zeroVec, type LineDef, type Sector, hittableThing, linedefSlope } from 
 import { _T } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
+import { sweepAABBLine } from "./math";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -813,6 +814,8 @@ const lightingDefinitions = [
     createLightingDefinition(13, 'W1', setLightLevel(255)),
     createLightingDefinition(81, 'WR', setLightLevel(255)),
     createLightingDefinition(138, 'SR', setLightLevel(255)),
+    // extended
+    createLightingDefinition(157, 'WR', minNeighbourLight),
 ];
 
 export const createLightingAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
@@ -934,19 +937,117 @@ export const sectorLightAnimations = {
 };
 
 // Teleports
-const createTeleportDefinition = (type: number, trigger: string) => ({
+const playerTeleportTypes = [39, 97, 174, 195, 207, 208, 209, 210, 243, 244, 262, 263];
+const createTeleportDefinition = (type: number, trigger: string, translateFn: typeof teleportReorientMove, specialEffects: typeof teleportSoundAndFog, targetFn: typeof teleportThingInSectorTarget) => ({
     type,
+    translateFn,
+    specialEffects,
+    targetFn,
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
-    movePlayer: (type === 97 || type === 39),
+    movePlayer: playerTeleportTypes.includes(type),
     monsterTrigger: true,
 });
 
+export const teleportReorientMove = (mobj: MapObject, dest: MapObject) => {
+    mobj.velocity.set(0, 0, 0);
+    mobj.direction = dest.direction;
+    mobj.position.set(dest.position.x, dest.position.y, dest.sector.val.zFloor);
+    mobj.positionChanged();
+
+    if (mobj.type === MapObjectIndex.MT_PLAYER) {
+        // freeze player after teleporting
+        mobj.reactiontime = 18;
+    }
+}
+const teleportPreserveMove = (mobj: MapObject, dest: MapObject) => {
+    mobj.position.set(dest.position.x, dest.position.y, dest.sector.val.zFloor);
+    mobj.positionChanged();
+    // also freeze player?
+}
+
+const teleportSoundAndFog = (mobj: MapObject, dest: MapObject) => {
+    const map = mobj.map;
+    const oldPlaceFog = map.spawn(MapObjectIndex.MT_TFOG, mobj.position.x, mobj.position.y);
+    map.game.playSound(SoundIndex.sfx_telept, oldPlaceFog);
+    const newPlaceFog = map.spawn(MapObjectIndex.MT_TFOG,
+        dest.position.x + 20 * Math.cos(dest.direction),
+        dest.position.y + 20 * Math.sin(dest.direction));
+    map.game.playSound(SoundIndex.sfx_telept, newPlaceFog);
+}
+const noSpecialEffects = (mobj: MapObject, dest: MapObject) => {};
+
+const teleportThingInSectorTarget = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
+    // FIXME: for maps with lots of mobjs and teleports, this is going to be slow
+    const teleports = mobj.map.objs.filter(mo => mo.type === MapObjectIndex.MT_TELEPORTMAN);
+    for (const tp of teleports) {
+        if (tp.sector.val.tag === linedef.tag && applyFn(tp)) {
+            break; // done!
+        }
+    }
+}
+
+const lineWithTag = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
+    const hitPoint = sweepAABBLine(mobj.position, mobj.info.radius, mobj.velocity, linedef.v);
+    const lines = mobj.map.data.linedefs.filter(ld => ld.tag === linedef.tag && ld !== linedef);
+    for (const ld of lines) {
+        console.log('tp line', ld, hitPoint)
+        const px = (ld.v[1].x - ld.v[0].x) * hitPoint.u + ld.v[0].x;
+        const py = (ld.v[1].y - ld.v[0].y) * hitPoint.u + ld.v[0].y;
+        mobj.position.set(px, py, mobj.position.z);
+        mobj.positionChanged();
+        // if (tp.sector.val.tag === linedef.tag && applyFn(tp)) {
+        //     break; // done!
+        // }
+    }
+}
+const lineWithTagReversed = () => {
+}
+
+export const telefragTargets = (mobj: MapObject) => {
+    // monsters only telefrag in level 30
+    if (mobj.isMonster && mobj.map.name !== 'MAP30') {
+        return true;
+    }
+    // telefrag anything in our way
+    mobj.map.data.traceMove({
+        start: mobj.position,
+        move: zeroVec,
+        radius: mobj.info.radius,
+        height: mobj.info.height,
+        hitObject: hit => {
+            // skip non shootable things and (obviously) don't hit ourselves
+            if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) || hit.mobj === mobj) {
+                return true;
+            }
+            hit.mobj.damage(10_000, mobj, mobj);
+            return true;
+        }
+    });
+}
+
 const teleportDefinitions = [
-    createTeleportDefinition(39, 'W1'),
-    createTeleportDefinition(97, 'WR'),
-    createTeleportDefinition(126, 'WR'),
-    createTeleportDefinition(125, 'W1'),
+    createTeleportDefinition(39, 'W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
+    createTeleportDefinition(97, 'WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
+    createTeleportDefinition(126, 'WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
+    createTeleportDefinition(125, 'W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
+    // extended
+    // createTeleportDefinition(174, 'S1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
+    // createTeleportDefinition(195, 'SR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
+    // createTeleportDefinition(207, 'W1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
+    // createTeleportDefinition(208, 'WR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
+    // createTeleportDefinition(209, 'S1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
+    // createTeleportDefinition(210, 'SR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
+    // createTeleportDefinition(243, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTag),
+    createTeleportDefinition(244, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTag),
+    // createTeleportDefinition(262, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
+    // createTeleportDefinition(263, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
+    // createTeleportDefinition(264, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
+    // createTeleportDefinition(265, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
+    // createTeleportDefinition(266, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTag),
+    // createTeleportDefinition(267, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTag),
+    // createTeleportDefinition(268, 'W1', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget),
+    // createTeleportDefinition(269, 'WR', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget),
 ];
 
 export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
@@ -954,7 +1055,6 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
         // don't triggering teleports when leaving the teleport space
         return;
     }
-    const map = mobj.map;
     const def = teleportDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid teleport special', linedef.special);
@@ -966,7 +1066,7 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     if (mobj.isMonster && !def.monsterTrigger) {
         return;
     }
-    if (mobj instanceof PlayerMapObject && !def.movePlayer) {
+    if (mobj.type === MapObjectIndex.MT_PLAYER && !def.movePlayer) {
         return;
     }
     if (!def.repeatable) {
@@ -974,42 +1074,31 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     }
 
     let triggered = false;
-    // FIXME: for maps with lots of mobjs and teleports, this is going to be slow
-    const teleports = map.objs.filter(mo => mo.type === MapObjectIndex.MT_TELEPORTMAN);
-    for (const tp of teleports) {
-        const tpos = tp.position;
-        const sector = map.data.findSector(tpos.x, tpos.y);
-
+    def.targetFn(mobj, linedef, tp => {
         if (mobj.isMonster) {
             // monsters cannot teleport if a hittable mobj is blocking teleport landing
             let blocked = false;
-            map.data.traceMove({
-                start: tpos,
+            mobj.map.data.traceMove({
+                start: tp.position,
                 move: zeroVec,
                 radius: mobj.info.radius,
                 height: mobj.info.height,
                 hitObject: hit => !(blocked = Boolean('mobj' in hit && hit.mobj.info.flags & hittableThing)),
             })
             if (blocked) {
-                continue;
+                return false;
             }
         }
 
-        if (sector.tag === linedef.tag) {
-            // teleport fog in old and new locations
-            const pos = mobj.position;
-            const oldPlaceFog = map.spawn(MapObjectIndex.MT_TFOG, pos.x, pos.y);
-            map.game.playSound(SoundIndex.sfx_telept, oldPlaceFog);
-            const newPlaceFog = map.spawn(MapObjectIndex.MT_TFOG,
-                tpos.x + 20 * Math.cos(tp.direction),
-                tpos.y + 20 * Math.sin(tp.direction));
-            map.game.playSound(SoundIndex.sfx_telept, newPlaceFog);
-
-            mobj.teleport(tp, sector);
-            triggered = true;
-            break;
-        }
-    }
+        // teleport success so apply fog in old and new locations
+        def.specialEffects(mobj, tp);
+        // move mobj
+        // TODO: preserve or reverse orientation?
+        def.translateFn(mobj, tp);
+        telefragTargets(mobj);
+        triggered = true;
+        return true;
+    });
     return triggered ? def : undefined;
 };
 
@@ -1272,9 +1361,7 @@ export function exitLevel(mobj: MapObject, target: 'secret' | 'normal', nextMapO
     mobj.map.dispose();
 }
 
-//
 // Pushers
-//
 export const linedefScrollSpeed = (linedef: LineDef) => {
     const slope = linedefSlope(linedef);
     const len = Math.floor(slope.length / 32);
@@ -1300,7 +1387,7 @@ export function pusherAction(map: MapRuntime, linedef: LineDef) {
                 if (!blocker) {
                     mobjs[i].position.add(movement);
                     mobjs[i].positionChanged();
-                    // TODO: trigger specials?
+                    specials.forEach(hit => map.triggerSpecial(hit.line, mobjs[i], 'W', hit.side));
                 }
             }
         };
