@@ -655,9 +655,8 @@ export class PlayerMapObject extends MapObject {
     nextWeapon: InventoryWeapon = null;
     hudMessage = store('');
 
-    constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
-        super(map, thingSpec(MapObjectIndex.MT_PLAYER), source, 0);
-        this.direction = source.angle * ToRadians;
+    constructor(readonly inventory: Store<PlayerInventory>, mobj: MapObject) {
+        super(mobj.map, thingSpec(MapObjectIndex.MT_PLAYER), mobj.position, mobj.direction);
 
         this.renderShadow.subscribe(shadow => {
             if (shadow) {

@@ -138,8 +138,20 @@ export class MapRuntime {
     ) {
         this.musicTrack = store(mapMusicTrack(game, name));
 
-        // some maps (plutonia MAP28) have multiple player 1 starts (I guess for coop?) so make sure to findLast()
-        const playerThing = this.data.things.findLast(e => e.type === 1);
+        let playerThing: MapObject;
+        this.disposables.push(this.game.settings.skipInitialSpawn.subscribe(() => {
+            this.players.length = 0;
+            this.objs.forEach(mo => this.destroy(mo));
+            for (const thing of this.data.things) {
+                this.initialThingSpawn(thing);
+            }
+
+            // some maps (plutonia MAP28 or many community maps) have multiple player 1 starts for "voodoo dolls" so make sure to findLast()
+            playerThing = this.players[this.players.length - 1];
+            // destroy old mobj because we will replace it with PlayerMobj below
+            this.destroy(playerThing);
+        }));
+
         const inv = Object.assign(game.inventory, {
             items: {
                 berserkTicks: 0,
@@ -152,7 +164,7 @@ export class MapRuntime {
             },
             keys: '',
         });
-        this.player = new PlayerMapObject(store(inv), this, playerThing);
+        this.player = new PlayerMapObject(store(inv), playerThing);
         // restore values from last level (and subscribe to preserve values for next level)
         this.player.health.set(game.inventory.health);
         this.player.health.subscribe(health => game.inventory.health = health);
@@ -161,15 +173,10 @@ export class MapRuntime {
             game.inventory.lastWeapon = inventoryWeapon(weapon.name);
             weapon.activate(this.player);
         });
+        this.objs.push(this.player);
+        this.events.emit('mobj-added', this.player);
 
         this.input = new GameInput(this, game.input);
-
-        this.players.push(this.player);
-        this.disposables.push(this.game.settings.skipInitialSpawn.subscribe(() => {
-            this.objs.forEach(mo => this.destroy(mo));
-            this.objs = [this.player];
-            this.data.things.forEach(e => this.initialThingSpawn(e));
-        }));
 
         this.synchronizeSpecials();
 
@@ -198,12 +205,12 @@ export class MapRuntime {
     private initialThingSpawn(thing: Thing): MapObject | undefined {
         const noSpawn = (false
             || thing.type === 0 // plutonia map 12, what?!
-            || thing.type === 1
             || thing.type === 2
             || thing.type === 3
             || thing.type === 4
             || thing.type === 11
-            || this.game.settings.skipInitialSpawn.val
+            // always spawn players (even with skipInitialSpawn)
+            || (this.game.settings.skipInitialSpawn.val && thing.type !== 1)
         );
         if (noSpawn) {
             return;
@@ -220,7 +227,8 @@ export class MapRuntime {
             return;
         }
 
-        const type = mapObjectInfo.findIndex(e => e.doomednum === thing.type);
+        const type = thing.type === 1 ? MapObjectIndex.MT_PLAYER :
+            mapObjectInfo.findIndex(e => e.doomednum === thing.type);
         if (type === -1) {
             console.warn('unable to spawn thing type', thing.type);
             return;
@@ -239,7 +247,7 @@ export class MapRuntime {
     }
 
     spawn(moType: MapObjectIndex, x: number, y: number, z?: number, direction?: number) {
-        const mobj = new MapObject(this, thingSpec(moType), { x, y }, direction ?? 0);
+        let mobj = new MapObject(this, thingSpec(moType), { x, y }, direction ?? 0);
         if (z !== undefined) {
             mobj.position.z = z;
         }
