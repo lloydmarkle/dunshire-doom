@@ -131,12 +131,21 @@ export class MapRuntime {
     readonly disposables: (() => void)[] = [];
     readonly musicTrack: Store<string>;
 
+    // some caches to help speed up game computations
+    readonly teleportMobjs: MapObject[] = [];
+    readonly sectorsByTag = new Map<number, Sector[]>();
+    readonly sectorObjs = new Map<Sector, Set<MapObject>>();
+    readonly linedefsByTag = new Map<number, LineDef[]>();
+
     constructor(
         readonly name: string,
         readonly data: MapData, // TODO: make this non-public?
         readonly game: Game,
     ) {
         this.musicTrack = store(mapMusicTrack(game, name));
+
+        this.updateCaches();
+        this.synchronizeSpecials();
 
         let playerThing: MapObject;
         this.disposables.push(this.game.settings.skipInitialSpawn.subscribe(() => {
@@ -177,8 +186,6 @@ export class MapRuntime {
         this.events.emit('mobj-added', this.player);
 
         this.input = new GameInput(this, game.input);
-
-        this.synchronizeSpecials();
 
         // initialize animated textures
         for (const sector of this.data.sectors) {
@@ -387,6 +394,29 @@ export class MapRuntime {
             if (type === 9) {
                 this.stats.totalSecrets += 1;
             }
+        }
+    }
+
+    updateCaches() {
+        this.teleportMobjs.length = 0;
+        this.objs.filter(e => e.type === MapObjectIndex.MT_TELEPORTMAN).forEach(e => this.teleportMobjs.push(e));
+
+        this.sectorsByTag.clear();
+        this.sectorObjs.clear();
+        for (const sector of this.data.sectors) {
+            const tagged = this.sectorsByTag.get(sector.tag) ?? []
+            this.sectorsByTag.set(sector.tag, tagged);
+            tagged.push(sector);
+
+            // NOTE: sectorObjs is mostly managed by map-objects themselves
+            this.sectorObjs.set(sector, new Set());
+        }
+
+        this.linedefsByTag.clear();
+        for (const ld of this.data.linedefs) {
+            const tagged = this.linedefsByTag.get(ld.tag) ?? [];
+            this.linedefsByTag.set(ld.tag, tagged);
+            tagged.push(ld);
         }
     }
 

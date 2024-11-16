@@ -172,10 +172,14 @@ export class MapObject {
             this.map.data.traceSubsectors(p, zeroVec, radius,
                 subsector => Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
             // add mobj to touched sectors or remove from untouched sectors
+            // TODO: do we need both sectorObjs and subsector.mobjs? sectroObjs is mostly used in special.sectorObjects()
+            // but would it be fast enough to have sector ref subsectors and then collect all mobjs?
             this.subsectorMap.forEach((rev, subsector) => {
                 if (rev === this.subsecRev && !(this.info.flags & MFFlags.MF_NOBLOCKMAP)) {
+                    map.sectorObjs.get(subsector.sector).add(this);
                     subsector.mobjs.add(this);
                 } else {
+                    map.sectorObjs.get(subsector.sector).delete(this);
                     subsector.mobjs.delete(this);
                     this.subsectorMap.delete(subsector);
                 }

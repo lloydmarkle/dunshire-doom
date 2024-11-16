@@ -2,7 +2,7 @@
 import { MapObject, PlayerMapObject } from "./map-object";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
-import { zeroVec, type LineDef, type Sector, hittableThing, linedefSlope } from "./map-data";
+import { zeroVec, type LineDef, type Sector, hittableThing, linedefSlope, type LineTraceHit } from "./map-data";
 import { _T } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
@@ -112,8 +112,7 @@ const zeroSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
     to.type = 0;
 }
 
-const sectorObjects = (map: MapRuntime, sector: Sector) =>
-    map.objs.filter(e => e.touchingSector(sector));
+const sectorObjects = (map: MapRuntime, sector: Sector) => [...map.sectorObjs.get(sector)];
 
 function crunchMapObject(mobj: MapObject) {
     if (mobj.info.flags & MFFlags.MF_DROPPED) {
@@ -988,17 +987,21 @@ const teleportThingInSectorTarget = (mobj: MapObject, linedef: LineDef, applyFn:
 }
 
 const lineWithTag = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
-    const hitPoint = sweepAABBLine(mobj.position, mobj.info.radius, mobj.velocity, linedef.v);
-    const lines = mobj.map.data.linedefs.filter(ld => ld.tag === linedef.tag && ld !== linedef);
+    // const hitPoint = sweepAABBLine(mobj.position.val, 1, mobj.velocity, linedef.v);
+    const lines = mobj.map.linedefsByTag.get(linedef.tag);
     for (const ld of lines) {
-        console.log('tp line', ld, hitPoint)
-        const px = (ld.v[1].x - ld.v[0].x) * hitPoint.u + ld.v[0].x;
-        const py = (ld.v[1].y - ld.v[0].y) * hitPoint.u + ld.v[0].y;
+        if (ld === linedef) {
+            continue;
+        }
+        // TODO: I don't think this calculation is complete...
+        const dx = linedef.v[1].x - linedef.v[0].x;
+        const frac = (dx < 0.000001 && dx > -0.000001)
+            ? (mobj.position.y - linedef.v[0].y) / (linedef.v[1].y - linedef.v[0].y)
+            : (mobj.position.x - linedef.v[0].x) / dx;
+        const px = ld.v[0].x + (ld.v[1].x - ld.v[0].x) * frac;
+        const py = ld.v[0].y + (ld.v[1].y - ld.v[0].y) * frac;
         mobj.position.set(px, py, mobj.position.z);
         mobj.positionChanged();
-        // if (tp.sector.val.tag === linedef.tag && applyFn(tp)) {
-        //     break; // done!
-        // }
     }
 }
 const lineWithTagReversed = () => {
@@ -1371,19 +1374,22 @@ export const linedefScrollSpeed = (linedef: LineDef) => {
 }
 
 export function pusherAction(map: MapRuntime, linedef: LineDef) {
-    let specials = [];
+    let specials: LineTraceHit[] = [];
     let movement = new Vector3();
 
-    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.sectorsByTag.get(linedef.tag);
     const { dx, dy } = linedefScrollSpeed(linedef);
     movement.set(dx, dy, 0);
     for (const sector of sectors) {
         const action = () => {
             const mobjs = sectorObjects(map, sector);
-
             for (let i = 0; i < mobjs.length; i++) {
                 specials.length = 0;
                 const blocker = findMoveBlocker(mobjs[i], movement, specials);
+                // problems: line triggers are too close.
+                // also (maybe not a problem) they trigger multiple times
+                // (above can be fixed maybe by just comparing centre move... actually, maybe we should do that?)
+                // if (mobjs[i].id===111 || mobjs[i].id===161)console.log('move',new Date().getTime(),mobjs[i].id,blocker,specials.map(s=>[s.line.num,s.line.special]))
                 if (!blocker) {
                     mobjs[i].position.add(movement);
                     mobjs[i].positionChanged();
