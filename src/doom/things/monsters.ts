@@ -914,12 +914,13 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     return !blocker;
 }
 
-const _moveEnd = new Vector3();
+const _centreMoveEnd = new Vector3();
 export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
     // a simplified (and subtly different) version of the move trace from MapObject.updatePosition()
     let blocker: TraceHit = null;
     const start = mobj.position;
-    vecFromMovement(_moveEnd, start, move, mobj.info.radius);
+    // only check centre of object movement for special triggers (not edges like players do)
+    _centreMoveEnd.copy(start).add(move);
     // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
     const moveRadius = mobj.info.radius - 1;
     // compute highest and lowest floor we are touching because monsters cannot climb narrow steps
@@ -977,7 +978,7 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
                     if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
                         if (specialLines && hit.line.special) {
                             const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
-                            const endSide = signedLineDistance(hit.line.v, _moveEnd) < 0 ? -1 : 1;
+                            const endSide = signedLineDistance(hit.line.v, _centreMoveEnd) < 0 ? -1 : 1;
                             if (startSide !== endSide) {
                                 specialLines.push(hit);
                             }

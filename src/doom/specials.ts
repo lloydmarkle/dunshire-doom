@@ -6,7 +6,6 @@ import { zeroVec, type LineDef, type Sector, hittableThing, linedefSlope, type L
 import { _T } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
-import { sweepAABBLine } from "./math";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -1380,23 +1379,22 @@ export function pusherAction(map: MapRuntime, linedef: LineDef) {
     const sectors = map.sectorsByTag.get(linedef.tag);
     const { dx, dy } = linedefScrollSpeed(linedef);
     movement.set(dx, dy, 0);
-    for (const sector of sectors) {
-        const action = () => {
-            const mobjs = sectorObjects(map, sector);
+    const action = () => {
+        // group mobjs by sector _before_ moving because otherwise the mobj may be put into another sector
+        // that also moves.
+        // TODO: the above can still happen if the mobj moves to a different pusher. Does that matter?
+        const sectorMobjs = sectors.map(sector => sectorObjects(map, sector).filter(e => e.onGround));
+        for (const mobjs of sectorMobjs) {
             for (let i = 0; i < mobjs.length; i++) {
                 specials.length = 0;
                 const blocker = findMoveBlocker(mobjs[i], movement, specials);
-                // problems: line triggers are too close.
-                // also (maybe not a problem) they trigger multiple times
-                // (above can be fixed maybe by just comparing centre move... actually, maybe we should do that?)
-                // if (mobjs[i].id===111 || mobjs[i].id===161)console.log('move',new Date().getTime(),mobjs[i].id,blocker,specials.map(s=>[s.line.num,s.line.special]))
                 if (!blocker) {
                     mobjs[i].position.add(movement);
                     mobjs[i].positionChanged();
                     specials.forEach(hit => map.triggerSpecial(hit.line, mobjs[i], 'W', hit.side));
                 }
             }
-        };
-        map.addAction(action);
-    }
+        }
+    };
+    map.addAction(action);
 }

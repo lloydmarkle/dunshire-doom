@@ -501,7 +501,7 @@ function createBspTracer(root: TreeNode) {
                     ('flat' in hit) ? !params.hitFlat(hit) :
                     // shouldn't get here but...
                     complete;
-        }
+            }
             hits.length = 0;
             return complete;
         }
