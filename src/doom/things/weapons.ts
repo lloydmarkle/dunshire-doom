@@ -7,7 +7,7 @@ import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond } from "../game";
-import { hitSkyFlat, type HandleTraceHit, type Sector, hitSkyWall, traceThings, traceWalls, traceAll } from "../map-data";
+import { hitSkyFlat, type HandleTraceHit, type Sector, hitSkyWall, type LineTraceHit, type MapObjectTraceHit, type TraceParams } from "../map-data";
 import { itemPickedUp, noPickUp } from "./pickup";
 import type { MessageId } from "../text";
 import { propagateSound } from "./monsters";
@@ -424,7 +424,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         const tDir = new Vector3();
         const shooter = mobj.chaseTarget;
         const dir = mobj.direction.val;
-        const aim = aimTrace(shooter, shooter.position.val.z, scanRange);
+        const aim = aimTrace(shooter, shooter.position.val, tDir, scanRange);
         for (let i = 0; i < 40; i++) {
             let angle = dir - QUARTER_PI + HALF_PI / 40 * i;
 
@@ -435,7 +435,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
                 Math.sin(angle) * scanRange,
                 0);
             aim.target = null; // must clear before running the trace otherwise we could get stale data
-            mobj.map.data.traceRay(shooter.position.val, tDir, traceThings | traceWalls, aim.fn);
+            mobj.map.data.traceRay(aim);
             if (!aim.target) {
                 continue;
             }
@@ -472,23 +472,21 @@ class ShotTracer {
             Math.sin(dir) * range,
             0);
 
-        let aim = aimTrace(shooter, this.start.z, range);
-        shooter.map.data.traceRay(this.start, this.direction, traceThings | traceWalls, aim.fn);
+        let aim = aimTrace(shooter, this.start, this.direction, range);
+        shooter.map.data.traceRay(aim);
         if (!aim.target) {
             // try aiming slightly left to see if we hit a target
             dir = shooter.direction.val + Math.PI / 40;
             this.direction.x = Math.cos(dir) * range;
             this.direction.y = Math.sin(dir) * range;
-            aimTrace(shooter, this.start.z, range);
-            shooter.map.data.traceRay(this.start, this.direction, traceThings | traceWalls, aim.fn);
+            shooter.map.data.traceRay(aim);
         }
         if (!aim.target) {
             // try aiming slightly right to see if we hit a target
             dir = shooter.direction.val - Math.PI / 40;
             this.direction.x = Math.cos(dir) * range;
             this.direction.y = Math.sin(dir) * range;
-            aimTrace(shooter, this.start.z, range);
-            shooter.map.data.traceRay(this.start, this.direction, traceThings | traceWalls, aim.fn);
+            shooter.map.data.traceRay(aim);
         }
 
         this._lastAngle = aim.target ? dir : shooter.direction.val;
@@ -515,9 +513,11 @@ class ShotTracer {
 
         this.map = shooter.map;
 
-        shooter.map.data.traceRay(this.start, this.direction, traceAll, hit => {
-            const hitZ = this.direction.z * hit.fraction + this.start.z;
-            if ('mobj' in hit) {
+        shooter.map.data.traceRay({
+            start: this.start,
+            move: this.direction,
+            hitObject: hit => {
+                const hitZ = this.direction.z * hit.fraction + this.start.z;
                 const ignoreHit = (false
                     || (hit.mobj === shooter) // can't shoot ourselves
                     || !(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) // not shootable
@@ -536,7 +536,9 @@ class ShotTracer {
                 }
                 hit.mobj.damage(damage, shooter, shooter);
                 return false;
-            } else if ('line' in hit) {
+            },
+            hitLine: hit => {
+                const hitZ = this.direction.z * hit.fraction + this.start.z;
                 if (hit.line.special) {
                     shooter.map.triggerSpecial(hit.line, shooter, 'G', hit.side);
                 }
@@ -559,7 +561,9 @@ class ShotTracer {
                         return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, range, hit.fraction));
                     }
                 }
-            } else if ('flat' in hit) {
+                return true;
+            },
+            hitFlat: hit => {
                 if (hitSkyFlat(hit)) {
                     return false; // hit sky so don't spawn puff and don't keep searching, we're done.
                 }
@@ -570,7 +574,6 @@ class ShotTracer {
                 }
                 return false;
             }
-            return true;
         });
     }
 
@@ -612,14 +615,15 @@ class ShotTracer {
 }
 export const shotTracer = new ShotTracer();
 
-interface AimTrace {
+interface AimTrace extends TraceParams {
     target: MapObject;
     slope: number;
-    fn: HandleTraceHit;
+    hitLine: HandleTraceHit<LineTraceHit>;
+    hitObject: HandleTraceHit<MapObjectTraceHit>;
 }
 
 // kind of like PTR_AimTraverse from p_map.c
-function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
+function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range: number): AimTrace {
     // TODO: should these depend on FOV or aspect ratio?
     let slopeTop = 100 / 160;
     let slopeBottom = -100 / 160;
@@ -627,60 +631,59 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
     let result: AimTrace = {
         target: null,
         slope: 0,
-        fn: hit => {
-            if ('mobj' in hit) {
-                if (hit.mobj === shooter) {
-                    return true; // can't shoot ourselves
-                }
-                if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
-                    return true; // not shootable
-                }
+        start,
+        move: direction,
+        hitObject: hit => {
+            if (hit.mobj === shooter) {
+                return true; // can't shoot ourselves
+            }
+            if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                return true; // not shootable
+            }
 
-                const dist = range * hit.fraction;
-                let thingSlopeTop = (hit.mobj.position.val.z + hit.mobj.info.height - shootZ) / dist;
-                if (thingSlopeTop < slopeBottom) {
-                    return true; // shoot over
-                }
+            const dist = range * hit.fraction;
+            let thingSlopeTop = (hit.mobj.position.val.z + hit.mobj.info.height - start.z) / dist;
+            if (thingSlopeTop < slopeBottom) {
+                return true; // shoot over
+            }
 
-                let thingSlopeBottom = (hit.mobj.position.val.z - shootZ) / dist;
-                if (thingSlopeBottom > slopeTop) {
-                    return true; // shoot under
-                }
+            let thingSlopeBottom = (hit.mobj.position.val.z - start.z) / dist;
+            if (thingSlopeBottom > slopeTop) {
+                return true; // shoot under
+            }
 
-                thingSlopeTop = Math.min(thingSlopeTop, slopeTop);
-                thingSlopeBottom = Math.max(thingSlopeBottom, slopeBottom);
-                result.slope = (thingSlopeTop + thingSlopeBottom) * .5;
-                result.target = hit.mobj;
+            thingSlopeTop = Math.min(thingSlopeTop, slopeTop);
+            thingSlopeBottom = Math.max(thingSlopeBottom, slopeBottom);
+            result.slope = (thingSlopeTop + thingSlopeBottom) * .5;
+            result.target = hit.mobj;
+            return false;
+        },
+        hitLine: hit => {
+            const oneSided = !Boolean(hit.line.left);
+            if (oneSided) {
+                return false; // single-sided linedefs always stop trace
+            }
+
+            const front = hit.side === -1 ? hit.line.right : hit.line.left;
+            const back = hit.side === -1 ? hit.line.left : hit.line.right;
+            const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
+            const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
+            if (openBottom >= openTop) {
+                // it's a two-sided line but there is no opening (eg. a closed door or a raised platform)
                 return false;
-            } else if ('line' in hit) {
-                const oneSided = !Boolean(hit.line.left);
-                if (oneSided) {
-                    return false; // single-sided linedefs always stop trace
-                }
+            }
 
-                const front = hit.side === -1 ? hit.line.right : hit.line.left;
-                const back = hit.side === -1 ? hit.line.left : hit.line.right;
-                const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
-                const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
-                if (openBottom >= openTop) {
-                    // it's a two-sided line but there is no opening (eg. a closed door or a raised platform)
-                    return false;
-                }
+            const dist = range * hit.fraction;
+            if (front.sector.zCeil.val !== back.sector.zCeil.val) {
+                slopeTop = Math.min(slopeTop, (openTop - start.z) / dist);
+            }
+            if (front.sector.zFloor.val !== back.sector.zFloor.val) {
+                slopeBottom = Math.max(slopeBottom, (openBottom - start.z) / dist);
+            }
 
-                const dist = range * hit.fraction;
-                if (front.sector.zCeil.val !== back.sector.zCeil.val) {
-                    slopeTop = Math.min(slopeTop, (openTop - shootZ) / dist);
-                }
-                if (front.sector.zFloor.val !== back.sector.zFloor.val) {
-                    slopeBottom = Math.max(slopeBottom, (openBottom - shootZ) / dist);
-                }
-
-                if (slopeTop <= slopeBottom) {
-                    // we've run out of gap between top and bottom of walls
-                    return false;
-                }
-            } else {
-                // sector?
+            if (slopeTop <= slopeBottom) {
+                // we've run out of gap between top and bottom of walls
+                return false;
             }
             return true;
         },

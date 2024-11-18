@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { MapData, type LineDef, type Thing, type Action, traceWalls } from "./map-data";
+import { MapData, type LineDef, type Thing, type Action } from "./map-data";
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
@@ -543,8 +543,10 @@ class GameInput {
 
             const ang = this.player.direction.val;
             vec.set(Math.cos(ang) * 64, Math.sin(ang) * 64, 0);
-            this.map.data.traceRay(pos, vec, traceWalls, hit => {
-                if ('line' in hit) {
+            this.map.data.traceRay({
+                start: pos,
+                move: vec,
+                hitLine: hit => {
                     if (hit.line.special) {
                         this.map.triggerSpecial(hit.line, this.player, 'S');
                         return false; // stop trace, we used a line
@@ -558,8 +560,7 @@ class GameInput {
                     }
                     this.map.game.playSound(SoundIndex.sfx_noway, this.player);
                     return false; // always stop on the first line (unless above says we can continue)
-                }
-                return true
+                },
             });
         }
         this.handledUsePress = this.input.use;

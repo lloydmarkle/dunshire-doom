@@ -44,20 +44,21 @@
         // clip to walls and ceiling/floor
         _ppos.copy($playerPosition).setZ($playerPosition.z + followHeight);
         _3pDir.copy(pos).sub(_ppos);
-        map.data.traceRay(_ppos, _3pDir, hit => {
-            if ('mobj' in hit) {
-                return true;
-            }
-            if ('line' in hit && hit.line.left) {
-                const ceil = Math.min(hit.line.left.sector.zCeil.val, hit.line.right.sector.zCeil.val);
-                const floor = Math.max(hit.line.left.sector.zFloor.val, hit.line.right.sector.zFloor.val);
-                const gap = ceil - floor;
-                if (gap > 0 && floor - _ppos.z < -20) {
-                    return true; // two-sided but there is a gap for the camera so keep searching
+        map.data.traceRay({
+            start: _ppos,
+            move: _3pDir,
+            hitLine: hit => {
+                if (hit.line.left) {
+                    const ceil = Math.min(hit.line.left.sector.zCeil.val, hit.line.right.sector.zCeil.val);
+                    const floor = Math.max(hit.line.left.sector.zFloor.val, hit.line.right.sector.zFloor.val);
+                    const gap = ceil - floor;
+                    if (gap > 0 && floor - _ppos.z < -20) {
+                        return true; // two-sided but there is a gap for the camera so keep searching
+                    }
                 }
-            }
-            pos.copy(_ppos).addScaledVector(_3pDir, hit.fraction * .9);
-            return false;
+                pos.copy(_ppos).addScaledVector(_3pDir, hit.fraction * .9);
+                return false;
+            },
         });
     }
 </script>

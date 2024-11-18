@@ -218,17 +218,14 @@ export interface LineTraceHit extends BaseTraceHit {
     side: -1 | 1; // did we hit front side (1) or back side (-1)
     line: LineDef;
 }
-interface SpecialTraceHit extends LineTraceHit {
-    special: boolean;
-}
-interface MapObjectTraceHit extends BaseTraceHit {
+export interface MapObjectTraceHit extends BaseTraceHit {
     mobj: MapObject;
     axis: 'x' | 'y';
 }
 interface SectorTraceHit extends BaseTraceHit {
     flat: 'floor' | 'ceil';
 }
-export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit | SpecialTraceHit;
+export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit;
 // return true to continue trace, false to stop
 export type HandleTraceHit<T=TraceHit> = (hit: T) => boolean;
 
@@ -368,12 +365,12 @@ export class MapData {
         return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
     }
 
-    traceRay(start: Vector3, move: Vector3, types: number, onHit: HandleTraceHit) {
-        this.bspTracer(start, move, 0, 0, types, onHit);
+    traceRay(p: TraceParams) {
+        this.bspTracer(p);
     }
 
-    traceMove(start: Vector3, move: Vector3, radius: number, height: number, types: number, onHit: HandleTraceHit) {
-        this.bspTracer(start, move, radius, height, types, onHit);
+    traceMove(p: TraceParams) {
+        this.bspTracer(p);
     }
 
     traceSubsectors(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) {
@@ -443,16 +440,35 @@ function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
     return _aabbAabbOverlap
 }
 
-export const traceThings = 1;
-export const traceWalls = 2;
-export const traceFlats = 4;
-export const traceAll = traceThings | traceWalls | traceFlats;
+export interface TraceParams {
+    start: Vector3;
+    move: Vector3;
+    radius?: number;
+    height?: number;
+    hitLine?: HandleTraceHit<LineTraceHit>;
+    hitFlat?: HandleTraceHit<SectorTraceHit>;
+    hitObject?: HandleTraceHit<MapObjectTraceHit>;
+}
 function createBspTracer(root: TreeNode) {
     const subsectorTrace = createSubsectorTrace(root);
     const nVec = new Vector3();
 
-    return (start: Vector3, move: Vector3, radius: number, height: number, traceType: number, onHit: HandleTraceHit) => {
-        const allowZeroDot = move.x !== 0 || move.y !== 0 || move.z !== 0;
+    function flatHit(flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number, params: TraceParams): SectorTraceHit {
+        const u = (zFlat - params.start.z) / params.move.z;
+        if (u < 0 || u > 1) {
+            return null
+        }
+        const point = params.start.clone().addScaledVector(params.move, u);
+        const inSector = findSubSector(root, point.x, point.y) === subsector;
+        if (!inSector) {
+            return null;
+        }
+        return { flat, subsector, point, overlap: 0, fraction: u };
+    }
+
+    return (params: TraceParams) => {
+        const radius = params.radius ?? 0;
+        const allowZeroDot = params.move.x !== 0 || params.move.y !== 0 || params.move.z !== 0;
         let hits: TraceHit[] = [];
         function notify() {
             // sort hits by distance (or by overlap if distance is too close)
@@ -463,8 +479,14 @@ function createBspTracer(root: TreeNode) {
 
             let complete = false;
             for (let i = 0; !complete && i < hits.length; i++) {
-                complete = !onHit(hits[i]);
-            }
+                const hit = hits[i];
+                complete =
+                    ('mobj' in hit) ? !params.hitObject(hit) :
+                    ('line' in hit) ? !params.hitLine(hit) :
+                    ('flat' in hit) ? !params.hitFlat(hit) :
+                    // shouldn't get here but...
+                    complete;
+        }
             hits.length = 0;
             return complete;
         }
@@ -473,62 +495,65 @@ function createBspTracer(root: TreeNode) {
         // and things and maybe avoid a few redundant checks? Teleportation, for example, does not check z position and
         // maybe that is desired?
         let firstSubsec = true;
-        subsectorTrace(start, move,radius, subsector => {
+        subsectorTrace(params.start, params.move, radius, subsector => {
             // collide with things
-            if (traceType & traceThings) {
-            for (const mobj of subsector.mobjs) {
-                // like wall collisions, we allow the collision if the movement is away from the other mobj
-                nVec.set(start.x - mobj.position.val.x, start.y - mobj.position.val.y, 0);
-                const moveDot = move.dot(nVec);
-                // skip collision detection if we are moving away from the other object
-                if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
-                    continue;
-                }
+            if (params.hitObject) {
+                for (const mobj of subsector.mobjs) {
+                    // like wall collisions, we allow the collision if the movement is away from the other mobj
+                    nVec.set(params.start.x - mobj.position.val.x, params.start.y - mobj.position.val.y, 0);
+                    const moveDot = params.move.dot(nVec);
+                    // skip collision detection if we are moving away from the other object
+                    if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
+                        continue;
+                    }
 
-                const hit = sweepAABBAABB(start, radius, move, mobj.position.val, mobj.info.radius);
-                if (hit) {
-                    const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                    const ov = aabbAabbOverlap(point, radius, mobj.position.val, mobj.info.radius);
-                    hits.push({ subsector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
+                    const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position.val, mobj.info.radius);
+                    if (hit) {
+                        const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
+                        const ov = aabbAabbOverlap(point, radius, mobj.position.val, mobj.info.radius);
+                        hits.push({ subsector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
+                    }
                 }
             }
-        }
-if (traceType & traceWalls) {
-            // collide with walls
-            for (const seg of subsector.segs) {
-                // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
-                // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
-                // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
-                // other traces.
-                // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
-                nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
-                const moveDot = move.dot(nVec);
-                // NOTE: dot === 0 is special. We allow this only when we are moving
-                // (if we aren't moving, dot will always be 0 and we skip everything)
-                if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
-                    continue;
-                }
 
-                const hit = sweepAABBLine(start, radius, move, seg.v);
-                if (hit) {
-                    const side = seg.direction ? 1 : -1;
-                    const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                    const overlap = aabbLineOverlap(point, radius, seg.linedef);
-                    hits.push({ subsector, overlap, point, side, line: seg.linedef, fraction: hit.u });
+            if (params.hitLine) {
+                // collide with walls
+                for (const seg of subsector.segs) {
+                    // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
+                    // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
+                    // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
+                    // other traces.
+                    // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
+                    nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
+                    const moveDot = params.move.dot(nVec);
+                    // NOTE: dot === 0 is special. We allow this only when we are moving
+                    // (if we aren't moving, dot will always be 0 and we skip everything)
+                    if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
+                        continue;
+                    }
+
+                    const hit = sweepAABBLine(params.start, radius, params.move, seg.v);
+                    if (hit) {
+                        const side = seg.direction ? 1 : -1;
+                        const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
+                        const overlap = aabbLineOverlap(point, radius, seg.linedef);
+                        hits.push({ subsector, overlap, point, side, line: seg.linedef, fraction: hit.u });
+                    }
                 }
             }
-        }
-        if (traceType & traceFlats) {
-            // collide with floor or ceiling
-            const floorHit = move.z < 0 && flatHit('floor', subsector, subsector.sector.zFloor.val);
-            if (floorHit) {
-                hits.push(floorHit);
+
+            if (params.hitFlat) {
+                // collide with floor or ceiling
+                const floorHit = params.move.z < 0 && flatHit('floor', subsector, subsector.sector.zFloor.val, params);
+                if (floorHit) {
+                    hits.push(floorHit);
+                }
+                const ceilHit = params.move.z > 0 && flatHit('ceil', subsector, subsector.sector.zCeil.val - (params.height ?? 0), params);
+                if (ceilHit) {
+                    hits.push(ceilHit);
+                }
             }
-            const ceilHit = move.z > 0 && flatHit('ceil', subsector, subsector.sector.zCeil.val - height);
-            if (ceilHit) {
-                hits.push(ceilHit);
-            }
-        }
+
             // always search more than one subsec because we may be on the edge of two
             // so we need to at least look at both (and sort hits) before we notify
             if (firstSubsec) {
@@ -538,19 +563,6 @@ if (traceType & traceWalls) {
             return !notify();
         });
         notify();
-
-        function flatHit(flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number): SectorTraceHit {
-            const u = (zFlat - start.z) / move.z;
-            if (u < 0 || u > 1) {
-                return null
-            }
-            const point = start.clone().addScaledVector(move, u);
-            const inSector = findSubSector(root, point.x, point.y) === subsector;
-            if (!inSector) {
-                return null;
-            }
-            return { flat, subsector, point, overlap: 0, fraction: u };
-        }
     };
 }
 

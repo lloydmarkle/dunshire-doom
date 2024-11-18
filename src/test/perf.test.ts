@@ -21,7 +21,7 @@ const params = {
 // neat little hack https://stackoverflow.com/a/75007985
 import { setFlagsFromString } from 'v8';
 import { runInNewContext } from 'vm';
-import { DoomWad, Game, MapRuntime, WadFile } from '../doom';
+import { DoomWad, Game, WadFile } from '../doom';
 import { createDefaultSettings } from '../render/DoomContext';
 setFlagsFromString('--expose_gc');
 const megabyte = 1024 * 1024;
@@ -55,7 +55,7 @@ describe('perf', () => {
         // const settings = createAppContext().settings;
         const settings = createDefaultSettings();
         const game = new Game(wad, 4, settings);
-        game.startMap(new MapRuntime(params.mapName, game));
+        game.startMap(params.mapName);
         // let the game idle for a few seconds before measuring
         while (game.time.elapsed < params.warmupSeconds) {
             game.tick(params.timeIntervalMS);

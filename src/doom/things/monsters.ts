@@ -4,7 +4,7 @@ import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatS
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement, traceThings, traceWalls, traceAll } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement } from '../map-data';
 import { attackRange, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
 import { exitLevel } from '../specials';
 
@@ -151,20 +151,26 @@ const archvileActions: ActionMap = {
         if (mobj.movedir !== MoveDirection.None) {
             let corpseMobj: MapObject;
             _moveVec.copy(_directionTable[mobj.movedir]).multiplyScalar(mobj.info.speed);
-            mobj.map.data.traceMove(mobj.position.val, _moveVec, mobj.info.radius, mobj.info.height, traceThings, hit => {
-                const foundCorpse = ('mobj' in hit)
-                    // TODO: Doom also check mobj.state.ticks, should we?
-                    && (hit.mobj.info.flags & MFFlags.MF_CORPSE)
-                    && hit.mobj.info.raisestate !== StateIndex.S_NULL
-                    // don't resurrect something we are already touching otherwise we get stuck
-                    && hit.fraction > 0
-                    // mobj.kill() sets height to 1/4
-                    && (hit.mobj.zCeil - hit.mobj.zFloor) >= (hit.mobj.info.height * 4)
-                if (foundCorpse) {
-                    corpseMobj = hit.mobj;
-                    return false;
-                }
-                return true;
+            mobj.map.data.traceMove({
+                start: mobj.position.val,
+                move: _moveVec,
+                radius: mobj.info.radius,
+                height: mobj.info.height,
+                hitObject: hit => {
+                    const foundCorpse = ('mobj' in hit)
+                        // TODO: Doom also check mobj.state.ticks, should we?
+                        && (hit.mobj.info.flags & MFFlags.MF_CORPSE)
+                        && hit.mobj.info.raisestate !== StateIndex.S_NULL
+                        // don't resurrect something we are already touching otherwise we get stuck
+                        && hit.fraction > 0
+                        // mobj.kill() sets height to 1/4
+                        && (hit.mobj.zCeil - hit.mobj.zFloor) >= (hit.mobj.info.height * 4)
+                    if (foundCorpse) {
+                        corpseMobj = hit.mobj;
+                        return false;
+                    }
+                    return true;
+                },
             });
 
             if (corpseMobj) {
@@ -916,8 +922,12 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
     // (players nad floating monsters can though)
     const maxFloorChangeOK = (mobj.info.flags & MFFlags.MF_FLOAT) || maxFloorChange(mobj, move, moveRadius) <= maxStepSize;
 
-    mobj.map.data.traceMove(start, move, moveRadius, mobj.info.height, traceThings | traceWalls, hit => {
-        if ('mobj' in hit) {
+    mobj.map.data.traceMove({
+        start,
+        move,
+        radius: moveRadius,
+        height: mobj.info.height,
+        hitObject: hit => {
             const skipHit = false
                 || (hit.mobj === mobj) // don't collide with yourself
                 || !(hit.mobj.info.flags & hittableThing) // not hittable
@@ -927,8 +937,9 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
             if (skipHit) {
                 return true; // continue search
             }
-            blocker = hit;
-        } else if ('line' in hit) {
+            return !(blocker = hit);
+        },
+        hitLine: hit => {
             const twoSided = Boolean(hit.line.left);
             if (twoSided) {
                 const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
@@ -971,9 +982,8 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                     }
                 }
             }
-            blocker = hit;
+            return !(blocker = hit);
         }
-        return !blocker;
     });
     return blocker;
 }
