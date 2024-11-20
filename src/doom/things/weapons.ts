@@ -199,7 +199,7 @@ export const scanRange = 16 * 64;
 export const attackRange = 32 * 64;
 const bulletDamage = (mobj: MapObject) => 5 * mobj.rng.int(1, 3);
 const bulletAngle = (player: MapObject, trace: ShotTracer) =>
-    player.map.game.settings.xyAimAssist.val ? trace.lastAngle : player.direction.val;
+    player.map.game.settings.xyAimAssist.val ? trace.lastAngle : player.direction;
 
 const weaponBobTime = 128 / ticksPerSecond;
 const ssgNoiseVariation = (255 << 5) / (1 << 16);
@@ -296,7 +296,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         // turn to face target
         if (shotTracer.lastTarget) {
             player.map.game.playSound(SoundIndex.sfx_punch, player);
-            player.direction.set(angleBetween(player, shotTracer.lastTarget));
+            player.direction = angleBetween(player, shotTracer.lastTarget);
         }
     },
     [ActionIndex.A_Saw]: (player, weapon) => {
@@ -314,19 +314,17 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         player.map.game.playSound(SoundIndex.sfx_sawhit, player);
 
         // turn to face target
-        player.direction.update(dir => {
-            const newAngle = angleBetween(player, shotTracer.lastTarget);
-            if (newAngle - dir > Math.PI) {
-                dir = (newAngle - dir > -HALF_PI / 20)
-                    ? newAngle + HALF_PI / 21
-                    : dir - HALF_PI / 20;
-            } else {
-                dir = (newAngle - player.direction.val < HALF_PI / 20)
-                    ? newAngle - HALF_PI / 21
-                    : dir + HALF_PI / 20;
-            }
-            return dir;
-        });
+        const dir = player.direction;
+        const newAngle = angleBetween(player, shotTracer.lastTarget);
+        if (newAngle - dir > Math.PI) {
+            player.direction = (newAngle - dir > -HALF_PI / 20)
+                ? newAngle + HALF_PI / 21
+                : dir - HALF_PI / 20;
+        } else {
+            player.direction = (newAngle - player.direction < HALF_PI / 20)
+                ? newAngle - HALF_PI / 21
+                : dir + HALF_PI / 20;
+        }
         // TODO: player think needs to read this to move the player forward
         ///  ... or we could do it another way (like just adjust velocity here toward the target)
         player.info.flags |= MFFlags.MF_JUSTATTACKED;
@@ -423,8 +421,8 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         // shooter is the chaseTarget who fired this missile
         const tDir = new Vector3();
         const shooter = mobj.chaseTarget;
-        const dir = mobj.direction.val;
-        const aim = aimTrace(shooter, shooter.position.val, tDir, scanRange);
+        const dir = mobj.direction;
+        const aim = aimTrace(shooter, shooter.position, tDir, scanRange);
         for (let i = 0; i < 40; i++) {
             let angle = dir - QUARTER_PI + HALF_PI / 40 * i;
 
@@ -440,7 +438,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
                 continue;
             }
 
-            const pos = aim.target.position.val;
+            const pos = aim.target.position;
             mobj.map.spawn(MapObjectIndex.MT_EXTRABFG, pos.x, pos.y, pos.z + aim.target.info.height * .5);
 
             let damage = 0;
@@ -464,9 +462,9 @@ class ShotTracer {
     private start = new Vector3();
     private direction = new Vector3();
     zAim(shooter: MapObject | PlayerMapObject, range: number) {
-        this.start.copy(shooter.position.val);
+        this.start.copy(shooter.position);
         this.start.z += shooter.info.height * .5 + 8;
-        let dir = shooter.direction.val;
+        let dir = shooter.direction;
         this.direction.set(
             Math.cos(dir) * range,
             Math.sin(dir) * range,
@@ -476,24 +474,24 @@ class ShotTracer {
         shooter.map.data.traceRay(aim);
         if (!aim.target) {
             // try aiming slightly left to see if we hit a target
-            dir = shooter.direction.val + Math.PI / 40;
+            dir = shooter.direction + Math.PI / 40;
             this.direction.x = Math.cos(dir) * range;
             this.direction.y = Math.sin(dir) * range;
             shooter.map.data.traceRay(aim);
         }
         if (!aim.target) {
             // try aiming slightly right to see if we hit a target
-            dir = shooter.direction.val - Math.PI / 40;
+            dir = shooter.direction - Math.PI / 40;
             this.direction.x = Math.cos(dir) * range;
             this.direction.y = Math.sin(dir) * range;
             shooter.map.data.traceRay(aim);
         }
 
-        this._lastAngle = aim.target ? dir : shooter.direction.val;
+        this._lastAngle = aim.target ? dir : shooter.direction;
         this._lastTarget = aim.target;
         if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
             // ignore all the tracing we did (except set last target for puch/saw) and simply use the camera angle
-            return Math.sin(shooter.pitch.val);
+            return Math.sin(shooter.pitch);
         }
         // TODO: we convert angle to slope (and later undo this), why not just use angles?
         return aim.target ? aim.slope : 0;
@@ -521,8 +519,8 @@ class ShotTracer {
                 const ignoreHit = (false
                     || (hit.mobj === shooter) // can't shoot ourselves
                     || !(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) // not shootable
-                    || (hit.mobj.position.val.z + hit.mobj.info.height < hitZ) // shoot over thing
-                    || (hit.mobj.position.val.z > hitZ) // shoot over thing
+                    || (hit.mobj.position.z + hit.mobj.info.height < hitZ) // shoot over thing
+                    || (hit.mobj.position.z > hitZ) // shoot over thing
                 )
                 if (ignoreHit) {
                     return true; // keep searching
@@ -642,12 +640,12 @@ function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range:
             }
 
             const dist = range * hit.fraction;
-            let thingSlopeTop = (hit.mobj.position.val.z + hit.mobj.info.height - start.z) / dist;
+            let thingSlopeTop = (hit.mobj.position.z + hit.mobj.info.height - start.z) / dist;
             if (thingSlopeTop < slopeBottom) {
                 return true; // shoot over
             }
 
-            let thingSlopeBottom = (hit.mobj.position.val.z - start.z) / dist;
+            let thingSlopeBottom = (hit.mobj.position.z - start.z) / dist;
             if (thingSlopeBottom > slopeTop) {
                 return true; // shoot under
             }
@@ -693,7 +691,7 @@ function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range:
 
 type PlayerMissileType = MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | MapObjectIndex.MT_BFG;
 function shootMissile(shooter: MapObject, type: PlayerMissileType) {
-    const pos = shooter.position.val;
+    const pos = shooter.position;
     const slope = shotTracer.zAim(shooter, scanRange);
     _shotEuler.set(0, Math.acos(slope) - HALF_PI, shotTracer.lastAngle);
 

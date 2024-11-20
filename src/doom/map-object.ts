@@ -15,12 +15,12 @@ import { MoveDirection } from "./things/monsters";
 
 export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
-        mobj2.position.val.y - mobj1.position.val.y,
-        mobj2.position.val.x - mobj1.position.val.x);
+        mobj2.position.y - mobj1.position.y,
+        mobj2.position.x - mobj1.position.x);
 
 const _distVec = new Vector3();
 export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
-    _distVec.copy(mobj2.position.val).sub(mobj1.position.val);
+    _distVec.copy(mobj2.position).sub(mobj1.position);
     return Math.sqrt(_distVec.x * _distVec.x + _distVec.y * _distVec.y);
 }
 
@@ -67,11 +67,12 @@ export class MapObject {
     readonly resurrect: () => void;
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
     readonly sectorChanged: (sector: Sector) => void;
+    readonly positionChanged: () => void;
 
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
-    readonly position: Store<Vector3>;
-    readonly direction: Store<number>;
+    readonly position: Vector3;
+    direction: number;
     readonly sector = store<Sector>(null);
     readonly sprite = this._state.sprite;
     readonly velocity = new Vector3();
@@ -80,7 +81,7 @@ export class MapObject {
     get isDead() { return this.health.val <= 0; }
     protected _isMoving = false;
     protected _onGround = true;
-    get onGround() { return this.position.val.z <= this._zFloor; }
+    get onGround() { return this.position.z <= this._zFloor; }
     get isMonster() { return this.spec.class === 'M'; }
     get type() { return this.spec.moType; }
     get description() { return this.spec.description; }
@@ -113,7 +114,7 @@ export class MapObject {
                 const ceil = lowestZCeil(sector, sector.zCeil.val);
                 this.subsectors(subsector => {
                     const floor = (sector === subsector.sector) ? zFloor : subsector.sector.zFloor.val;
-                    const step = floor - this.position.val.z;
+                    const step = floor - this.position.z;
                     // only allow step if it's small and we can fit in the ceiling/floor gap
                     // (see imp near sector 75 in E1M7)
                     if (step >= 0 && step <= maxStepSize && ceil - floor >= this.info.height) {
@@ -143,27 +144,30 @@ export class MapObject {
         this.sectorChanged = sector => {
             // check that we are on the ground before updating zFloor because if we were on the ground before
             // change, we want to force object to the ground after the change
-            const onGround = this.position.val.z <= this._zFloor;
+            const onGround = this.position.z <= this._zFloor;
             this._zCeil = lowestZCeil(sector, sector.zCeil.val);
             this._zFloor = fromCeiling
                 ? this.zCeil - this.info.height
                 : highestZFloor(sector, sector.zFloor.val);
             // ceiling things or things on the ground always update
             if (fromCeiling || onGround) {
-                this.position.val.z = this.zFloor;
-                this.position.set(this.position.val);
+                this.position.z = this.zFloor;
+                this.positionChanged();
             }
         };
 
-        this.direction = store(direction);
-        this.position = store(new Vector3(pos.x, pos.y, 0));
+        this.direction = direction;
+
+        this.position = new Vector3(pos.x, pos.y, 0);
         // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
         // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
         const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
-        this.position.subscribe(p => {
+        this.positionChanged = () => {
+            const p = this.position;
+
             this.subsecRev += 1;
             // add any subsectors we are currently touching
-            map.data.traceSubsectors(p, zeroVec, radius,
+            this.map.data.traceSubsectors(p, zeroVec, radius,
                 subsector => Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
             // add mobj to touched sectors or remove from untouched sectors
             this.subsectorMap.forEach((rev, subsector) => {
@@ -175,7 +179,7 @@ export class MapObject {
                 }
             });
 
-            const sector = map.data.findSector(p.x, p.y);
+            const sector = this.map.data.findSector(p.x, p.y);
             this._zCeil = lowestZCeil(sector, sector.zCeil.val);
             const lastZFloor = this._zFloor;
             this._zFloor = fromCeiling && !this.isDead //<-- for keens
@@ -193,7 +197,9 @@ export class MapObject {
             if (lastZFloor !== this._zFloor) {
                 this.applyGravity();
             }
-        });
+            map.events.emit('mobj-updated-position', this);
+        };
+        this.positionChanged();
 
         // set state last because it may trigger other actions (like find player or play a sound)
         this._state.setState(this.info.spawnstate);
@@ -201,13 +207,14 @@ export class MapObject {
         this._state.randomizeTicks(map.game.rng);
     }
 
+
     get spriteTics() { return states[this._state.index].tics; }
     get spriteTime() { return 1 / states[this._state.index].tics; }
     get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
 
     tick() {
         this._isMoving = this.velocity.lengthSq() > stopVelocity;
-        this._onGround = this.position.val.z <= this._zFloor;
+        this._onGround = this.position.z <= this._zFloor;
 
         this.applyFriction();
         this.updatePosition();
@@ -249,7 +256,7 @@ export class MapObject {
             // as a nifty effect, fall forwards sometimes on kill shots (when player is below thing they are shooting at)
             const shouldFallForward = (amount < 40
                 && amount > this.health.val
-                && this.position.val.z - inflictor.position.val.z > 64
+                && this.position.z - inflictor.position.z > 64
                 && (this.rng.real() < .5));
             if (shouldFallForward) {
                 angle += Math.PI;
@@ -320,15 +327,14 @@ export class MapObject {
             (this.type === MapObjectIndex.MT_CHAINGUY) ? MapObjectIndex.MT_CHAINGUN :
             null;
         if (dropType) {
-            const pos = this.position.val;
-            const mobj = this.map.spawn(dropType, pos.x, pos.y);
+            const mobj = this.map.spawn(dropType, this.position.x, this.position.y);
             mobj.info.flags |= MFFlags.MF_DROPPED; // special versions of items
 
             // items pop up when dropped (gzdoom has this effect and I think it's pretty cool)
             // don't use pRandom() because it would affect demo playback (if we every implement that...)
             mobj.velocity.z = randInt(5, 7);
             // position slightly above the current floor otherwise it will immediately stick to floor
-            mobj.position.val.z += 1;
+            mobj.position.z += 1;
         }
     }
 
@@ -338,15 +344,16 @@ export class MapObject {
 
     teleport(target: MapObject, sector: Sector) {
         this.velocity.set(0, 0, 0);
-        this.position.update(pos => pos.set(target.position.val.x, target.position.val.y, sector.zFloor.val));
-        this.direction.set(target.direction.val);
+        this.position.set(target.position.x, target.position.y, sector.zFloor.val);
+        this.positionChanged();
+        this.direction = target.direction;
 
         if (this.isMonster && this.map.name !== 'MAP30') {
             return; // monsters only telefrag in level 30
         }
         // telefrag anything in our way
         this.map.data.traceMove({
-            start: this.position.val,
+            start: this.position,
             move: zeroVec,
             radius: this.info.radius,
             height: this.info.height,
@@ -385,7 +392,7 @@ export class MapObject {
         if (this.info.flags & MFFlags.MF_FLOAT && this.chaseTarget) {
             if (!(this.info.flags & (MFFlags.MF_SKULLFLY | MFFlags.MF_INFLOAT))) {
                 const dist = xyDistanceBetween(this, this.chaseTarget);
-                const zDelta = 3 * ((this.chaseTarget.position.val.z + this.chaseTarget.info.height * .5) - this.position.val.z);
+                const zDelta = 3 * ((this.chaseTarget.position.z + this.chaseTarget.info.height * .5) - this.position.z);
                 if (zDelta < 0 && dist < -zDelta) {
                     this.velocity.z = Math.max(-maxFloatSpeed, this.velocity.z - maxFloatSpeed * this.map.game.time.delta);
                 } else if (zDelta > 0 && dist < zDelta) {
@@ -397,7 +404,7 @@ export class MapObject {
         }
         if (this._onGround) {
             this.velocity.z = 0;
-            this.position.val.z = this._zFloor;
+            this.position.z = this._zFloor;
         } else {
             if (this.info.flags & MFFlags.MF_NOGRAVITY) {
                 return;
@@ -413,19 +420,21 @@ export class MapObject {
         }
 
         if (this.info.flags & MFFlags.MF_NOCLIP) {
-            this.position.update(pos => pos.add(this.velocity));
+            this.position.add(this.velocity);
+            this.positionChanged();
             return;
         }
 
         // TODO: we handle blood this way so it doesn't collide with player but... can't we do better?
         if (this.info.spawnstate === StateIndex.S_BLOOD1) {
-            this.position.set(this.position.val.add(this.velocity));
+            this.position.add(this.velocity);
+            this.positionChanged();
             return;
         }
 
         // cyclomatic complexity of the code below: about 1 bazillion.
         const isMissile = this.info.flags & MFFlags.MF_MISSILE;
-        const start = this.position.val;
+        const start = this.position;
         let blocker: TraceHit = 1 as any;
         hitCount += 1;
         const traceParams: TraceParams = {
@@ -438,8 +447,8 @@ export class MapObject {
                 const ignoreHit = (false
                     || (hit.mobj === this) // don't collide with yourself
                     || (!(hit.mobj.info.flags & hittableThing)) // not hittable
-                    || (start.z + this.info.height < hit.mobj.position.val.z) // passed under target
-                    || (start.z > hit.mobj.position.val.z + hit.mobj.info.height) // passed over target
+                    || (start.z + this.info.height < hit.mobj.position.z) // passed under target
+                    || (start.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
                     || (hit.mobj.hitC === hitCount) // already hit this mobj
                 );
                 if (ignoreHit) {
@@ -584,12 +593,13 @@ export class MapObject {
             }
         }
 
-        this.position.update(pos => pos.add(this.velocity));
+        this.position.add(this.velocity);
+        this.positionChanged();
     }
 
     protected hitFlat(zVal: number) {
         this.velocity.z = 0;
-        this.position.val.z = zVal;
+        this.position.z = zVal;
     }
 
     protected explode() {
@@ -622,9 +632,10 @@ export class PlayerMapObject extends MapObject {
     private viewHeightOffset = playerViewHeightDefault;
     private deltaViewHeight = 0;
     readonly viewHeight = store(this.viewHeightOffset);
+    readonly viewHeightNoBob = store(this.viewHeightOffset);
 
     // head looking up/down
-    pitch = store(0);
+    pitch = 0;
     // Hmmm... also add roll for fun? or VR? or something?
 
     bob = 0;
@@ -644,7 +655,7 @@ export class PlayerMapObject extends MapObject {
 
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
         super(map, thingSpec(MapObjectIndex.MT_PLAYER), source, 0);
-        this.direction.set(source.angle * ToRadians);
+        this.direction = source.angle * ToRadians;
 
         this.renderShadow.subscribe(shadow => {
             if (shadow) {
@@ -677,7 +688,7 @@ export class PlayerMapObject extends MapObject {
 
     tick() {
         this._isMoving = this.velocity.manhattanLength() > 0.01;
-        this._onGround = this.position.val.z <= this._zFloor;
+        this._onGround = this.position.z <= this._zFloor;
 
         this.applyFriction();
         this.applyGravity();
@@ -690,8 +701,7 @@ export class PlayerMapObject extends MapObject {
         if (this.isDead) {
             super.updatePosition();
             if (this.attacker && this.attacker !== this) {
-                const ang = angleBetween(this, this.attacker);
-                this.direction.set(ang);
+                this.direction = angleBetween(this, this.attacker);
             }
             return;
         }
@@ -709,7 +719,7 @@ export class PlayerMapObject extends MapObject {
         const sector = this.sector.val;
         // different from this.onGround because that depends on this.zFloor which takes into account surrounding sector
         // here we are only looking at the sector containing the player center
-        const onGround = this.position.val.z <= sector.zFloor.val;
+        const onGround = this.position.z <= sector.zFloor.val;
         if (sector.type && onGround) {
             const haveRadiationSuit = this.inventory.val.items.radiationSuitTicks > 0;
             // only cause pain every 31st tick or about .89s
@@ -817,20 +827,20 @@ export class PlayerMapObject extends MapObject {
         }
         if (this.onGround) {
             this.hitFlat(this.zFloor);
-            this.position.set(this.position.val);
+            this.positionChanged();
         }
     }
 
     protected hitFlat(zVal: number): void {
         // smooth step up
-        if (this.position.val.z < zVal) {
-            this.viewHeightOffset -= zVal - this.position.val.z;
+        if (this.position.z < zVal) {
+            this.viewHeightOffset -= zVal - this.position.z;
             // this means we change view height by 1, 2, or 3 depending on the step
             // >> 3 is equivalent to divide by 8 but faster? Doom cleverly used integer math and I haven't tested the performance in JS
             this.deltaViewHeight = (playerViewHeightDefault - this.viewHeightOffset) >> 3;
         }
         // hit the ground so lower the screen
-        if (this.position.val.z > zVal) {
+        if (this.position.z > zVal) {
             this.deltaViewHeight = this.velocity.z >> 3;
             // if we hit the ground hard, play a sound
             if (this.velocity.z < -8) {
@@ -880,8 +890,9 @@ export class PlayerMapObject extends MapObject {
         const bob = Math.sin(Math.PI * 2 * bobTime * time.elapsed) * this.bob * .5;
 
         let viewHeight = this.viewHeightOffset + bob;
-        const maxHeight = this.zCeil - 4 - this.position.val.z;
+        const maxHeight = this.zCeil - 4 - this.position.z;
         this.viewHeight.set(Math.min(maxHeight, viewHeight));
+        this.viewHeightNoBob.set(Math.min(maxHeight, this.viewHeightOffset));
     }
 
     // kind of P_TouchSpecialThing in p_inter.c

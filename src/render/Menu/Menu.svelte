@@ -2,27 +2,28 @@
     export function loadOptionalUrlParams(game: Game, params: URLSearchParams) {
         const player = game.map.val.player;
 
-        const x = params.has('player-x') ? parseFloat(params.get('player-x')) : player.position.val.x;
-        const y = params.has('player-y') ? parseFloat(params.get('player-y')) : player.position.val.y;
-        const z = params.has('player-z') ? parseFloat(params.get('player-z')) : player.position.val.z;
-        player.position.update(pos => pos.set(x, y, z));
+        const x = params.has('player-x') ? parseFloat(params.get('player-x')) : player.position.x;
+        const y = params.has('player-y') ? parseFloat(params.get('player-y')) : player.position.y;
+        const z = params.has('player-z') ? parseFloat(params.get('player-z')) : player.position.z;
+        player.position.set(x, y, z);
+        player.positionChanged();
 
-        const yaw = params.has('player-dir') ? parseFloat(params.get('player-dir')) : player.direction.val;
-        player.direction.set(yaw);
-        const pitch = params.has('player-aim') ? parseFloat(params.get('player-aim')) : player.pitch.val;
-        player.pitch.set(pitch);
+        const yaw = params.has('player-dir') ? parseFloat(params.get('player-dir')) : player.direction;
+        player.direction = yaw;
+        const pitch = params.has('player-aim') ? parseFloat(params.get('player-aim')) : player.pitch;
+        player.pitch = pitch;
     }
 
     function createShareUrl(game: Game) {
         const params = new URLSearchParams(window.location.hash.substring(1));
         const player = game.map.val.player;
 
-        const pos = player.position.val;
+        const pos = player.position;
         params.set('player-x', pos.x.toFixed(2));
         params.set('player-y', pos.y.toFixed(2));
         params.set('player-z', pos.z.toFixed(2));
-        params.set('player-aim', player.pitch.val.toFixed(2));
-        params.set('player-dir', player.direction.val.toFixed(2));
+        params.set('player-aim', player.pitch.toFixed(2));
+        params.set('player-dir', player.direction.toFixed(2));
 
         window.location.hash = '#' + params.toString();
         navigator.clipboard.writeText(window.location.href);

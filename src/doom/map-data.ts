@@ -500,17 +500,17 @@ function createBspTracer(root: TreeNode) {
             if (params.hitObject) {
                 for (const mobj of subsector.mobjs) {
                     // like wall collisions, we allow the collision if the movement is away from the other mobj
-                    nVec.set(params.start.x - mobj.position.val.x, params.start.y - mobj.position.val.y, 0);
+                    nVec.set(params.start.x - mobj.position.x, params.start.y - mobj.position.y, 0);
                     const moveDot = params.move.dot(nVec);
                     // skip collision detection if we are moving away from the other object
                     if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
                         continue;
                     }
 
-                    const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position.val, mobj.info.radius);
+                    const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
                     if (hit) {
                         const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
-                        const ov = aabbAabbOverlap(point, radius, mobj.position.val, mobj.info.radius);
+                        const ov = aabbAabbOverlap(point, radius, mobj.position, mobj.info.radius);
                         hits.push({ subsector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
                     }
                 }

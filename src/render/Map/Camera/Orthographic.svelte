@@ -1,26 +1,36 @@
 <script lang="ts">
-    import { HALF_PI } from "../../../doom";
+    import { HALF_PI, MapObject } from "../../../doom";
     import { T, useTask } from "@threlte/core";
     import { useDoomMap } from "../../DoomContext";
+    import { onDestroy } from "svelte";
 
     export let yScale: number;
 
     let zoom = 100;
     const { map, camera } = useDoomMap();
-    const { position: playerPosition, direction: yaw } = map.player;
+    const { viewHeightNoBob } = map.player;
 
     const rotation = camera.angle;
     $: $rotation.x = HALF_PI * 3 / 4;
-    $: $rotation.z = $yaw - HALF_PI;
-
     const position = camera.position;
-    $: $position.x = -Math.sin(-$rotation.z) * 300 + $playerPosition.x;
-    $: $position.y = -Math.cos(-$rotation.z) * 300 + $playerPosition.y;
-    $: $position.z = Math.cos($rotation.x) * 400 + $playerPosition.z + 41;
 
     const scale = { x: 1, y: 1 };
     $: scale.x = (zoom / 1000) + .25;
     $: scale.y = scale.x * yScale;
+
+    const updatePosition = (mo: MapObject) => {
+        if (mo === map.player) {
+            $rotation.z = map.player.direction - HALF_PI;
+            $position.x = -Math.sin(-$rotation.z) * 300 + map.player.position.x;
+            $position.y = -Math.cos(-$rotation.z) * 300 + map.player.position.y;
+            $position.z = Math.cos($rotation.x) * 400 + map.player.position.z + $viewHeightNoBob;
+        }
+    }
+    $: $position.z = Math.cos($rotation.x) * 400 + map.player.position.z + $viewHeightNoBob;
+    updatePosition(map.player);
+
+    map.events.on('mobj-updated-position', updatePosition);
+    onDestroy(() => map.events.off('mobj-updated-position', updatePosition));
 
     useTask(() => {
         zoom = Math.max(50, Math.min(1000, zoom + map.game.input.aim.z));

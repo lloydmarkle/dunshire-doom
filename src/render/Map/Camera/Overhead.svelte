@@ -1,7 +1,7 @@
 <script lang="ts">
     import { T, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
-    import { HALF_PI } from "../../../doom";
+    import { HALF_PI, MapObject } from "../../../doom";
     import { tweened } from "svelte/motion";
     import { quadOut } from "svelte/easing";
     import { type Vector3, FogExp2, Fog } from "three";
@@ -11,7 +11,6 @@
 
     const fov = useAppContext().settings.fov;
     const { map, camera, skyColor: skyColor } = useDoomMap();
-    const { position: playerPosition, direction: yaw } = map.player;
 
     let zoom = 200;
     useTask(() => {
@@ -21,16 +20,21 @@
 
     const { position, angle } = camera;
     $: $angle.x = 0;
-    $: $angle.z = $yaw - HALF_PI;
 
-    let tz = tweened(0, { easing: quadOut });
-    $: $tz = $playerPosition.z;
-    $: updatePos($playerPosition, $tz);
-    function updatePos(pos: Vector3, pz: number) {
-        $position.x = pos.x;
-        $position.y = pos.y;
-        $position.z = pz + zoom;
+    const tz = tweened(0, { easing: quadOut });
+    const updatePosition = (mo: MapObject) => {
+        if (mo === map.player) {
+            $position.x = map.player.position.x;
+            $position.y = map.player.position.y;
+            $tz = map.player.position.z;
+            $angle.z = map.player.direction - HALF_PI;
+        }
     }
+    $: $position.z = zoom + $tz;
+    updatePosition(map.player);
+
+    map.events.on('mobj-updated-position', updatePosition);
+    onDestroy(() => map.events.off('mobj-updated-position', updatePosition));
 
     const threlte = useThrelte();
     const originalFog = threlte.scene.fog;

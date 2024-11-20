@@ -57,7 +57,7 @@ export function radiusDamage(damage: number, mobj: MapObject, source: MapObject)
     let hits = new Map<MapObject, number>();
     const height = Infinity; // explosions don't check z in doom
     mobj.map.data.traceMove({
-        start: mobj.position.val,
+        start: mobj.position,
         move: zeroVec,
         radius: damage + 32,
         height,
@@ -72,8 +72,8 @@ export function radiusDamage(damage: number, mobj: MapObject, source: MapObject)
             }
 
             let dist = Math.max(
-                Math.abs(hit.mobj.position.val.x - mobj.position.val.x),
-                Math.abs(hit.mobj.position.val.y - mobj.position.val.y)) - hit.mobj.info.radius;
+                Math.abs(hit.mobj.position.x - mobj.position.x),
+                Math.abs(hit.mobj.position.y - mobj.position.y)) - hit.mobj.info.radius;
             if (dist < 0) {
                 dist = 0;
             }
@@ -105,14 +105,14 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     // Kind of like P_CheckSight
     let los = true;
     // start from the "eyes" of mobj1 (or about 75% of height)
-    _losStart.copy(mobj1.position.val);
+    _losStart.copy(mobj1.position);
     _losStart.z += mobj1.info.height * .75;
-    _losVec.copy(mobj2.position.val).sub(_losStart);
-    let zTop = (mobj2.position.val.z + mobj2.info.height) - _losStart.z;
-    let zBottom = mobj2.position.val.z - _losStart.z;
+    _losVec.copy(mobj2.position).sub(_losStart);
+    let zTop = (mobj2.position.z + mobj2.info.height) - _losStart.z;
+    let zBottom = mobj2.position.z - _losStart.z;
 
     mobj1.map.data.traceRay({
-        start: mobj1.position.val,
+        start: mobj1.position,
         move: _losVec,
         hitLine: hit => {
             if (!hit.line.left) {

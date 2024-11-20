@@ -16,6 +16,7 @@ type MapEvents = {
     ['mobj-added']: [MapObject];
     ['mobj-removed']: [MapObject];
     ['mobj-updated-sprite']: [MapObject, Sprite];
+    ['mobj-updated-position']: [MapObject];
 }
 
 const episode4MusicMap = [
@@ -220,7 +221,7 @@ export class MapRuntime {
     spawn(moType: MapObjectIndex, x: number, y: number, z?: number, direction?: number) {
         const mobj = new MapObject(this, thingSpec(moType), { x, y }, direction ?? 0);
         if (z !== undefined) {
-            mobj.position.val.z = z;
+            mobj.position.z = z;
         }
         if (moType === MapObjectIndex.MT_PLAYER) {
             this.players.push(mobj);
@@ -404,11 +405,7 @@ class GameInput {
         this.obj.up.set(0, 0, 1);
         const euler = this.obj.rotation;
         euler.x = 0;
-        this.player.direction.subscribe(dir => {
-            euler.z = dir - HALF_PI;
-            this.obj.quaternion.setFromEuler(euler);
-            this.obj.updateMatrix();
-        });
+        euler.z = map.player.direction - HALF_PI;
 
         this.alwaysRun = this.map.game.settings.alwaysRun;
         this.compassMove = this.map.game.settings.compassMove;
@@ -493,8 +490,9 @@ class GameInput {
         euler.z -= this.input.aim.x * 0.001;
         euler.x -= this.input.aim.y * 0.001;
         euler.x = Math.min(this.maxPolarAngle, Math.max(this.minPolarAngle, euler.x));
-        this.player.direction.set(euler.z + HALF_PI);
-        this.player.pitch.set(euler.x);
+        this.obj.updateMatrix();
+        this.player.direction = euler.z + HALF_PI;
+        this.player.pitch = euler.x;
         // clear for next eval (only xy, z is used for camera zoom and does not affect gameplay)
         this.input.aim.setX(0).setY(0);
 
@@ -529,10 +527,13 @@ class GameInput {
             this.player.velocity.z -= playerSpeeds['gravity'] * dt;
         }
 
-        const pos = this.player.position.val;
         if (!this.player.reactiontime) {
             this.player.xyMove();
         }
+        // always send a position changed event so that the UI updates rotation too. (see the /Camera/*.svelte listening to position changed)
+        // We could add a "direction-changed" event but monsters update direction when they change sprite so we don't need it.
+        // This is really only for players
+        this.map.events.emit('mobj-updated-position', this.player);
 
         // attack
         this.player.attacking = this.input.attack;
@@ -541,10 +542,10 @@ class GameInput {
         if (this.input.use && !this.handledUsePress) {
             this.handledUsePress = false;
 
-            const ang = this.player.direction.val;
+            const ang = this.player.direction;
             vec.set(Math.cos(ang) * 64, Math.sin(ang) * 64, 0);
             this.map.data.traceRay({
-                start: pos,
+                start: this.player.position,
                 move: vec,
                 hitLine: hit => {
                     if (hit.line.special) {

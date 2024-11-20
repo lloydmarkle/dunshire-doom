@@ -36,38 +36,38 @@
         return node;
     }
 
-    const defaultPosition = store(new Vector3());
+    const defaultPosition = new Vector3();
     // Camera position or player position? I think camera is probably more useful (especially for orthogonal/follow cam)
     // even though it's less accurate.
     $: playerPosition = player?.position ?? defaultPosition;
     $: yaw = player?.direction;
     $: pitch = player?.pitch;
-    $: updateListener($playerPosition, $yaw, $pitch);
-    function updateListener(position: Vector3, yaw: number, pitch: number) {
-        if (!player) {
-            // if we don't have a player, we don't need positional audio
-            return;
-        }
-        if (audio.listener.positionX) {
-            audio.listener.positionX.value = position.x;
-            audio.listener.positionY.value = position.y;
-            audio.listener.positionZ.value = position.z;
-        } else {
-            audio.listener.setPosition(position.x, position.y, position.z);
-        }
-        if (audio.listener.forwardX) {
-            audio.listener.forwardX.value = Math.cos(yaw);
-            audio.listener.forwardY.value = Math.sin(yaw);
-            audio.listener.forwardZ.value = 0;
-            audio.listener.upX.value = 0;
-            audio.listener.upY.value = 0;
-            audio.listener.upZ.value = Math.cos(pitch);
-        } else {
-            audio.listener.setOrientation(
-                Math.cos(yaw), Math.sin(yaw), 0,
-                0, 0, Math.cos(pitch));
-        }
-    }
+    // $: updateListener($playerPosition, $yaw, $pitch);
+    // function updateListener(position: Vector3, yaw: number, pitch: number) {
+    //     if (!player) {
+    //         // if we don't have a player, we don't need positional audio
+    //         return;
+    //     }
+    //     if (audio.listener.positionX) {
+    //         audio.listener.positionX.value = position.x;
+    //         audio.listener.positionY.value = position.y;
+    //         audio.listener.positionZ.value = position.z;
+    //     } else {
+    //         audio.listener.setPosition(position.x, position.y, position.z);
+    //     }
+    //     if (audio.listener.forwardX) {
+    //         audio.listener.forwardX.value = Math.cos(yaw);
+    //         audio.listener.forwardY.value = Math.sin(yaw);
+    //         audio.listener.forwardZ.value = 0;
+    //         audio.listener.upX.value = 0;
+    //         audio.listener.upY.value = 0;
+    //         audio.listener.upZ.value = Math.cos(pitch);
+    //     } else {
+    //         audio.listener.setOrientation(
+    //             Math.cos(yaw), Math.sin(yaw), 0,
+    //             0, 0, Math.cos(pitch));
+    //     }
+    // }
 
     const soundBuffers = new Map<string, AudioBuffer>()
     function soundBuffer(name: string) {
@@ -135,10 +135,10 @@
             // set position based on current mobj position (we could subscribe but objects don't move fast and sounds
             // aren't long so it didn't seem worth it)
             const t = audio.currentTime + .1; // if we do this immediately, we get crackling as the sound position changes
-            pan.positionX.linearRampToValueAtTime(position.val.x, t);
-            pan.positionY.linearRampToValueAtTime(position.val.y, t);
+            pan.positionX.linearRampToValueAtTime(position.x, t);
+            pan.positionY.linearRampToValueAtTime(position.y, t);
             // use player position for sector sound sources otherwise we use the middle-z and that may be above or below the player
-            pan.positionZ.linearRampToValueAtTime(isSectorLocation ? $playerPosition.z + 41 : position.val.z, t);
+            pan.positionZ.linearRampToValueAtTime(isSectorLocation ? playerPosition.z + 41 : position.z, t);
 
             if ($experimentalSoundHacks) {
                 this.experimentalSoundHack(pan);
@@ -206,10 +206,10 @@
     soundEmitter.onSound((snd, location) => {
         const isPositional = player && location && location !== player;
         const position = !isPositional ? defaultPosition :
-            ('soundTarget' in location) ? store(location.center)
+            ('soundTarget' in location) ? location.center
             : location.position;
 
-        const dist = xyDistSqr(position?.val ?? $defaultPosition, $playerPosition ?? $defaultPosition);
+        const dist = xyDistSqr(position ?? defaultPosition, playerPosition ?? defaultPosition);
         let channel =
             // only one sound channel per sound origin (if there is an origin)
             soundChannels.find(e => e.isActive && e.location && e.location === location)

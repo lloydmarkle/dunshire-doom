@@ -136,7 +136,7 @@ function crunchAndDamageMapObject(mobj: MapObject) {
         hitSolid = true;
         mobj.damage(10, null, null);
         // spray blood
-        const pos = mobj.position.val;
+        const pos = mobj.position;
         const blood = mobj.map.spawn(MapObjectIndex.MT_BLOOD, pos.x, pos.y, pos.z + mobj.info.height * .5);
         blood.velocity.set(
             crushVelocity * mobj.rng.real2(),
@@ -987,7 +987,7 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     // FIXME: for maps with lots of mobjs and teleports, this is going to be slow
     const teleports = map.objs.filter(mo => mo.type === MapObjectIndex.MT_TELEPORTMAN);
     for (const tp of teleports) {
-        const tpos = tp.position.val;
+        const tpos = tp.position;
         const sector = map.data.findSector(tpos.x, tpos.y);
 
         if (mobj.isMonster) {
@@ -1007,12 +1007,12 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
 
         if (sector.tag === linedef.tag) {
             // teleport fog in old and new locations
-            const pos = mobj.position.val;
+            const pos = mobj.position;
             const oldPlaceFog = map.spawn(MapObjectIndex.MT_TFOG, pos.x, pos.y);
             map.game.playSound(SoundIndex.sfx_telept, oldPlaceFog);
             const newPlaceFog = map.spawn(MapObjectIndex.MT_TFOG,
-                tpos.x + 20 * Math.cos(tp.direction.val),
-                tpos.y + 20 * Math.sin(tp.direction.val));
+                tpos.x + 20 * Math.cos(tp.direction),
+                tpos.y + 20 * Math.sin(tp.direction));
             map.game.playSound(SoundIndex.sfx_telept, newPlaceFog);
 
             mobj.teleport(tp, sector);

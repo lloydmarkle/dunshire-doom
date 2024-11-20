@@ -37,7 +37,7 @@
     type ParialThingSpec = Omit<ThingSpec, 'mo'>
     function changeType(th: ParialThingSpec) {
         map.destroy(thing);
-        const pos = thing.position.val;
+        const pos = thing.position;
         thing = map.spawn(mapObjectInfo.findIndex(e => e.doomednum === th.type), pos.x, pos.y);
         setDirection($direction * ToDegrees)();
         $editor.selected = thing;
@@ -49,7 +49,7 @@
     $: directionButton = Math.floor($direction * ToDegrees) / 45;
     function setDirection(degrees: number) {
         return () => {
-            thing.direction.set(degrees * ToRadians);
+            thing.direction = degrees * ToRadians;
         };
     }
 

@@ -61,7 +61,7 @@
     }, { stage: renderStage });
 </script>
 
-{#if $renderMode === 'r1' && $cameraMode !== '1p'}
+<!-- {#if $renderMode === 'r1' && $cameraMode !== '1p'}
     <Thing {renderSector} thing={player} />
 
     <T.Mesh
@@ -71,7 +71,7 @@
         position.z={$zFloor + 1}
         material={new MeshStandardMaterial({ color: "black", opacity: 0.6, transparent: true })}
     />
-{/if}
+{/if} -->
 
 {#if $cameraMode === "ortho"}
     <OrthoCam {yScale} />

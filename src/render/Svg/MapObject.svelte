@@ -39,20 +39,20 @@
 >
     {#if showSquare}
         <rect
-            x={$position.x - radius} y={$position.y - radius}
+            x={position.x - radius} y={position.y - radius}
             width={doubleRadius} height={doubleRadius}
         />
     {/if}
 
     {#if showCircle}
-        <circle cx={$position.x} cy={$position.y} r={radius} />
+        <circle cx={position.x} cy={position.y} r={radius} />
     {/if}
 
     {#if showTriangle}
         <polygon
             transform="
-                rotate({$direction * ToDegrees - 90} {$position.x} {$position.y})
-                translate({$position.x} {$position.y})
+                rotate({direction * ToDegrees - 90} {position.x} {position.y})
+                translate({position.x} {position.y})
             "
             points="0 -{radius}, {tRadius} {tRadius}, -{tRadius} {tRadius}"/>
     {/if}
@@ -67,7 +67,7 @@
     /> -->
 
     <text
-        x={$position.x - radius} y={-$position.y}
+        x={position.x - radius} y={-position.y}
         stroke='none'
         fill={thingColor(mobj)}
     >{mobj.description ?? ''} {mobj.id}</text>

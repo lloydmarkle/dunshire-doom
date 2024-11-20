@@ -4,7 +4,7 @@
     import Wall from "./Wall.svelte";
     import { type MapRuntime, type MapObject as MObj, type SubSector } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
-    import { AlwaysStencilFunc, Color } from "three";
+    import { Color } from "three";
     import type { RenderSector } from "../RenderData";
     import { createEventDispatcher, onDestroy } from "svelte";
 
@@ -12,8 +12,8 @@
     export let size: Size;
     export let map: MapRuntime;
 
+    let position = map.player.position;
     let active = false;
-    const { position, direction } = map.player;
     const showBlockmap = useAppContext().settings.showBlockMap;
 
     // DOOM vertexes are in the range -32768 and 32767 so maps have a fixed maximum size
@@ -54,17 +54,28 @@
         let p = new DOMPoint(ev.clientX, ev.clientY);
         let sp = p.matrixTransform((ev.target as any).getScreenCTM().inverse());
         // set player direction based on click location
-        const ang = Math.atan2(sp.y - $position.y, sp.x - $position.x);
-        direction.set(ang);
+        const ang = Math.atan2(sp.y - position.y, sp.x - position.x);
+        map.player.direction = ang;
     }
+
+    const updatePosition = (mo: MObj) => {
+        if (mo === map.player) {
+            position = map.player.position;
+        }
+    }
+    updatePosition(map.player);
+    map.events.on('mobj-updated-position', updatePosition);
+    onDestroy(() => map.events.off('mobj-updated-position', updatePosition));
 
     let mobjs = map.objs;
     const updateMobjs = (mo: MObj) => mobjs = map.objs;
     map.events.on('mobj-added', updateMobjs);
     map.events.on('mobj-removed', updateMobjs);
+    map.events.on('mobj-updated-position', updateMobjs);
     onDestroy(() => {
         map.events.off('mobj-added', updateMobjs);
         map.events.off('mobj-removed', updateMobjs);
+        map.events.off('mobj-updated-position', updateMobjs);
     });
 
     let selRS: RenderSector;
@@ -92,7 +103,7 @@
     style="
     transform:
         scale({zoom})
-        translate({tScale * $position.x}px, {tScale * $position.y}px);
+        translate({tScale * position.x}px, {tScale * position.y}px);
     "
     on:mousemove={mousemove}
     on:mousedown={mousedown}

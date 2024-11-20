@@ -20,15 +20,15 @@
     })();
 
     $: lineOpacity = (function() {
-        if (!linedef.left) {
+        // if (!linedef.left) {
             return 1;
-        }
-        const ceilingGap = $position.z + map.player.info.height - Math.min($zCeilR, $zCeilL);
-        if (ceilingGap > 0) {
-            return Math.min(.9, Math.max(0.2, ceilingGap / 100));
-        }
-        const floorDiff = Math.abs($position.z - Math.max($zFloorR, $zFloorL));
-        return Math.min(.9, Math.max(0.2, floorDiff / 100));
+        // }
+        // const ceilingGap = $position.z + map.player.info.height - Math.min($zCeilR, $zCeilL);
+        // if (ceilingGap > 0) {
+        //     return Math.min(.9, Math.max(0.2, ceilingGap / 100));
+        // }
+        // const floorDiff = Math.abs($position.z - Math.max($zFloorR, $zFloorL));
+        // return Math.min(.9, Math.max(0.2, floorDiff / 100));
     })();
 </script>
 

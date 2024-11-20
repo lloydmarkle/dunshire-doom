@@ -133,7 +133,7 @@
     <Wireframe />
 </T.Mesh>
 
-{#if usePlayerLight}
+<!-- {#if usePlayerLight}
     <T.PointLight
         {castShadow}
         color={$playerLight}
@@ -145,4 +145,4 @@
         position.z={$position.z + 40}
         shadow.bias={shadowBias}
     />
-{/if}
+{/if} -->

@@ -100,7 +100,7 @@
         // set camera uniforms so we project sprites properly on the first frame
         updateCameraUniforms($threlteCam, $position, $angle);
         // force player position update because player sprite is hidden in 1p but visible in other cams
-        map.player.position.set(map.player.position.val);
+        map.player.positionChanged();
     }
     $: updateCameraMode($cameraMode);
 
@@ -157,15 +157,23 @@
         }
         (info ?? tInfo)?.updateSprite(sprite);
     }
+    const updateMobjPosition = (mo: MapObject) => {
+        if (mo.info.flags & MFFlags.MF_NOSECTOR) {
+            return;
+        }
+        (opaqGeo.get(mo) ?? tranGeo.get(mo))?.updatePosition();
+    }
 
     map.objs.forEach(addMobj);
     map.events.on('mobj-added', addMobj);
     map.events.on('mobj-removed', removeMobjs);
     map.events.on('mobj-updated-sprite', updateMobjSprite);
+    map.events.on('mobj-updated-position', updateMobjPosition);
     onDestroy(() => {
         map.events.off('mobj-added', addMobj);
         map.events.off('mobj-removed', removeMobjs);
         map.events.off('mobj-updated-sprite', updateMobjSprite);
+        map.events.off('mobj-updated-position', updateMobjPosition);
     });
 </script>
 

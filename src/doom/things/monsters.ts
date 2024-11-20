@@ -66,9 +66,9 @@ const doom2BossActions: ActionMap = {
         mobj.map.game.playSound(SoundIndex.sfx_bospn);
     },
 	[ActionIndex.A_BrainScream]: mobj => {
-        for (let x = mobj.position.val.x - 196; x < mobj.position.val.x + 320; x += 8) {
+        for (let x = mobj.position.x - 196; x < mobj.position.x + 320; x += 8) {
             const explode = mobj.map.spawn(MapObjectIndex.MT_ROCKET,
-                x, mobj.position.val.y - 320, 128 + mobj.rng.int(0, 510));
+                x, mobj.position.y - 320, 128 + mobj.rng.int(0, 510));
             explode.velocity.z = mobj.rng.real() * brainExplosionVelocity;
             explode.setState(StateIndex.S_BRAINEXPLODE1, -mobj.rng.int(0, 7));
         }
@@ -76,8 +76,8 @@ const doom2BossActions: ActionMap = {
     },
     [ActionIndex.A_BrainExplode]: mobj => {
         const explode = mobj.map.spawn(MapObjectIndex.MT_ROCKET,
-            mobj.position.val.x + 2048 * mobj.rng.real2(),
-            mobj.position.val.y,
+            mobj.position.x + 2048 * mobj.rng.real2(),
+            mobj.position.y,
             128 + mobj.rng.int(0, 510));
         explode.velocity.z = mobj.rng.real() * brainExplosionVelocity;
         explode.setState(StateIndex.S_BRAINEXPLODE1, -mobj.rng.int(0, 7));
@@ -99,7 +99,7 @@ const doom2BossActions: ActionMap = {
 
         const missile = shootMissile(mobj, target, MapObjectIndex.MT_SPAWNSHOT);
         missile.chaseTarget = target;
-        missile.reactiontime = Math.floor((target.position.val.y - mobj.position.val.y) / missile.velocity.y / states[missile.info.spawnstate].tics);
+        missile.reactiontime = Math.floor((target.position.y - mobj.position.y) / missile.velocity.y / states[missile.info.spawnstate].tics);
         mobj.map.game.playSound(SoundIndex.sfx_bospit);
     },
 	[ActionIndex.A_SpawnSound]: mobj => {
@@ -113,7 +113,7 @@ const doom2BossActions: ActionMap = {
         }
 
         const target = mobj.chaseTarget;
-        const tpos = target.position.val;
+        const tpos = target.position;
 
         // choose monster type (see https://doomwiki.org/wiki/Monster_spawner)
         const chance = mobj.rng.real() * 256;
@@ -152,7 +152,7 @@ const archvileActions: ActionMap = {
             let corpseMobj: MapObject;
             _moveVec.copy(_directionTable[mobj.movedir]).multiplyScalar(mobj.info.speed);
             mobj.map.data.traceMove({
-                start: mobj.position.val,
+                start: mobj.position,
                 move: _moveVec,
                 radius: mobj.info.radius,
                 height: mobj.info.height,
@@ -193,7 +193,7 @@ const archvileActions: ActionMap = {
         }
         allActions[ActionIndex.A_FaceTarget](mobj);
 
-        const tpos = mobj.chaseTarget.position.val;
+        const tpos = mobj.chaseTarget.position;
         const fire = mobj.map.spawn(MapObjectIndex.MT_FIRE, tpos.x, tpos.y, tpos.z);
         mobj.tracerTarget = fire;
         fire.chaseTarget = mobj;
@@ -241,13 +241,14 @@ const archvileActions: ActionMap = {
 }
 
 function positionVileFire(fire: MapObject, target: MapObject) {
-    const targetPos = target.position.val;
-    const targetDir = target.direction.val;
-    fire.position.update(pos => pos.set(
+    const targetPos = target.position;
+    const targetDir = target.direction;
+    fire.position.set(
         targetPos.x + 24 * Math.cos(targetDir),
         targetPos.y + 24 * Math.sin(targetDir),
         targetPos.z
-    ));
+    );
+    fire.positionChanged();
 }
 
 let soundPropagateCount = 1;
@@ -326,9 +327,9 @@ export const monsterMoveActions: ActionMap = {
 
         // make a small turns when mobj.direction !== mobj.movedir
         if (mobj.movedir !== MoveDirection.None) {
-            const diff = normalizeAngle(mobj.direction.val - mobj.movedir) - Math.PI;
+            const diff = normalizeAngle(mobj.direction - mobj.movedir) - Math.PI;
             if (Math.abs(diff) > EIGHTH_PI) { // only update if we're off by large-ish amount
-                mobj.direction.update(val => val + ((diff < 0) ? QUARTER_PI : -QUARTER_PI));
+                mobj.direction += ((diff < 0) ? QUARTER_PI : -QUARTER_PI);
             }
         }
 
@@ -393,7 +394,8 @@ export const monsterMoveActions: ActionMap = {
 
         if (!(mobj.info.flags & MFFlags.MF_INFLOAT) && canMove(mobj, mobj.movedir)) {
             // NOTE: _moveVec is already set correctly by canMove()
-            mobj.position.update(pos => pos.add(_moveVec));
+            mobj.position.add(_moveVec);
+            mobj.positionChanged();
         }
         // only trigger specials once per move otherwise we may open/close doors rapidly which looks silly
         moveSpecials.forEach(hit =>
@@ -413,7 +415,7 @@ function faceTarget(mobj: MapObject, target: MapObject) {
     if (target.info.flags & MFFlags.MF_SHADOW) {
         angle += mobj.rng.angleNoise(21);
     }
-    mobj.direction.set(angle);
+    mobj.direction = angle;
 }
 
 const revenantTracerAngleAdjustment = 384 * 360 / 8192 * ToRadians;
@@ -436,7 +438,7 @@ export const monsterAttackActions: ActionMap = {
         mobj.map.game.playSound(SoundIndex.sfx_pistol, mobj);
 
         const slope = shotTracer.zAim(mobj, attackRange);
-        const angle = mobj.direction.val + mobj.rng.angleNoise(20);
+        const angle = mobj.direction + mobj.rng.angleNoise(20);
         const damage = 3 * mobj.rng.int(1, 5);
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
     },
@@ -449,7 +451,7 @@ export const monsterAttackActions: ActionMap = {
 
         const slope = shotTracer.zAim(mobj, attackRange);
         for (let i = 0; i < 3; i++) {
-            const angle = mobj.direction.val + mobj.rng.angleNoise(20);
+            const angle = mobj.direction + mobj.rng.angleNoise(20);
             const damage = 3 * mobj.rng.int(1, 5);
             shotTracer.fire(mobj, damage, angle, slope, attackRange);
         }
@@ -477,7 +479,8 @@ export const monsterAttackActions: ActionMap = {
         const tracer = shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_TRACER);
         tracer.tracerTarget = mobj.chaseTarget;
         // revenant missiles are spawned a little higher than most things so adjust the z and re-launch the projectile
-        tracer.position.update(pos => pos.setZ(pos.z + 16));
+        tracer.position.setZ(tracer.position.z + 16);
+        tracer.positionChanged();
         launchMapObject(tracer, mobj.chaseTarget, shotZOffset, tracer.info.speed);
     },
 	[ActionIndex.A_CPosAttack]: mobj => {
@@ -487,7 +490,7 @@ export const monsterAttackActions: ActionMap = {
         allActions[ActionIndex.A_FaceTarget](mobj);
         mobj.map.game.playSound(SoundIndex.sfx_shotgn, mobj);
 
-        const angle = mobj.direction.val + mobj.rng.angleNoise(20);
+        const angle = mobj.direction + mobj.rng.angleNoise(20);
         const damage = 3 * mobj.rng.int(1, 5);
         const slope = shotTracer.zAim(mobj, attackRange);
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
@@ -571,17 +574,17 @@ export const monsterAttackActions: ActionMap = {
 	[ActionIndex.A_FatAttack1]: mobj => {
         allActions[ActionIndex.A_FaceTarget](mobj);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT);
-        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val + mancubusMissileSpread);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction + mancubusMissileSpread);
     },
 	[ActionIndex.A_FatAttack2]: mobj => {
         allActions[ActionIndex.A_FaceTarget](mobj);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT);
-        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val - mancubusMissileSpread);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction - mancubusMissileSpread);
     },
 	[ActionIndex.A_FatAttack3]: mobj => {
         allActions[ActionIndex.A_FaceTarget](mobj);
-        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val - halfMancubusMissileSpread);
-        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val + halfMancubusMissileSpread);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction - halfMancubusMissileSpread);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction + halfMancubusMissileSpread);
     },
 	[ActionIndex.A_SpidRefire]: mobj => {
         allActions[ActionIndex.A_FaceTarget](mobj);
@@ -612,7 +615,7 @@ export const monsterAttackActions: ActionMap = {
             return;
         }
         allActions[ActionIndex.A_FaceTarget](mobj);
-        spawnLostSoul(mobj, mobj.direction.val);
+        spawnLostSoul(mobj, mobj.direction);
     },
 
     // revenant missiles (tracking and smoke)
@@ -624,11 +627,11 @@ export const monsterAttackActions: ActionMap = {
         }
 
         // decorations like puff and smoke
-        spawnPuff(missile, missile.position.val);
+        spawnPuff(missile, missile.position);
         const smoke = missile.map.spawn(MapObjectIndex.MT_SMOKE,
-                missile.position.val.x - missile.velocity.x,
-                missile.position.val.y - missile.velocity.y,
-                missile.position.val.z);
+                missile.position.x - missile.velocity.x,
+                missile.position.y - missile.velocity.y,
+                missile.position.z);
         smoke.velocity.z = 1;
         smoke.setState(smoke.info.spawnstate, -missile.rng.int(0, 2));
 
@@ -639,19 +642,19 @@ export const monsterAttackActions: ActionMap = {
 
         // adjust direction
         const angle = angleBetween(missile, target);
-        let missileAngle = missile.direction.val;
+        let missileAngle = missile.direction;
         if (normalizeAngle(angle - missileAngle) > Math.PI) {
             missileAngle += revenantTracerAngleAdjustment;
-            missile.direction.set(normalizeAngle(angle - missileAngle) > Math.PI ? missileAngle : angle);
+            missile.direction = normalizeAngle(angle - missileAngle) > Math.PI ? missileAngle : angle;
         } else {
             missileAngle -= revenantTracerAngleAdjustment;
-            missile.direction.set(normalizeAngle(angle - missileAngle) < Math.PI ? missileAngle : angle);
+            missile.direction = normalizeAngle(angle - missileAngle) < Math.PI ? missileAngle : angle;
         }
-        missile.velocity.x = Math.cos(missile.direction.val) * missile.info.speed;
-        missile.velocity.y = Math.sin(missile.direction.val) * missile.info.speed;
+        missile.velocity.x = Math.cos(missile.direction) * missile.info.speed;
+        missile.velocity.y = Math.sin(missile.direction) * missile.info.speed;
 
         const dist = xyDistanceBetween(missile, target);
-        const slope = ((target.position.val.z + 40) - missile.position.val.z) / dist * missile.info.speed;
+        const slope = ((target.position.z + 40) - missile.position.z) / dist * missile.info.speed;
         missile.velocity.z += slope < missile.velocity.z ? -revenantTracerZAdjust : revenantTracerZAdjust;
     },
 }
@@ -662,9 +665,9 @@ export const monsterActions: ActionMap = {
     // Death Actions
 	[ActionIndex.A_PainDie]: mobj => {
         allActions[ActionIndex.A_Fall](mobj);
-        spawnLostSoul(mobj, mobj.direction.val + HALF_PI);
-        spawnLostSoul(mobj, mobj.direction.val + Math.PI);
-        spawnLostSoul(mobj, mobj.direction.val - HALF_PI);
+        spawnLostSoul(mobj, mobj.direction + HALF_PI);
+        spawnLostSoul(mobj, mobj.direction + Math.PI);
+        spawnLostSoul(mobj, mobj.direction - HALF_PI);
     },
     [ActionIndex.A_Scream]: mobj => {
         const sound = smallDeathSounds.includes(mobj.info.deathsound) ? mobj.rng.choice(smallDeathSounds) :
@@ -771,14 +774,14 @@ function findPlayerTarget(mobj: MapObject, allAround = false) {
             continue;
         }
 
-        const distSqr = xyDistSqr(mobj.position.val, player.position.val);
+        const distSqr = xyDistSqr(mobj.position, player.position);
         if (distSqr < meleeRangeSqr) {
             return player;
         }
 
-        _findPlayerVec1.set(player.position.val.x - mobj.position.val.x, player.position.val.y - mobj.position.val.y, 0);
-        const v2 = _directionTable[mobj.direction.val] ??
-            _findPlayerVec2.set(Math.cos(mobj.direction.val), Math.sin(mobj.direction.val), 0);
+        _findPlayerVec1.set(player.position.x - mobj.position.x, player.position.y - mobj.position.y, 0);
+        const v2 = _directionTable[mobj.direction] ??
+            _findPlayerVec2.set(Math.cos(mobj.direction), Math.sin(mobj.direction), 0);
         const dot = v2.dot(_findPlayerVec1);
         if (dot < 0 && !allAround) {
             continue;
@@ -826,8 +829,8 @@ function newChaseDir(mobj: MapObject, target: MapObject) {
     // https://www.doomworld.com/forum/topic/122794-source-code-monster-behavior-moving-around-objects/
 
     // set search direction baesd on location of target and mobj
-    const dx = target.position.val.x - mobj.position.val.x;
-    const dy = target.position.val.y - mobj.position.val.y;
+    const dx = target.position.x - mobj.position.x;
+    const dy = target.position.y - mobj.position.y;
     _moveDir[0] = dx > 10 ? MoveDirection.East : dx < -10 ? MoveDirection.West : MoveDirection.None;
     _moveDir[1] = dy > 10 ? MoveDirection.North : dy < -10 ? MoveDirection.South : MoveDirection.None;
     const originalDir = mobj.movedir;
@@ -895,7 +898,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     const blocker = findMoveBlocker(mobj, _moveVec, specialLines);
     // if we can float and we're blocked by a two-sided line then float!
     if (blocker && 'line' in blocker && blocker.line.left && mobj.info.flags & MFFlags.MF_FLOAT) {
-        const dz = blocker.line.left.sector.zFloor.val - mobj.position.val.z;
+        const dz = blocker.line.left.sector.zFloor.val - mobj.position.z;
         // float if the z-delta is reasonably far from the floor we're aiming for
         if (Math.abs(dz) > 0.0001) {
             const zmove = dz > 0 ? Math.min(dz, maxFloatSpeed) : Math.max(dz, -maxFloatSpeed);
@@ -914,7 +917,7 @@ const _moveEnd = new Vector3();
 function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
     // a simplified (and subtly different) version of the move trace from MapObject.updatePosition()
     let blocker: TraceHit = null;
-    const start = mobj.position.val;
+    const start = mobj.position;
     vecFromMovement(_moveEnd, start, move, mobj.info.radius);
     // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
     const moveRadius = mobj.info.radius - 1;
@@ -932,8 +935,8 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                 || (hit.mobj === mobj) // don't collide with yourself
                 || !(hit.mobj.info.flags & hittableThing) // not hittable
                 || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
-                || (start.z + mobj.info.height < hit.mobj.position.val.z) // passed under target
-                || (start.z > hit.mobj.position.val.z + hit.mobj.info.height) // passed over target
+                || (start.z + mobj.info.height < hit.mobj.position.z) // passed under target
+                || (start.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
             if (skipHit) {
                 return true; // continue search
             }
@@ -991,7 +994,7 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
 function maxFloorChange(mobj: MapObject, move: Vector3, radius: number) {
     let highestZFloor = -Infinity;
     let lowestZFloor = Infinity;
-    mobj.map.data.traceSubsectors(mobj.position.val, move, radius, hit => {
+    mobj.map.data.traceSubsectors(mobj.position, move, radius, hit => {
         highestZFloor = Math.max(highestZFloor, hit.sector.zFloor.val);
         lowestZFloor = Math.min(lowestZFloor, hit.sector.zFloor.val);
         return true;
@@ -1000,7 +1003,7 @@ function maxFloorChange(mobj: MapObject, move: Vector3, radius: number) {
 }
 
 function canMeleeAttack(mobj: MapObject, target: MapObject) {
-    const dist = mobj.position.val.distanceTo(target.position.val);
+    const dist = mobj.position.distanceTo(target.position);
     // hmmm... why 20?
     if (dist >= meleeRange - 20 + target.info.radius) {
         return false;
@@ -1028,7 +1031,7 @@ function canShootAttack(mobj: MapObject, target: MapObject) {
 
     // fire or not based on a complex heuristic...
     // why 64?
-    let chance = mobj.position.val.distanceTo(target.position.val) - 64;
+    let chance = mobj.position.distanceTo(target.position) - 64;
     if (!mobj.info.meleestate) {
 	    chance -= 128; // no melee attack, so increase the chance of firing
     }
@@ -1066,7 +1069,7 @@ function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, 
         // shadow objects (invisibility) should add error to angle
         direction += shooter.rng.angleNoise(20);
     }
-    const pos = shooter.position.val;
+    const pos = shooter.position;
     const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset, direction);
     missile.map.game.playSound(missile.info.seesound, missile);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
@@ -1079,11 +1082,11 @@ function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, 
 
 const _deltaVec = new Vector3;
 function launchMapObject(mobj: MapObject, target: MapObject, zOffset: number, speed: number) {
-    _deltaVec.copy(target.position.val).sub(mobj.position.val);
+    _deltaVec.copy(target.position).sub(mobj.position);
     const dist = Math.sqrt(_deltaVec.x * _deltaVec.x + _deltaVec.y * _deltaVec.y);
     mobj.velocity.set(
-        Math.cos(mobj.direction.val) * speed,
-        Math.sin(mobj.direction.val) * speed,
+        Math.cos(mobj.direction) * speed,
+        Math.sin(mobj.direction) * speed,
         (_deltaVec.z + zOffset) / dist * speed);
 }
 
@@ -1094,17 +1097,16 @@ function spawnLostSoul(parent: MapObject, angle: number) {
 	    return;
     }
 
-    const lostSoul = parent.map.spawn(MapObjectIndex.MT_SKULL, parent.position.val.x, parent.position.val.y, parent.position.val.z);
+    const lostSoul = parent.map.spawn(MapObjectIndex.MT_SKULL, parent.position.x, parent.position.y, parent.position.z);
     const offset = 4 + 1.5 * (parent.info.radius + lostSoul.info.radius);
-    lostSoul.position.update(pos => {
-        pos.x += Math.cos(angle) * offset;
-        pos.y += Math.sin(angle) * offset;
-        pos.z += 8;
-        if (pos.z + lostSoul.info.height > lostSoul.zCeil) {
-            pos.z = lostSoul.zCeil - lostSoul.info.height;
-        }
-        return pos;
-    });
+
+    lostSoul.position.x += Math.cos(angle) * offset;
+    lostSoul.position.y += Math.sin(angle) * offset;
+    lostSoul.position.z += 8;
+    if (lostSoul.position.z + lostSoul.info.height > lostSoul.zCeil) {
+        lostSoul.position.z = lostSoul.zCeil - lostSoul.info.height;
+    }
+    lostSoul.positionChanged();
     // if the lost soul can't move, destroy it
     if (findMoveBlocker(lostSoul, zeroVec)) {
         lostSoul.damage(10_000, parent, parent);

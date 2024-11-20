@@ -81,6 +81,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
     interface RenderInfo {
         mo: MapObject;
         updateSprite: (sprite: Sprite) => void;
+        updatePosition: () => void;
         dispose: () => void;
     }
     const rmobjs = new Map<number, RenderInfo>();
@@ -88,7 +89,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
     const freeSlots: number[] = [];
 
     const mat = new Matrix4();
-    const p = new Vector3();
     const q = new Quaternion();
     const s = new Vector3();
     const add = (mo: MapObject) => {
@@ -131,8 +131,28 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 0] = sprite.ticks ? mo.info.speed / sprite.ticks : 0;
             thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 1] = mo.movedir;
             thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
-            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 3] = mo.direction.val;
+            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 3] = mo.direction;
             thingsMeshes[m].geometry.attributes.motion.needsUpdate = true;
+        };
+
+        const updatePosition = () => {
+            // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
+            s.set(40, 40, 80);
+            if (isPlayer && camera === '1p') {
+                // hide player
+                s.set(0, 0, 0);
+            }
+            thingsMeshes[m].setMatrixAt(n, mat.compose(mo.position, q, s));
+            thingsMeshes[m].instanceMatrix.needsUpdate = true;
+
+            // NB: don't interpolate player velocity because they already update every frame
+            if (!isPlayer) {
+                // velocity for interpolation
+                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
+                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
+                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
+                thingsMeshes[m].geometry.attributes.vel.needsUpdate = true;
+            }
         };
 
         const subs = [];
@@ -144,38 +164,19 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             // We can't actually remove an instanced geometry but we can hide it until something else uses the free slot.
             // We hide by moving it far away or scaling it very tiny (making it effectively invisible)
             s.set(0, 0, 0);
-            thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
+            thingsMeshes[m].setMatrixAt(n, mat.compose(mo.position, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;
         };
 
-        rmobjs.set(mo.id, { mo, dispose, updateSprite });
+        updateSprite(mo.sprite.val);
+        updatePosition();
+        rmobjs.set(mo.id, { mo, dispose, updateSprite, updatePosition });
 
         // custom attributes
         subs.push(mo.sector.subscribe(sec => {
             thingsMeshes[m].geometry.attributes.doomLight.array[n] = sec.num;
             thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
-        subs.push(mo.position.subscribe(pos => {
-            // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
-            s.set(40, 40, 80);
-            if (isPlayer && camera === '1p') {
-                // hide player
-                s.set(0, 0, 0);
-            }
-            p.copy(pos);
-            thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
-            thingsMeshes[m].instanceMatrix.needsUpdate = true;
-
-            // NB: don't interpolate player velocity because they already update every frame
-            if (!isPlayer) {
-                // velocity for interpolation
-                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
-                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
-                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
-                thingsMeshes[m].geometry.attributes.vel.needsUpdate = true;
-            }
-        }));
-        updateSprite(mo.sprite.val);
 
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n] = mo.id;
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
