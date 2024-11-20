@@ -8,10 +8,11 @@ const params = {
     wadNames: [
         'doom2',
         'oversaturationrc1',
+        'sunder 2407'
         // 'cosmogenesis',
         // 'nuts',
     ],
-    mapName: 'MAP01',
+    mapName: 'MAP08',
     warmupSeconds: 2,
     timeIntervalMS: 1 / 35, // DOOM runs at 35fps
     testReps: 10,
@@ -56,6 +57,8 @@ describe('perf', () => {
         const settings = createDefaultSettings();
         const game = new Game(wad, 4, settings);
         game.startMap(params.mapName);
+        // fire a shot to wakeup enemies
+        game.input.attack = true;
         // let the game idle for a few seconds before measuring
         while (game.time.elapsed < params.warmupSeconds) {
             game.tick(params.timeIntervalMS);
