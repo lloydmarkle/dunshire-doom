@@ -6,12 +6,21 @@
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
     import { onDestroy } from "svelte";
-    import { MapRuntime, MFFlags, PlayerMapObject, tickTime, type MapObject, type Sprite } from "../../../doom";
+    import { MapRuntime, MFFlags, PlayerMapObject, tickTime, type MapObject as MO, type Sprite } from "../../../doom";
     import type { MapLighting } from "../MapLighting";
 
     export let map: MapRuntime;
     export let spriteSheet: SpriteSheet;
     export let lighting: MapLighting;
+
+    // Neat! We augment mobj.renderData to make intellisense work
+    type GeoType = ReturnType<typeof createSpriteGeometry>;
+    interface MapObject extends MO {
+        renderData: {
+            'rinfo': ReturnType<GeoType['add']>,
+            'geo': GeoType
+        },
+    }
 
     const { camera } = useDoomMap();
     const { extraLight } = map.player;
@@ -121,30 +130,27 @@
             return;
         }
         const geo = (mo.info.flags & MFFlags.MF_SHADOW) ? tranGeo : opaqGeo;
-        geo.add(mo);
-    }
-    const removeMobjs = (mo: MapObject) => {
-        opaqGeo.remove(mo);
-        tranGeo.remove(mo);
+        mo.renderData['rinfo'] = geo.add(mo);
+        mo.renderData['geo'] = geo;
     }
     const updateMobjSprite = (mo: MapObject, sprite: Sprite) => {
-        if (mo.info.flags & MFFlags.MF_NOSECTOR) {
+        let geo = mo.renderData['geo'];
+        if (!geo) {
+            // updateSprite events can happen before mobj-added so we have to be careful
             return;
         }
 
-        // it would be nice to not do two lookups everytime a sprite changes.
-        // updateSprite events happen before mobj-added so we have to be careful
-        const info = opaqGeo.get(mo);
-        const tInfo = tranGeo.get(mo);
-        const isSpectre = mo.info.flags & MFFlags.MF_SHADOW;
         // swap from spector to non?
-        if (info && isSpectre) {
+        const isSpectre = mo.info.flags & MFFlags.MF_SHADOW;
+        if (geo === opaqGeo && isSpectre) {
             opaqGeo.remove(mo);
-            tranGeo.add(mo);
+            mo.renderData['rinfo'] = tranGeo.add(mo);
+            mo.renderData['geo'] = tranGeo;
             return;
-        } else if (tInfo && !isSpectre) {
+        } else if (geo === tranGeo && !isSpectre) {
             tranGeo.remove(mo);
-            opaqGeo.add(mo);
+            mo.renderData['rinfo'] = opaqGeo.add(mo);
+            mo.renderData['geo'] = opaqGeo;
             return;
         }
 
@@ -155,14 +161,10 @@
             mo.weapon.val.sprite.set(map.player.weapon.val.sprite.val);
             mo.weapon.val.flashSprite.set(map.player.weapon.val.flashSprite.val);
         }
-        (info ?? tInfo)?.updateSprite(sprite);
+        mo.renderData['rinfo']?.updateSprite(sprite);
     }
-    const updateMobjPosition = (mo: MapObject) => {
-        if (mo.info.flags & MFFlags.MF_NOSECTOR) {
-            return;
-        }
-        (opaqGeo.get(mo) ?? tranGeo.get(mo))?.updatePosition();
-    }
+    const removeMobjs = (mo: MapObject) => mo.renderData['geo'].remove(mo);
+    const updateMobjPosition = (mo: MapObject) => mo.renderData['rinfo']?.updatePosition()
 
     map.objs.forEach(addMobj);
     map.events.on('mobj-added', addMobj);

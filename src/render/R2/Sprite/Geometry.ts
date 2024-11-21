@@ -168,10 +168,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             thingsMeshes[m].instanceMatrix.needsUpdate = true;
         };
 
-        updateSprite(mo.sprite.val);
-        updatePosition();
-        rmobjs.set(mo.id, { mo, dispose, updateSprite, updatePosition });
-
         // custom attributes
         subs.push(mo.sector.subscribe(sec => {
             thingsMeshes[m].geometry.attributes.doomLight.array[n] = sec.num;
@@ -180,10 +176,15 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
 
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n] = mo.id;
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
+
+        updateSprite(mo.sprite.val);
+        updatePosition();
+        const rInfo = { mo, dispose, updateSprite, updatePosition };
+        rmobjs.set(mo.id, rInfo);
+        return rInfo;
     }
 
     const remove = (mo: MapObject) => rmobjs.get(mo.id)?.dispose();
-    const get = (mo: MapObject) => rmobjs.get(mo.id);
 
     const dispose = () => {
         for (const rinfo of rmobjs.values()) {
@@ -198,5 +199,5 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
     };
 
     const root = new Object3D();
-    return { add, remove, get, dispose, root, shadowState, resetGeometry };
+    return { add, remove, dispose, root, shadowState, resetGeometry };
 }

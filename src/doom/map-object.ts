@@ -77,6 +77,8 @@ export class MapObject {
     readonly sprite = this._state.sprite;
     readonly velocity = new Vector3();
     readonly renderShadow = store(false);
+    // misc data set and used by the renderer
+    readonly renderData = {};
 
     get isDead() { return this.health.val <= 0; }
     protected _isMoving = false;
