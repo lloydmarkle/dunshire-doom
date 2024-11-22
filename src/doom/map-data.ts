@@ -453,7 +453,7 @@ function createBspTracer(root: TreeNode) {
     const subsectorTrace = createSubsectorTrace(root);
     const nVec = new Vector3();
 
-    function flatHit(flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number, params: TraceParams): SectorTraceHit {
+    const flatHit = (flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number, params: TraceParams): SectorTraceHit => {
         const u = (zFlat - params.start.z) / params.move.z;
         if (u < 0 || u > 1) {
             return null
@@ -464,7 +464,7 @@ function createBspTracer(root: TreeNode) {
             return null;
         }
         return { flat, subsector, point, overlap: 0, fraction: u };
-    }
+    };
 
     return (params: TraceParams) => {
         const radius = params.radius ?? 0;
