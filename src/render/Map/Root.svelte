@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MapObject, type MapRuntime, type Sprite } from "../../doom";
+    import { type MapRuntime, type Sprite } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
     import BlockMap from "../Debug/BlockMap.svelte";
     import Stats from "../Debug/Stats.svelte";
@@ -10,6 +10,7 @@
     import { interactivity } from "@threlte/extras";
     import ShotTrace from "./ShotTrace.svelte";
     import { onDestroy } from "svelte";
+    import { bridgeEventsToReadables } from "./SvelteBridge";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
@@ -23,19 +24,8 @@
     const interact = interactivity({ enabled: $editor.active });
     $: interact.enabled.set($editor.active);
 
-    // This is a hack to re-enable the $sprite readable for R1.
-    const updateSprite = (mo: MapObject, sprite: Sprite) => {
-        // NB: player needs special handling to update the weapon sprites
-        if (mo === map.player) {
-            map.player.sprite.set(map.player.sprite.val);
-            map.player.weapon.val.sprite.set(map.player.weapon.val.sprite.val);
-            map.player.weapon.val.flashSprite.set(map.player.weapon.val.flashSprite.val);
-        } else {
-            mo.sprite.set(sprite);
-        }
-    }
-    map.events.on('mobj-updated-sprite', updateSprite);
-    onDestroy(() => map.events.off('mobj-updated-sprite', updateSprite));
+    const bridge = bridgeEventsToReadables(map);
+    onDestroy(bridge.dispose);
 
     // Another similar hack
     $: map.synchronizeSpecials('r1');

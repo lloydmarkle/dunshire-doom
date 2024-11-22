@@ -8,13 +8,14 @@
 </script>
 <script lang="ts">
     import { T } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial, DoubleSide, BackSide, Vector2, Vector3 } from 'three';
+    import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial, DoubleSide, BackSide } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle, MapObjectIndex, signedLineDistance } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, HALF_PI, MFFlags, normalizeAngle, MapObjectIndex } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
     import type { RenderSector } from '../RenderData';
     import { MoveDirection } from '../../doom/things/monsters';
+    import type { MapObject } from './SvelteBridge';
 
     export let thing: MapObject;
     export let renderSector: RenderSector;
@@ -29,7 +30,8 @@
 
     const vis = renderSector.visible;
     $: visible = $vis;
-    const { sector, position: tpos, sprite, direction, renderShadow } = thing;
+    const { sector, sprite, renderShadow } = thing;
+    const { direction, position: tpos } = thing.renderData;
     const invertYOffset = (thing.info.flags & MFFlags.InvertSpriteYOffset);
     const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
     const isMissile = (thing.info.flags & MFFlags.MF_MISSILE || thing.type === MapObjectIndex.MT_EXTRABFG);

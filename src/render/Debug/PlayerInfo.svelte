@@ -1,23 +1,33 @@
 <script lang="ts">
     import { Vector3 } from "three";
-    import type { PlayerInventory, PlayerMapObject } from "../../doom";
+    import type { MapObject, PlayerInventory, PlayerMapObject } from "../../doom";
     import { ToDegrees, tickTime, ticksPerSecond } from "../../doom";
     import { fly } from "svelte/transition";
     import { useAppContext } from "../DoomContext";
+    import { onDestroy } from "svelte";
 
     export let player: PlayerMapObject;
     export let interactive = true;
     const { settings, editor } = useAppContext();
     const timescale = settings.timescale;
-    const { position, direction, sector, inventory, viewHeight } = player;
+    let { position, direction, sector, inventory, viewHeight } = player;
     const tick = player.map.game.time.tick;
 
-    const debugBuild = import.meta.env.DEV;
     let subsectors = [];
-    $: if ($position) {
-        subsectors = []
-        player.subsectors(s => subsectors.push(s));
+    const updatePosition = (mo: MapObject) => {
+        if (mo === player) {
+            position = player.position;
+            direction = player.direction;
+            subsectors.length = 0;
+            player.subsectors(s => subsectors.push(s));
+        }
     }
+    updatePosition(player);
+
+    player.map.events.on('mobj-updated-position', updatePosition);
+    onDestroy(() => player.map.events.off('mobj-updated-position', updatePosition));
+
+    const debugBuild = import.meta.env.DEV;
 
     let velocity = player.velocity;
     $: if ($tick & 10) {
@@ -50,9 +60,9 @@
         class:sloped={!interactive}
         transition:fly={{ y: 200}}
     >
-        <div>pos: {vec($position)}</div>
+        <div>pos: {vec(position)}</div>
         <div>vel: {vec(velocity)} {velocityPerTick(velocity.length()).toFixed(2)}</div>
-        <div>dir: [{($direction * ToDegrees).toFixed(3)}]</div>
+        <div>dir: [{(direction * ToDegrees).toFixed(3)}]</div>
         <div class:hidden={!debugBuild}>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
         <div class:hidden={!debugBuild}>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
         <div class:hidden={!debugBuild}>Subsectors: [{subsectors.map(e => e.num)}]</div>

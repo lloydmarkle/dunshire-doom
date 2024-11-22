@@ -1,12 +1,13 @@
 <script lang="ts">
-    import { HALF_PI, type MapRuntime } from "../../doom";
+    import { HALF_PI, type MapRuntime, type Store } from "../../doom";
     import { T } from "@threlte/core";
     import { useAppContext } from "../DoomContext";
+    import type { Vector3 } from "three";
 
     export let map: MapRuntime;
 
     const showBlockmap = useAppContext().settings.showBlockMap;
-    const { position: playerPosition } = map.player;
+    const playerPosition = map.player.renderData['position'] as Store<Vector3>;
 
     const bbox = map.data.blockMapBounds;
     const width = bbox.right - bbox.left;

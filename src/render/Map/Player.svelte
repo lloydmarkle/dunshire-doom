@@ -15,12 +15,14 @@
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
     import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
     import Weapon from "./Weapon.svelte";
+    import type { PlayerMapObject } from "./SvelteBridge";
 
     const { map, renderSectors } = useDoomMap();
     const { cameraMode, renderMode } = useAppContext().settings;
-    const player = map.player;
+    const player = map.player as PlayerMapObject;
 
-    const { position: playerPosition, damageCount, bonusCount, inventory, sector } = player;
+    const { damageCount, bonusCount, inventory, sector } = player;
+    const { position: playerPosition } = player.renderData;
     $: renderSector = $sector && renderSectors.find(e => e.sector === $sector)
     $: zFloor = $sector.zFloor;
 
@@ -61,7 +63,7 @@
     }, { stage: renderStage });
 </script>
 
-<!-- {#if $renderMode === 'r1' && $cameraMode !== '1p'}
+{#if $renderMode === 'r1' && $cameraMode !== '1p'}
     <Thing {renderSector} thing={player} />
 
     <T.Mesh
@@ -71,7 +73,7 @@
         position.z={$zFloor + 1}
         material={new MeshStandardMaterial({ color: "black", opacity: 0.6, transparent: true })}
     />
-{/if} -->
+{/if}
 
 {#if $cameraMode === "ortho"}
     <OrthoCam {yScale} />
