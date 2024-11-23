@@ -88,6 +88,7 @@
             case "Backquote":
             case "Escape":
                 resumeGame();
+                ev.stopImmediatePropagation();
                 break;
         }
     }

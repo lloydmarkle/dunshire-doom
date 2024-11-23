@@ -487,10 +487,13 @@ class GameInput {
 
         // handle rotation movements
         const euler = this.obj.rotation;
+        // read player direction (in case of teleport)
+        euler.z = this.player.direction - HALF_PI;
         euler.z -= this.input.aim.x * 0.001;
         euler.x -= this.input.aim.y * 0.001;
         euler.x = Math.min(this.maxPolarAngle, Math.max(this.minPolarAngle, euler.x));
         this.obj.updateMatrix();
+        // write player direction based on input
         this.player.direction = euler.z + HALF_PI;
         this.player.pitch = euler.x;
         // clear for next eval (only xy, z is used for camera zoom and does not affect gameplay)

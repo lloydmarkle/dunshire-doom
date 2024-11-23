@@ -186,8 +186,6 @@
             <SvgMapRoot
                 size={viewSize}
                 map={$map}
-                on:activate={() => (showMenu = false)}
-                on:deactivate={() => (showMenu = true)}
             />
             {:else}
             <Canvas bind:ctx={threlteCtx} renderMode='manual' {rendererParameters} autoRender={false}>

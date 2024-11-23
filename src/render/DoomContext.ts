@@ -186,7 +186,7 @@ export const createAppContext = () => {
         toggle('experimental', settings.experimentalSoundHacks, 'Room accoustics (experimental)'),
     ];
 
-    const pointerLock = createPointerLockControls();
+    const pointerLock = createPointerLockControls(settings.cameraMode);
     const fullscreen = createFullscreenControls();
     const audio = new AudioContext();
     const error = store<DoomError>(null);

@@ -8,7 +8,6 @@
     export let error: DoomError;
     export let wadStore: WadStore;
 
-    console.log('err',error)
     // TODO: if we start handling too many different error.codes here or the logic is
     // becoming too tangled then split this file into components. For now, it doesn't
     // seem too unreasonable

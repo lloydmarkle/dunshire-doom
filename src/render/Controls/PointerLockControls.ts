@@ -1,10 +1,11 @@
 import type { Action } from 'svelte/action';
 import { writable } from 'svelte/store';
+import type { Store } from '../../doom';
 
 interface Params { }
 interface Attributes { }
 
-export function createPointerLockControls() {
+export function createPointerLockControls(cameraMode: Store<string>) {
     let element: HTMLElement;
 
     const hasTouchControls = matchMedia('(hover: none)').matches;
@@ -16,12 +17,15 @@ export function createPointerLockControls() {
         lockResolve = null;
     }
 
-    const releaseLock = () => document.exitPointerLock();
+    const actuallyReleaseLock = () => document.exitPointerLock();
+    const fakeReleaseLock = () => setLockState(false);
     const requestLock = () => new Promise<void>(resolve => {
         lockResolve = resolve;
-        if (hasTouchControls) {
+        if (hasTouchControls || cameraMode.val === 'svg') {
+            plc.releaseLock = fakeReleaseLock;
             setLockState(true);
         } else {
+            plc.releaseLock = actuallyReleaseLock;
             element.requestPointerLock();
         }
     });
@@ -54,5 +58,6 @@ export function createPointerLockControls() {
         }
     };
 
-    return { pointerLockControls, requestLock, releaseLock, isPointerLocked };
+    const plc = { pointerLockControls, requestLock, releaseLock: actuallyReleaseLock, isPointerLocked };
+    return plc;
 }
