@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { type DoomError, DoomWad, Game, type MissingWads, MapRuntime, type Skill, WadFile } from './doom';
+    import { DoomWad, Game, type MissingWads, type Skill, WadFile } from './doom';
     import Doom from './render/Doom.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
     import TextureMapScene from './render/Debug/TextureMapScene.svelte';

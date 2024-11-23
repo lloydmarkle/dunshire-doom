@@ -195,6 +195,7 @@
     import { useAppContext } from "./DoomContext";
     import WebAudioTinySynth from 'webaudio-tinysynth';
     import type { DoomWad } from "../doom";
+    import { Sequencer, Synthetizer, WORKLET_URL_ABSOLUTE } from 'spessasynth_lib';
 
     export let audioRoot: AudioNode;
     export let wad: DoomWad;
@@ -226,6 +227,7 @@
 
     $: musicStopper =
         isMp3 ? mp3Player(music) :
+        $musicPlayback === 'spessasynth' ? spessaSynthPlayer(music) :
         $musicPlayback === 'soundfont' ? soundFontPlayer(music) :
         $musicPlayback === 'synth' ? synthPlayer(music) :
         noMusic();
@@ -250,6 +252,18 @@
         mp3.loop = true;
         mp3.start();
         return () => mp3.stop();
+    }
+
+    async function spessaSynthPlayer(midi: ArrayBufferLike) {
+        stopTheMusic();
+
+        await audio.audioWorklet.addModule(new URL('/' + WORKLET_URL_ABSOLUTE, import.meta.url)); // add the worklet
+        const soundFontArrayBuffer = await fetch("/synthetizer/GeneralUser-GS.sf2").then(response => response.arrayBuffer());
+        const synth = new Synthetizer(audioRoot, soundFontArrayBuffer);
+        const seq = new Sequencer([{ binary: midi }], synth);
+        seq.loop = true;
+        seq.play();
+        return () => seq?.stop();
     }
 
     const storage = new MidiSampleStore();
@@ -282,7 +296,7 @@
                     if (ev.channel !== 9) {
                         if (!instrumentNames[ev.value]) console.warn('missing-instrument', ev.value)
                         const instrument = instrumentNames[ev.value] ?? instrumentNames[6];
-                        const sf = await new Soundfont(audio, { storage, instrument, destination: audioRoot }).load;;
+                        const sf = await new Soundfont(audio, { storage, instrument, destination: audioRoot }).load;
                         sf.output.addInsert(effects[ev.channel].pan);
                         // sf.output.addInsert(effects[ev.channel].bq);
                         channels[ev.channel] = sf;

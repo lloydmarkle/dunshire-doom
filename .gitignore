@@ -25,3 +25,5 @@ dist-ssr
 
 *.wad
 bundle-stats.html
+# synth import
+public/synthetizer

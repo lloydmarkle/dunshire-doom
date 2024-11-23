@@ -92,7 +92,7 @@ export const createDefaultSettings = () => {
         touchTargetVPadding: writable(4),
     };
     const soundSettings = {
-        musicPlayback: writable<'synth' | 'soundfont' | 'off'>('synth'),
+        musicPlayback: writable<'synth' | 'soundfont' | 'spessasynth' | 'off'>('synth'),
         musicVolume: writable(.4),
         soundVolume: writable(.8),
         mainVolume: writable(.8),
@@ -158,7 +158,7 @@ export const createAppContext = () => {
         range('normal', settings.mainVolume, 'Main volume', 0, 1, .1),
         range('normal', settings.soundVolume, 'Sound volume', 0, 1, .1),
         range('normal', settings.musicVolume, 'Music volume', 0, 1, .1),
-        option('normal', settings.musicPlayback, 'Music voice', ['synth', 'soundfont', 'off']),
+        option('normal', settings.musicPlayback, 'Music voice', ['synth', 'soundfont', 'spessasynth', 'off']),
         option('advanced', settings.cameraMode, 'Camera', ['bird', 'ortho', '1p', '3p', '3p-noclip', 'svg']),
         toggle('advanced', settings.xyAimAssist, 'Aim assist'),
         toggle('advanced', settings.zAimAssist, 'Auto Z-Aim'),
