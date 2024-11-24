@@ -547,14 +547,14 @@ class ShotTracer {
 
                 const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
                 const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
-                if (front.zCeil.val !== back.zCeil.val) {
-                    const wallBottom = Math.min(front.zCeil.val, back.zCeil.val);
+                if (front.zCeil !== back.zCeil) {
+                    const wallBottom = Math.min(front.zCeil, back.zCeil);
                     if (wallBottom < hitZ) {
                         return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, range, hit.fraction));
                     }
                 }
-                if (front.zFloor.val !== back.zFloor.val) {
-                    const wallTop = Math.max(front.zFloor.val, back.zFloor.val);
+                if (front.zFloor !== back.zFloor) {
+                    const wallTop = Math.max(front.zFloor, back.zFloor);
                     if (wallTop > hitZ) {
                         return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, range, hit.fraction));
                     }
@@ -664,18 +664,18 @@ function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range:
 
             const front = hit.side === -1 ? hit.line.right : hit.line.left;
             const back = hit.side === -1 ? hit.line.left : hit.line.right;
-            const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
-            const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
+            const openTop = Math.min(front.sector.zCeil, back.sector.zCeil);
+            const openBottom = Math.max(front.sector.zFloor, back.sector.zFloor);
             if (openBottom >= openTop) {
                 // it's a two-sided line but there is no opening (eg. a closed door or a raised platform)
                 return false;
             }
 
             const dist = range * hit.fraction;
-            if (front.sector.zCeil.val !== back.sector.zCeil.val) {
+            if (front.sector.zCeil !== back.sector.zCeil) {
                 slopeTop = Math.min(slopeTop, (openTop - start.z) / dist);
             }
-            if (front.sector.zFloor.val !== back.sector.zFloor.val) {
+            if (front.sector.zFloor !== back.sector.zFloor) {
                 slopeBottom = Math.max(slopeBottom, (openBottom - start.z) / dist);
             }
 

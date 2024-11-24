@@ -9,7 +9,7 @@
     const { editor } = useAppContext();
     const { renderSectors } = useDoomMap();
 
-    const mapHeight = map.data.sectors.reduce((top, sec) => Math.max(sec.zCeil.val, top), -Infinity);
+    const mapHeight = map.data.sectors.reduce((top, sec) => Math.max(sec.zCeil, top), -Infinity);
     const lineMaterial = new MeshBasicMaterial({ depthTest: false, color: 'cyan' });
     const sectorMaterial = new MeshBasicMaterial({ depthTest: false, color: 'magenta' });
 
@@ -37,11 +37,11 @@
             });
             pos.x /= verts.length;
             pos.y /= verts.length;
-            pos.z = (rsecs[0].sector.zCeil.val + rsecs[0].sector.zFloor.val) / 2;
+            pos.z = (rsecs[0].sector.zCeil + rsecs[0].sector.zFloor) / 2;
         } else {
             pos.x = (item.v[0].x + item.v[1].x) / 2;
             pos.y = (item.v[0].y + item.v[1].y) / 2;
-            pos.z = (item.right.sector.zCeil.val + item.right.sector.zFloor.val) / 2;
+            pos.z = (item.right.sector.zCeil + item.right.sector.zFloor) / 2;
         }
         return pos;
     }

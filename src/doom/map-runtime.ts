@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { MapData, type LineDef, type Thing, type Action } from "./map-data";
+import { MapData, type LineDef, type Thing, type Action, type Sector } from "./map-data";
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
@@ -13,10 +13,15 @@ import type { Sprite } from "./sprite";
 import { EventEmitter } from "./events";
 
 type MapEvents = {
+    // mobj changes
     ['mobj-added']: [MapObject];
     ['mobj-removed']: [MapObject];
     ['mobj-updated-sprite']: [MapObject, Sprite];
     ['mobj-updated-position']: [MapObject];
+    // map changes
+    ['sector-light']: [Sector],
+    ['sector-z']: [Sector],
+    ['sector-flat']: [Sector],
 }
 
 const episode4MusicMap = [
@@ -79,6 +84,16 @@ interface AnimatedTexture {
     target: Store<string>;
 }
 
+// Rename to AnimatedTexture when we've removed stores from wall textures
+interface AnimatedTexture2 {
+    frames: string[];
+    index: number;
+    speed: number;
+    target: string;
+    sector: Sector;
+    type: 'ceil' | 'floor';
+}
+
 interface ShotTrace {
     id: number;
     start: Vector3;
@@ -89,6 +104,7 @@ interface ShotTrace {
 export class MapRuntime {
     private actions = new Set<Action>();
     private animatedTextures = new Map<Store<string>, AnimatedTexture>();
+    private animatedFlats = new Map<string, AnimatedTexture2>();
 
     readonly player: PlayerMapObject;
     readonly input: GameInput;
@@ -155,17 +171,17 @@ export class MapRuntime {
 
         // initialize animated textures
         for (const sector of this.data.sectors) {
-            this.initializeTextureAnimation(sector.ceilFlat, 'flat');
-            this.initializeTextureAnimation(sector.floorFlat, 'flat');
+            this.initializeFlatTextureAnimation(sector, 'ceil', sector.ceilFlat);
+            this.initializeFlatTextureAnimation(sector, 'floor', sector.floorFlat);
         }
         for (const linedef of this.data.linedefs) {
-            this.initializeTextureAnimation(linedef.right.lower, 'wall');
-            this.initializeTextureAnimation(linedef.right.middle, 'wall');
-            this.initializeTextureAnimation(linedef.right.upper, 'wall');
+            this.initializeWallTextureAnimation(linedef.right.lower);
+            this.initializeWallTextureAnimation(linedef.right.middle);
+            this.initializeWallTextureAnimation(linedef.right.upper);
             if (linedef.left) {
-                this.initializeTextureAnimation(linedef.left.lower, 'wall');
-                this.initializeTextureAnimation(linedef.left.middle, 'wall');
-                this.initializeTextureAnimation(linedef.left.upper, 'wall');
+                this.initializeWallTextureAnimation(linedef.left.lower);
+                this.initializeWallTextureAnimation(linedef.left.middle);
+                this.initializeWallTextureAnimation(linedef.left.upper);
             }
         }
     }
@@ -258,6 +274,14 @@ export class MapRuntime {
                 anim.target.set(anim.frames[anim.index]);
             }
         });
+        this.animatedFlats.forEach(anim => {
+            if (this.game.time.tick.val % anim.speed === 0) {
+                anim.index = (anim.index + 1) % anim.frames.length;
+                anim.target = anim.frames[anim.index];
+                anim.sector[anim.type === 'ceil' ? 'ceilFlat' : 'floorFlat'] = anim.target;
+                this.events.emit('sector-flat', anim.sector);
+            }
+        });
 
         this.objs.forEach(thing => thing.tick());
 
@@ -269,16 +293,30 @@ export class MapRuntime {
         }
     }
 
-    initializeTextureAnimation(target: Store<string>, type: 'wall' | 'flat') {
+    initializeFlatTextureAnimation(sector: Sector, type: 'ceil' | 'floor', target: string) {
+        if (!target) {
+            return;
+        }
+        const key = type[0] + sector.num;
+        const animInfo = this.game.wad.animatedFlats.get(target);
+        if (!animInfo) {
+            // remove animation that was applied to this target
+            this.animatedFlats.delete(key);
+            return;
+        }
+        const { frames, speed } = animInfo
+        const index = animInfo.frames.indexOf(target);
+        this.animatedFlats.set(key, { index, type, frames, target, speed, sector });
+    }
+
+    initializeWallTextureAnimation(target: Store<string>) {
         if (!target || !target.val) {
             return;
         }
-        // wall/flat animations are all 8 ticks each
-        const animations = type === 'wall' ? this.game.wad.animatedWalls : this.game.wad.animatedFlats;
-        const animInfo = animations.get(target.val);
+        const animInfo = this.game.wad.animatedWalls.get(target.val);
         if (!animInfo) {
-                // remove animation that was applied to this target
-                this.animatedTextures.delete(target);
+            // remove animation that was applied to this target
+            this.animatedTextures.delete(target);
             return;
         }
         const { frames, speed } = animInfo
@@ -557,7 +595,7 @@ class GameInput {
                     } else if (hit.line.left) {
                         const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
                         const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
-                        const gap = Math.min(front.zCeil.val, back.zCeil.val) - Math.max(front.zFloor.val, back.zFloor.val);
+                        const gap = Math.min(front.zCeil, back.zCeil) - Math.max(front.zFloor, back.zFloor);
                         if (gap > 0) {
                             return true; // allow trace to continue
                         }

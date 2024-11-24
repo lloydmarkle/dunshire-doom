@@ -1,9 +1,10 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import type { MapTextureAtlas, TextureAtlas } from "./TextureAtlas";
-import { HALF_PI, type LineDef, type SideDef, type Store, type Vertex } from "../../doom";
+import { HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Store, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
+import { sectorLightAnimations } from '../../doom/specials';
 
 // https://github.com/mrdoob/three.js/issues/17361
 function flipWindingOrder(geometry: BufferGeometry) {
@@ -121,8 +122,8 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
     const skyBuilder = geometryBuilder();
     const translucencyBuilder = geometryBuilder();
 
-    const flatGeoBuilder = (flatName: Store<string>) =>
-        flatName.val === 'F_SKY1' ? skyBuilder : geoBuilder;
+    const flatGeoBuilder = (flatName: string) =>
+        flatName === 'F_SKY1' ? skyBuilder : geoBuilder;
 
     type TextureType = 'upper' | 'lower' | 'middle';
     const chooseTexture = (ld: LineDef, type: TextureType, useLeft = false) => {
@@ -154,11 +155,6 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         };
         const angle = Math.atan2(vy, vx);
 
-        const { zFloor : zFloorL, zCeil : zCeilL } = ld.left?.sector ?? {};
-        const { middle: middleL }  = ld.left ?? {};
-        const { zFloor : zFloorR, zCeil : zCeilR } = ld.right.sector
-        const { middle: middleR }  = ld.right;
-
         // these values don't matter because they get reset by the linedef updaters before being rendered
         const top = 1;
         const height = 1;
@@ -177,8 +173,8 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         // Overall we draw way more geometry than needed.
         //
         // See also E3M6 https://doomwiki.org/wiki/File:E3m6_three.PNG
-        const ceilFlatL = (ld.left?.sector ?? {}).ceilFlat?.val;
-        const ceilFlatR = ld.right.sector.ceilFlat.val;
+        const ceilFlatL = (ld.left?.sector ?? {}).ceilFlat;
+        const ceilFlatR = ld.right.sector.ceilFlat;
         const needSkyWall = ceilFlatR === 'F_SKY1';
         const skyHack = (ceilFlatL === 'F_SKY1' && needSkyWall);
         const skyHeight = ld.right.sector.skyHeight;
@@ -212,7 +208,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 if (type === 'lower' && (ld.flags & 0x0010)) {
                     // unpegged so subtract higher floor from ceiling to get real offset
                     // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.
-                    offset = (skyHeight ?? zCeilR.val) - Math.max(zFloorL.val, zFloorR.val);
+                    offset = (skyHeight ?? ld.right.sector.zCeil) - Math.max(ld.left.sector.zFloor, ld.right.sector.zFloor);
                 } else if (type === 'upper' && !(ld.flags & 0x0008)) {
                     offset = -height;
                 } else if (type === 'middle' && (ld.flags & 0x0010)) {
@@ -226,7 +222,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         }
 
         if (needSkyWall && !skyHack) {
-            const geo = skyBuilder.createWallGeo(width, skyHeight - zCeilR.val, mid, skyHeight, angle);
+            const geo = skyBuilder.createWallGeo(width, skyHeight - ld.right.sector.zCeil, mid, skyHeight, angle);
             skyBuilder.addWallGeometry(geo, ld.right.sector.num);
             geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
         }
@@ -241,9 +237,9 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 applySpecials(geo);
 
                 result.upper = m => {
-                    let useLeft = zCeilL.val > zCeilR.val;
-                    const top = Math.max(zCeilR.val, zCeilL.val);
-                    const height = top - Math.min(zCeilL.val, zCeilR.val);
+                    let useLeft = ld.left.sector.zCeil > ld.right.sector.zCeil;
+                    const top = Math.max(ld.right.sector.zCeil, ld.left.sector.zCeil);
+                    const height = top - Math.min(ld.right.sector.zCeil, ld.left.sector.zCeil);
                     const side = useLeft ? ld.left : ld.right;
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'upper', useLeft),
@@ -264,13 +260,13 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 applySpecials(geo);
 
                 result.lower = m => {
-                    let useLeft = zFloorR.val > zFloorL.val;
+                    let useLeft = ld.right.sector.zFloor > ld.left.sector.zFloor;
                     // FIXME: LD#40780 in Sunder MAP20 has zfighting. I think it's from big negative yoffset which pushes
                     // the middle wall down and perhaps it should push the top of this wall down too. I'm not sure.
                     // The sector floors also have problems in that area so something isn't right. (special 242)
                     const side = useLeft ? ld.left : ld.right;
-                    const top = Math.max(zFloorR.val, zFloorL.val);
-                    const height = top - Math.min(zFloorL.val, zFloorR.val);
+                    const top = Math.max(ld.right.sector.zFloor, ld.left.sector.zFloor);
+                    const height = top - Math.min(ld.right.sector.zFloor, ld.left.sector.zFloor);
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'lower', useLeft),
                         width, height,
@@ -283,11 +279,13 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             }
 
             // And middle(s)
+            const middleL = ld.left.middle;
+            const middleR = ld.right.middle;
             const middleUpdater = (idx: GeoInfo, side: SideDef) => (m: MapGeometryUpdater) => {
                 const tx = chooseTexture(ld, 'middle', side === ld.left);
                 const pic = textures.wallTexture(tx)[1];
-                const zFloor = Math.max(zFloorL.val, zFloorR.val);
-                const zCeil = Math.min(zCeilL.val, zCeilR.val);
+                const zFloor = Math.max(ld.left.sector.zFloor, ld.right.sector.zFloor);
+                const zCeil = Math.min(ld.left.sector.zCeil, ld.right.sector.zCeil);
                 // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
                 // and lower unpegged sticks to the ground
                 let top = ((ld.flags & 0x0010) ? Math.min(zFloor + pic.height, zCeil) : zCeil) + side.yOffset.val;
@@ -321,8 +319,8 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             applySpecials(geo);
 
             result.single = m => {
-                const height = zCeilR.val - zFloorR.val;
-                m.changeWallHeight(idx, zCeilR.val, height);
+                const height = ld.right.sector.zCeil - ld.right.sector.zFloor;
+                m.changeWallHeight(idx, ld.right.sector.zCeil, height);
                 m.applyWallTexture(idx, chooseTexture(ld, 'middle'),
                     width, height,
                     ld.right.xOffset.initial, ld.right.yOffset.initial + pegging('middle', height));
@@ -346,7 +344,8 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             if (extra.ceil) {
                 flipWindingOrder(geo);
             }
-            extras.push(flatGeoBuilder(extra.flat).addFlatGeometry(geo, extra.lightSector.num));
+            const flat = extra.ceil ? extra.flatSector.ceilFlat : extra.flatSector.floorFlat;
+            extras.push(flatGeoBuilder(flat).addFlatGeometry(geo, extra.lightSector.num));
         }
         return [ceil, floor, extras];
     }
@@ -361,7 +360,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
     return { addSector, addLinedef, build };
 }
 
-export function buildMapGeometry(textureAtlas: MapTextureAtlas, renderSectors: RenderSector[]) {
+export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapRuntime, renderSectors: RenderSector[]) {
     // Geometry updates happen on the merged geometry but it's more efficient to merge the geometries
     // once. With this little structure, we keep track of all the pending changes to apply them when
     // the geometry has been created.
@@ -382,6 +381,14 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, renderSectors: R
     // the unsubscribes so we don't leak memory in HMR situation (or when reloading a map)
     let disposables: (() => void)[] = [];
     let linedefUpdaters = new Map<number, LindefUpdater>();
+    const sectorZChanges = new Map<number, (() => void)[]>();
+    const sectorFlatChanges = new Map<number, (() => void)[]>();
+    const appendUpdater = (map: typeof sectorZChanges, sector: Sector, updater: () => void) => {
+        const list = map.get(sector.num) ?? [];
+        list.push(updater);
+        map.set(sector.num, list);
+    }
+
     for (const rs of renderSectors) {
         rs.linedefs.map(ld => {
             const updaters = mapBuilder.addLinedef(ld);
@@ -416,13 +423,14 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, renderSectors: R
 
         let [ceil, floor, extras] = mapBuilder.addSector(rs);
 
-        // subscribe for changes and update map geometry
-        // update sector z
-        disposables.push(rs.sector.zFloor.subscribe(z => mapUpdater.moveFlat(floor, z)));
-        disposables.push(rs.sector.zCeil.subscribe(z => mapUpdater.moveFlat(ceil, rs.sector.skyHeight ?? z)));
-        // update sector textures
-        disposables.push(rs.sector.ceilFlat.subscribe(name => mapUpdater.applyFlatTexture(ceil, name)));
-        disposables.push(rs.sector.floorFlat.subscribe(name => mapUpdater.applyFlatTexture(floor, name)));
+        appendUpdater(sectorZChanges, rs.sector, () => {
+            mapUpdater.moveFlat(floor, rs.sector.zFloor);
+            mapUpdater.moveFlat(ceil, rs.sector.skyHeight ?? rs.sector.zCeil);
+        });
+        appendUpdater(sectorFlatChanges, rs.sector, () => {
+            mapUpdater.applyFlatTexture(ceil, rs.sector.ceilFlat);
+            mapUpdater.applyFlatTexture(floor, rs.sector.floorFlat);
+        });
 
         for (let i = 0; i < extras.length; i++) {
             let extra = rs.extraFlats[i];
@@ -431,8 +439,8 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, renderSectors: R
             // flat to avoid z-fighting. We can use a small offset because doom z values are integers except when the
             // platform is moving but we can tolerate a small error for moving platforms.
             let zOffset = extra.ceil ? 0.0001 : -0.0001;
-            disposables.push(extra.z.subscribe(z => mapUpdater.moveFlat(idx, z + zOffset)));
-            disposables.push(extra.flat.subscribe(name => mapUpdater.applyFlatTexture(idx, name)));
+            appendUpdater(sectorZChanges, extra.zSector, () => mapUpdater.moveFlat(idx, zOffset + (extra.ceil ? extra.zSector.zCeil : extra.zSector.zFloor)));
+            appendUpdater(sectorFlatChanges, extra.flatSector, () => mapUpdater.applyFlatTexture(idx, (extra.ceil ? extra.flatSector.ceilFlat : extra.flatSector.floorFlat)));
         }
     }
 
@@ -451,22 +459,27 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, renderSectors: R
         const midLefts = updaters.map(e => linedefUpdaters.get(e.num)?.midLeft).filter(e => e);
         const midRights = updaters.map(e => linedefUpdaters.get(e.num)?.midRight).filter(e => e);
         const singles = updaters.map(e => linedefUpdaters.get(e.num)?.single).filter(e => e);
-
-        disposables.push(rs.sector.zFloor.subscribe(() => {
+        appendUpdater(sectorZChanges, rs.sector, () => {
             lowers.forEach(fn => fn(mapUpdater));
             uppers.forEach(fn => fn(mapUpdater));
             midLefts.forEach(fn => fn(mapUpdater));
             midRights.forEach(fn => fn(mapUpdater));
             singles.forEach(fn => fn(mapUpdater));
-        }));
-        disposables.push(rs.sector.zCeil.subscribe(() => {
-            lowers.forEach(fn => fn(mapUpdater));
-            uppers.forEach(fn => fn(mapUpdater));
-            midLefts.forEach(fn => fn(mapUpdater));
-            midRights.forEach(fn => fn(mapUpdater));
-            singles.forEach(fn => fn(mapUpdater));
-        }));
+        });
     }
+
+    const updateSectorFlat = (sector: Sector) => sectorFlatChanges.get(sector.num).forEach(fn => fn());
+    mapRuntime.events.on('sector-flat', updateSectorFlat);
+    disposables.push(() => mapRuntime.events.off('sector-flat', updateSectorFlat));
+
+    const updateSectorZ = (sector: Sector) => sectorZChanges.get(sector.num).forEach(fn => fn());
+    mapRuntime.events.on('sector-z', updateSectorZ);
+    disposables.push(() => mapRuntime.events.off('sector-z', updateSectorZ));
+
+    mapRuntime.data.sectors.forEach(sector => {
+        updateSectorFlat(sector);
+        updateSectorZ(sector);
+    });
 
     const map = mapBuilder.build();
     mapUpdater = map.updater;

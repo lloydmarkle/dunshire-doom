@@ -37,9 +37,10 @@
         }
     }
 
+    // FIXME: we can't subscribe here anymore!
     $: light = sector.light;
-    $: if (sprite && (sprite.fullbright || $light !== undefined)) {
-        const col = textures.lightColor(sprite?.fullbright ? 255 : $light + $extraLight);
+    $: if (sprite && (sprite.fullbright || light !== undefined)) {
+        const col = textures.lightColor(sprite?.fullbright ? 255 : light + $extraLight);
         if (material instanceof MeshStandardMaterial) {
             material.color = col;
         } else {

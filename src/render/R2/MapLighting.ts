@@ -1,6 +1,6 @@
 import { DataTexture, SRGBColorSpace } from "three";
-import type Sector from "../Map/Sector.svelte";
 import { sineIn } from "svelte/easing";
+import type { MapRuntime, Sector } from "../../doom";
 
 // TODO: How many copies of this function do we have?
 function findNearestPower2(n: number) {
@@ -13,7 +13,7 @@ function findNearestPower2(n: number) {
 
 // TODO: Should we use sectors or render sector (because of renderSector.flatLighting)?
 export type MapLighting = ReturnType<typeof buildLightMap>;
-export function buildLightMap(sectors: Sector[]) {
+export function buildLightMap(map: MapRuntime) {
     // NB: only use SRGBColorSpace for one texture because otherwise we apply it twice.
     // Also, applying to lightLevels seems to look a little brighter than applying to lightMap
     const maxLight = 255;
@@ -30,18 +30,20 @@ export function buildLightMap(sectors: Sector[]) {
     lightLevels.colorSpace = SRGBColorSpace;
     lightLevels.needsUpdate = true;
 
-    const textureSize = findNearestPower2(Math.sqrt(sectors.length));
+    const textureSize = findNearestPower2(Math.sqrt(map.data.sectors.length));
     const sectorLights = new Uint8ClampedArray(textureSize * textureSize * 4);
     const lightMap = new DataTexture(sectorLights, textureSize, textureSize);
-    const subs = sectors.map((sector, i) =>
-        sector.light.subscribe(light => {
-            const lightVal = Math.max(0, Math.min(maxLight, light));
-            sectorLights[i * 4 + 0] = lightVal;
-            sectorLights[i * 4 + 1] = lightVal;
-            sectorLights[i * 4 + 2] = lightVal;
-            sectorLights[i * 4 + 3] = 255;
-            lightMap.needsUpdate = true;
-        }));
-    const dispose = () => subs.forEach(fn => fn());
+    const updateLight = (sector: Sector) => {
+        const lightVal = Math.max(0, Math.min(maxLight, sector.light));
+        sectorLights[sector.num * 4 + 0] = lightVal;
+        sectorLights[sector.num * 4 + 1] = lightVal;
+        sectorLights[sector.num * 4 + 2] = lightVal;
+        sectorLights[sector.num * 4 + 3] = 255;
+        lightMap.needsUpdate = true;
+    }
+    map.data.sectors.forEach(updateLight);
+    map.events.on('sector-light', updateLight);
+
+    const dispose = () => map.events.off('sector-light', updateLight);
     return { lightMap, lightLevels, dispose };
 }

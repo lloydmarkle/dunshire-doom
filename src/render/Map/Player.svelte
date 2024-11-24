@@ -24,6 +24,7 @@
     const { damageCount, bonusCount, inventory, sector } = player;
     const { position: playerPosition } = player.renderData;
     $: renderSector = $sector && renderSectors.find(e => e.sector === $sector)
+    // FIXME: we can't subscribe here anymore!
     $: zFloor = $sector.zFloor;
 
     // not sure this is correct but it looks about right https://doomwiki.org/wiki/Aspect_ratio
@@ -70,7 +71,7 @@
         geometry={new CircleGeometry(player.info.radius)}
         position.x={$playerPosition.x}
         position.y={$playerPosition.y}
-        position.z={$zFloor + 1}
+        position.z={zFloor + 1}
         material={new MeshStandardMaterial({ color: "black", opacity: 0.6, transparent: true })}
     />
 {/if}

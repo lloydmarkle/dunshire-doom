@@ -123,8 +123,8 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
 
             const front = hit.side === -1 ? hit.line.right : hit.line.left;
             const back = hit.side === -1 ? hit.line.left : hit.line.right;
-            const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
-            const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
+            const openTop = Math.min(front.sector.zCeil, back.sector.zCeil);
+            const openBottom = Math.max(front.sector.zFloor, back.sector.zFloor);
             if (openBottom >= openTop) {
                 // it's a two-sided line but there is no opening (eg. a closed door)
                 los = false;
@@ -135,10 +135,10 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
             // but that does not impact his view. If a monster is sitting on a 2-sided line, we should just ignore that
             // line and assume they see both sides
             if (hit.fraction > 0) {
-                if (front.sector.zCeil.val !== back.sector.zCeil.val) {
+                if (front.sector.zCeil !== back.sector.zCeil) {
                     zTop = Math.min(zTop, (openTop - _losStart.z) / hit.fraction);
                 }
-                if (front.sector.zFloor.val !== back.sector.zFloor.val) {
+                if (front.sector.zFloor !== back.sector.zFloor) {
                     zBottom = Math.max(zBottom, (openBottom - _losStart.z) / hit.fraction);
                 }
             }

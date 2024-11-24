@@ -89,9 +89,9 @@ export class MapTextures {
 }
 
 export interface ExtraFlat {
-    flat: Store<string>;
+    flatSector: Sector;
     lightSector: Sector;
-    z: Store<number>;
+    zSector: Sector;
     ceil: boolean;
     geometry: BufferGeometry;
 }
@@ -104,7 +104,7 @@ export interface RenderSector {
     extraFlats: ExtraFlat[];
     zHackFloor: Readable<number>;
     zHackCeil: Readable<number>;
-    flatLighting: Store<number>;
+    flatLighting: Sector;
     mobjs: Store<Set<MapObject>>;
 }
 
@@ -158,13 +158,14 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
         if (geometry) {
             geometry.computeBoundingBox();
-            sector.zFloor.subscribe(floor => geometry.boundingBox.min.z = floor);
-            sector.zCeil.subscribe(ceil => geometry.boundingBox.max.z = ceil);
+            // FIXME: needed for sound
+            // sector.zFloor.subscribe(floor => geometry.boundingBox.min.z = floor);
+            // sector.zCeil.subscribe(ceil => geometry.boundingBox.max.z = ceil);
         }
         const linedefs = sectorRightLindefs.get(sector) ?? [];
         const zHackCeil = readable(0);
         const zHackFloor = readable(0);
-        const flatLighting = sector.light;
+        const flatLighting = sector;
         const visible = store(true)
         const mobjs = store(new Set<MapObject>());
         const extraFlats = [];
@@ -189,22 +190,22 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         // where revenants are in the floor or the exit room with the cyberdemon and brown sludge below the floating marble slabs
         const bothLindefs = [...leftlines, ...linedefs];
         const unequalFloorNoLowerTexture = (ld: LineDef) => ld.left &&
-                (ld.right.sector.zFloor.val !== ld.left.sector.zFloor.val
+                (ld.right.sector.zFloor !== ld.left.sector.zFloor
                 && !ld.left.lower.val && !ld.right.lower.val
                 // skip over closed doors and raised platforms
-                && ld.right.sector.zFloor.val !== ld.right.sector.zCeil.val
-                && ld.left.sector.zFloor.val !== ld.left.sector.zCeil.val);
+                && ld.right.sector.zFloor !== ld.right.sector.zCeil
+                && ld.left.sector.zFloor !== ld.left.sector.zCeil);
         const fakeFloorLines = bothLindefs.filter(unequalFloorNoLowerTexture);
         // If there is only one linedef... we'll just not add the fake floor and hope it's okay.
         // I've seen this done as a mapping trick to reference an unreachable sector
         if (fakeFloorLines.length && bothLindefs.every(ld => ld.left)) {
             for (const line of fakeFloorLines) {
                 let zSec = line.left.sector === sector ? line.right.sector : line.left.sector;
-                let lowerSec = (zSec.zFloor.val > sector.zFloor.val) ? sector : zSec;
+                let lowerSec = (zSec.zFloor > sector.zFloor) ? sector : zSec;
                 renderSector.extraFlats.push({
                     geometry,
-                    z: zSec.zFloor,
-                    flat: lowerSec.floorFlat,
+                    zSector: zSec,
+                    flatSector: lowerSec,
                     lightSector: lowerSec,
                     ceil: false,
                 });
@@ -223,62 +224,63 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         rs.sector = secMap.get(outerSector).sector;
     }
 
+    // FIXME: this is broken in R2 anyway so it needs a proper fixed
     // transparent door and window hack (https://www.doomworld.com/tutorials/fx5.php)
-    for (const linedef of map.linedefs) {
-        if (linedef.left) {
-            const midL = wad.wallTextureData(linedef.left.middle.val);
-            const midR = wad.wallTextureData(linedef.right.middle.val);
-            // I'm not sure these conditions are exactly right but it works for TNT MAP02 and MAP09
-            // and I've tested a bunch of other maps (in Doom and Doom2) and these hacks don't activate.
-            // The "window hack" is particularly sensitive (which is why we have the ===1 condition) but it could
-            // also be fixed by adding missing textures on various walls (like https://github.com/ZDoom/gzdoom/blob/master/wadsrc/static/zscript/level_compatibility.zs)
-            // but even that list isn't complete
-            const zeroHeightWithoutUpperAndLower = (
-                linedef.left.sector.zFloor.val === linedef.left.sector.zCeil.val
-                && linedef.left.sector !== linedef.right.sector // already covered in self-referencing above
-                && linedef.left.sector.ceilFlat.val !== 'F_SKY1' && linedef.right.sector.ceilFlat.val !== 'F_SKY1'
-                && !linedef.right.lower.val && !linedef.right.upper.val
-                && !linedef.left.lower.val && !linedef.left.upper.val
-            );
-            const doorHack = zeroHeightWithoutUpperAndLower
-                && midL && midL.height === linedef.left.yOffset.val
-                && midR && midR.height === linedef.right.yOffset.val;
-            const windowHack = zeroHeightWithoutUpperAndLower
-                && linedef.right.sector.zCeil.val - linedef.left.sector.zCeil.val === 1
-                && !midL && !midR;
-            if (!windowHack && !doorHack) {
-                continue;
-            }
+    // for (const linedef of map.linedefs) {
+    //     if (linedef.left) {
+    //         const midL = wad.wallTextureData(linedef.left.middle.val);
+    //         const midR = wad.wallTextureData(linedef.right.middle.val);
+    //         // I'm not sure these conditions are exactly right but it works for TNT MAP02 and MAP09
+    //         // and I've tested a bunch of other maps (in Doom and Doom2) and these hacks don't activate.
+    //         // The "window hack" is particularly sensitive (which is why we have the ===1 condition) but it could
+    //         // also be fixed by adding missing textures on various walls (like https://github.com/ZDoom/gzdoom/blob/master/wadsrc/static/zscript/level_compatibility.zs)
+    //         // but even that list isn't complete
+    //         const zeroHeightWithoutUpperAndLower = (
+    //             linedef.left.sector.zFloor === linedef.left.sector.zCeil
+    //             && linedef.left.sector !== linedef.right.sector // already covered in self-referencing above
+    //             && linedef.left.sector.ceilFlat !== 'F_SKY1' && linedef.right.sector.ceilFlat !== 'F_SKY1'
+    //             && !linedef.right.lower.val && !linedef.right.upper.val
+    //             && !linedef.left.lower.val && !linedef.left.upper.val
+    //         );
+    //         const doorHack = zeroHeightWithoutUpperAndLower
+    //             && midL && midL.height === linedef.left.yOffset.val
+    //             && midR && midR.height === linedef.right.yOffset.val;
+    //         const windowHack = zeroHeightWithoutUpperAndLower
+    //             && linedef.right.sector.zCeil - linedef.left.sector.zCeil === 1
+    //             && !midL && !midR;
+    //         if (!windowHack && !doorHack) {
+    //             continue;
+    //         }
 
-            const rs = rSectors.find(sec => sec.sector === linedef.left.sector);
-            rs.zHackFloor = derived(
-                [linedef.left.sector.zFloor, linedef.right.sector.zFloor],
-                ([left, right]) => right - left);
-            linedef.transparentDoorHack = doorHack;
-            linedef.transparentWindowHack = windowHack;
-            if (doorHack) {
-                // a door hack means that two flats will probably overlap. We find the sector that is not the door and
-                // overwrite some properties (flats and lighting) to hide the z-fighting. It's definitely a hack.
-                map.linedefs
-                    .filter(ld => pointOnLine(linedef.v[0], ld.v) && linedef.left.sector.light.val !== ld.right.sector.light.val)
-                    .map(ld => rSectors.find(sec => sec.sector === ld.right.sector))
-                    .filter(rsec => rsec)
-                    .forEach(rsec => {
-                        rsec.flatLighting = rs.flatLighting;
-                        rsec.sector.floorFlat = rs.sector.floorFlat;
-                        rsec.sector.ceilFlat = rs.sector.ceilFlat;
-                    });
-                rs.zHackCeil = rs.zHackFloor
-            }
-            if (windowHack) {
-                // A window hack (unlike a door hack) doesn't have two sectors BUT we do need to offset the ceiling
-                // and floor otherwise the geometry won't line up
-                rs.zHackCeil = derived(
-                    [linedef.left.sector.zCeil, linedef.right.sector.zCeil],
-                    ([left, right]) => right - left);
-            }
-        }
-    }
+    //         const rs = rSectors.find(sec => sec.sector === linedef.left.sector);
+    //         rs.zHackFloor = derived(
+    //             [linedef.left.sector.zFloor, linedef.right.sector.zFloor],
+    //             ([left, right]) => right - left);
+    //         linedef.transparentDoorHack = doorHack;
+    //         linedef.transparentWindowHack = windowHack;
+    //         if (doorHack) {
+    //             // a door hack means that two flats will probably overlap. We find the sector that is not the door and
+    //             // overwrite some properties (flats and lighting) to hide the z-fighting. It's definitely a hack.
+    //             map.linedefs
+    //                 .filter(ld => pointOnLine(linedef.v[0], ld.v) && linedef.left.sector.light.val !== ld.right.sector.light.val)
+    //                 .map(ld => rSectors.find(sec => sec.sector === ld.right.sector))
+    //                 .filter(rsec => rsec)
+    //                 .forEach(rsec => {
+    //                     rsec.flatLighting = rs.flatLighting;
+    //                     rsec.sector.floorFlat = rs.sector.floorFlat;
+    //                     rsec.sector.ceilFlat = rs.sector.ceilFlat;
+    //                 });
+    //             rs.zHackCeil = rs.zHackFloor
+    //         }
+    //         if (windowHack) {
+    //             // A window hack (unlike a door hack) doesn't have two sectors BUT we do need to offset the ceiling
+    //             // and floor otherwise the geometry won't line up
+    //             rs.zHackCeil = derived(
+    //                 [linedef.left.sector.zCeil, linedef.right.sector.zCeil],
+    //                 ([left, right]) => right - left);
+    //         }
+    //     }
+    // }
 
     // keep render sector mobjs lists in sync with mobjs. The assumption here is that most objects won't change sectors
     // very often therefore it is cheaper to maintain the list this way rather than filtering the mobj list when

@@ -22,7 +22,7 @@
 
     console.time('map-geo')
     const ta = new MapTextureAtlas(map.game.wad, new TextureAtlas(threlte.renderer.capabilities.maxTextureSize));
-    const { geometry, skyGeometry, translucentGeometry, dispose } = buildMapGeometry(ta, renderSectors);
+    const { geometry, skyGeometry, translucentGeometry, dispose } = buildMapGeometry(ta, map, renderSectors);
     onDestroy(dispose);
     console.timeEnd('map-geo')
 

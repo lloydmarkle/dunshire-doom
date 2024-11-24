@@ -15,7 +15,7 @@
     export let map: MapRuntime;
     export let spriteSheet: SpriteSheet;
 
-    const lighting = buildLightMap(map.data.sectors);
+    const lighting = buildLightMap(map);
     onDestroy(lighting.dispose);
 
     const { editor } = useAppContext();

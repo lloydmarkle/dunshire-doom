@@ -265,8 +265,8 @@ function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sect
         }
         sector.soundC = count;
 
-        const gap = Math.min(seg.linedef.left.sector.zCeil.val, seg.linedef.right.sector.zCeil.val)
-            - Math.max(seg.linedef.left.sector.zFloor.val, seg.linedef.right.sector.zFloor.val);
+        const gap = Math.min(seg.linedef.left.sector.zCeil, seg.linedef.right.sector.zCeil)
+            - Math.max(seg.linedef.left.sector.zFloor, seg.linedef.right.sector.zFloor);
         if (gap <= 0) {
             continue;
         }
@@ -898,7 +898,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     const blocker = findMoveBlocker(mobj, _moveVec, specialLines);
     // if we can float and we're blocked by a two-sided line then float!
     if (blocker && 'line' in blocker && blocker.line.left && mobj.info.flags & MFFlags.MF_FLOAT) {
-        const dz = blocker.line.left.sector.zFloor.val - mobj.position.z;
+        const dz = blocker.line.left.sector.zFloor - mobj.position.z;
         // float if the z-delta is reasonably far from the floor we're aiming for
         if (Math.abs(dz) > 0.0001) {
             const zmove = dz > 0 ? Math.min(dz, maxFloatSpeed) : Math.max(dz, -maxFloatSpeed);
@@ -958,14 +958,14 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                     }
                 } else {
                     const stepUpOK =
-                        (back.zFloor.val < front.zFloor.val) // not a step up
-                        || (back.zFloor.val - start.z <= maxStepSize && maxFloorChangeOK);
-                    const transitionGapOk = (back.zCeil.val - start.z >= mobj.info.height);
-                    const newCeilingFloorGapOk = (back.zCeil.val - back.zFloor.val >= mobj.info.height);
+                        (back.zFloor < front.zFloor) // not a step up
+                        || (back.zFloor - start.z <= maxStepSize && maxFloorChangeOK);
+                    const transitionGapOk = (back.zCeil - start.z >= mobj.info.height);
+                    const newCeilingFloorGapOk = (back.zCeil - back.zFloor >= mobj.info.height);
                     const stepDownOK =
-                        (back.zFloor.val > front.zFloor.val) // not a step down
+                        (back.zFloor > front.zFloor) // not a step down
                         || (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
-                        || (start.z - back.zFloor.val <= maxStepSize);
+                        || (start.z - back.zFloor <= maxStepSize);
 
                     if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
                         // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
@@ -995,8 +995,8 @@ function maxFloorChange(mobj: MapObject, move: Vector3, radius: number) {
     let highestZFloor = -Infinity;
     let lowestZFloor = Infinity;
     mobj.map.data.traceSubsectors(mobj.position, move, radius, hit => {
-        highestZFloor = Math.max(highestZFloor, hit.sector.zFloor.val);
-        lowestZFloor = Math.min(lowestZFloor, hit.sector.zFloor.val);
+        highestZFloor = Math.max(highestZFloor, hit.sector.zFloor);
+        lowestZFloor = Math.min(lowestZFloor, hit.sector.zFloor);
         return true;
     });
     return (highestZFloor - lowestZFloor);

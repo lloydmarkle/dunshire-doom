@@ -111,11 +111,11 @@ export class MapObject {
         // only players, monsters, and missiles are moveable which affects how we choose zFloor and zCeil
         const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_MISSILE) || spec.moType === MapObjectIndex.MT_PLAYER;
         const highestZFloor = !moveable
-            ? (sector: Sector, zFloor: number) => (this.sector.val ?? sector).zFloor.val
+            ? (sector: Sector, zFloor: number) => (this.sector.val ?? sector).zFloor
             : (sector: Sector, zFloor: number) => {
-                const ceil = lowestZCeil(sector, sector.zCeil.val);
+                const ceil = lowestZCeil(sector, sector.zCeil);
                 this.subsectors(subsector => {
-                    const floor = (sector === subsector.sector) ? zFloor : subsector.sector.zFloor.val;
+                    const floor = (sector === subsector.sector) ? zFloor : subsector.sector.zFloor;
                     const step = floor - this.position.z;
                     // only allow step if it's small and we can fit in the ceiling/floor gap
                     // (see imp near sector 75 in E1M7)
@@ -127,10 +127,10 @@ export class MapObject {
             };
 
         const lowestZCeil = !moveable
-            ? (sector: Sector, zCeil: number) => (this.sector.val ?? sector).zCeil.val
+            ? (sector: Sector, zCeil: number) => (this.sector.val ?? sector).zCeil
             : (sector: Sector, zCeil: number) => {
                 this.subsectors(subsector => {
-                    const ceil = (sector === subsector.sector) ? zCeil : subsector.sector.zCeil.val;
+                    const ceil = (sector === subsector.sector) ? zCeil : subsector.sector.zCeil;
                     zCeil = Math.min(ceil, zCeil);
                 });
                 return zCeil;
@@ -147,10 +147,10 @@ export class MapObject {
             // check that we are on the ground before updating zFloor because if we were on the ground before
             // change, we want to force object to the ground after the change
             const onGround = this.position.z <= this._zFloor;
-            this._zCeil = lowestZCeil(sector, sector.zCeil.val);
+            this._zCeil = lowestZCeil(sector, sector.zCeil);
             this._zFloor = fromCeiling
                 ? this.zCeil - this.info.height
-                : highestZFloor(sector, sector.zFloor.val);
+                : highestZFloor(sector, sector.zFloor);
             // ceiling things or things on the ground always update
             if (fromCeiling || onGround) {
                 this.position.z = this.zFloor;
@@ -182,15 +182,15 @@ export class MapObject {
             });
 
             const sector = this.map.data.findSector(p.x, p.y);
-            this._zCeil = lowestZCeil(sector, sector.zCeil.val);
+            this._zCeil = lowestZCeil(sector, sector.zCeil);
             const lastZFloor = this._zFloor;
             this._zFloor = fromCeiling && !this.isDead //<-- for keens
                 ? this.zCeil - this.info.height
                 // we want the sector with the highest floor which means we float a little when standing on an edge
-                : highestZFloor(sector, sector.zFloor.val);
+                : highestZFloor(sector, sector.zFloor);
             if (!this.sector.val) {
                 // first time setting sector so set zpos based on sector containing the object center
-                p.z = sector.zFloor.val;
+                p.z = sector.zFloor;
             }
             this._onGround = p.z <= this._zFloor;
             if (this.sector.val !== sector) {
@@ -346,7 +346,7 @@ export class MapObject {
 
     teleport(target: MapObject, sector: Sector) {
         this.velocity.set(0, 0, 0);
-        this.position.set(target.position.x, target.position.y, sector.zFloor.val);
+        this.position.set(target.position.x, target.position.y, sector.zFloor);
         this.positionChanged();
         this.direction = target.direction;
 
@@ -505,8 +505,8 @@ export class MapObject {
                             return false;
                         }
 
-                        explode = explode || (start.z < back.zFloor.val);
-                        explode = explode || (start.z + this.info.height > back.zCeil.val);
+                        explode = explode || (start.z < back.zFloor);
+                        explode = explode || (start.z + this.info.height > back.zCeil);
                     }
 
                     if (!twoSided || explode) {
@@ -523,12 +523,12 @@ export class MapObject {
                 if (twoSided && !blocking) {
                     const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
 
-                    const floorChangeOk = (back.zFloor.val - start.z <= maxStepSize);
-                    const transitionGapOk = (back.zCeil.val - start.z >= this.info.height);
-                    const newCeilingFloorGapOk = (back.zCeil.val - back.zFloor.val >= this.info.height);
+                    const floorChangeOk = (back.zFloor - start.z <= maxStepSize);
+                    const transitionGapOk = (back.zCeil - start.z >= this.info.height);
+                    const newCeilingFloorGapOk = (back.zCeil - back.zFloor >= this.info.height);
                     const dropOffOk =
                         (this.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
-                        (start.z - back.zFloor.val <= maxStepSize);
+                        (start.z - back.zFloor <= maxStepSize);
 
                     // console.log('[sz,ez], [f,t,cf,do]',[start.z, back.zFloor.val], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
                     if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
@@ -721,7 +721,7 @@ export class PlayerMapObject extends MapObject {
         const sector = this.sector.val;
         // different from this.onGround because that depends on this.zFloor which takes into account surrounding sector
         // here we are only looking at the sector containing the player center
-        const onGround = this.position.z <= sector.zFloor.val;
+        const onGround = this.position.z <= sector.zFloor;
         if (sector.type && onGround) {
             const haveRadiationSuit = this.inventory.val.items.radiationSuitTicks > 0;
             // only cause pain every 31st tick or about .89s

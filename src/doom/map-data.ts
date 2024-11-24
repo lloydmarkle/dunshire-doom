@@ -118,11 +118,11 @@ export interface Sector {
     num: number;
     tag: number;
     type: number;
-    zFloor: Store<number>;
-    zCeil: Store<number>;
-    light: Store<number>;
-    floorFlat: Store<string>;
-    ceilFlat: Store<string>;
+    zFloor: number;
+    zCeil: number;
+    light: number;
+    floorFlat: string;
+    ceilFlat: string;
     // part of skyhack
     skyHeight?: number;
     // Game processing data
@@ -140,11 +140,11 @@ function sectorsLump(lump: Lump) {
     }
     let sectors = new Array<Sector>(num);
     for (let i = 0; i < num; i++) {
-        const zFloor = store(int16(word(lump.data, 0 + i * len)));
-        const zCeil = store(int16(word(lump.data, 2 + i * len)));
-        const floorFlat = store(fixTextureName(lumpString(lump.data, 4 + i * len, 8)));
-        const ceilFlat = store(fixTextureName(lumpString(lump.data, 12 + i * len, 8)));
-        const light = store(int16(word(lump.data, 20 + i * len)));
+        const zFloor = int16(word(lump.data, 0 + i * len));
+        const zCeil = int16(word(lump.data, 2 + i * len));
+        const floorFlat = fixTextureName(lumpString(lump.data, 4 + i * len, 8));
+        const ceilFlat = fixTextureName(lumpString(lump.data, 12 + i * len, 8));
+        const light = int16(word(lump.data, 20 + i * len));
         const type = int16(word(lump.data, 22 + i * len));
         const tag = int16(word(lump.data, 24 + i * len));
         sectors[i] = {
@@ -230,13 +230,13 @@ export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit;
 export type HandleTraceHit<T=TraceHit> = (hit: T) => boolean;
 
 export const hitSkyFlat = (hit: SectorTraceHit) =>
-    (hit.flat === 'ceil' && hit.subsector.sector.ceilFlat.val === 'F_SKY1') ||
-    (hit.flat === 'floor' && hit.subsector.sector.floorFlat.val === 'F_SKY1');
+    (hit.flat === 'ceil' && hit.subsector.sector.ceilFlat === 'F_SKY1') ||
+    (hit.flat === 'floor' && hit.subsector.sector.floorFlat === 'F_SKY1');
 
 export const hitSkyWall = (z: number, front: Sector, back: Sector) =>
-    (front.ceilFlat.val === 'F_SKY1') && (
-        (z > front.zCeil.val) ||
-        (back && z > back.zCeil.val && back.skyHeight !== undefined && back.skyHeight !== back.zCeil.val)
+    (front.ceilFlat === 'F_SKY1') && (
+        (z > front.zCeil) ||
+        (back && z > back.zCeil && back.skyHeight !== undefined && back.skyHeight !== back.zCeil)
 );
 
 export const zeroVec = new Vector3();
@@ -299,13 +299,13 @@ export class MapData {
             sector.portalSegs = portalSegsBySector.get(sector) ?? [];
             // compute sector centers which is used for sector sound origin
             const mid = sectorMiddle(sector, subsectors);
-            sector.center.set(mid.x, mid.y, (sector.zCeil.val + sector.zFloor.val) * .5);
+            sector.center.set(mid.x, mid.y, (sector.zCeil + sector.zFloor) * .5);
         }
 
         // figure out any sectors that need sky height adjustment
-        const skyGroups = groupSkySectors(this.sectors.filter(e => e.ceilFlat.val === 'F_SKY1'));
+        const skyGroups = groupSkySectors(this.sectors.filter(e => e.ceilFlat === 'F_SKY1'));
         skyGroups.forEach(sectors => {
-            const skyHeight = Math.max(...sectors.map(sec => sec.zCeil.val));
+            const skyHeight = Math.max(...sectors.map(sec => sec.zCeil));
             sectors.forEach(sector => sector.skyHeight = skyHeight);
         });
 
@@ -381,7 +381,7 @@ export class MapData {
 function groupSkySectors(sectors: Sector[]): Sector[][] {
     const toVisit = new Set(sectors.map(s => s.num));
     const visitSector = (sector: Sector, group: Set<Sector>) => {
-        if (sector.ceilFlat.val !== 'F_SKY1' || group.has(sector)) {
+        if (sector.ceilFlat !== 'F_SKY1' || group.has(sector)) {
             return group;
         }
 
@@ -544,11 +544,11 @@ function createBspTracer(root: TreeNode) {
 
             if (params.hitFlat) {
                 // collide with floor or ceiling
-                const floorHit = params.move.z < 0 && flatHit('floor', subsector, subsector.sector.zFloor.val, params);
+                const floorHit = params.move.z < 0 && flatHit('floor', subsector, subsector.sector.zFloor, params);
                 if (floorHit) {
                     hits.push(floorHit);
                 }
-                const ceilHit = params.move.z > 0 && flatHit('ceil', subsector, subsector.sector.zCeil.val - (params.height ?? 0), params);
+                const ceilHit = params.move.z > 0 && flatHit('ceil', subsector, subsector.sector.zCeil - (params.height ?? 0), params);
                 if (ceilHit) {
                     hits.push(ceilHit);
                 }
