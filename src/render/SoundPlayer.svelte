@@ -1,6 +1,6 @@
 <script lang="ts">
     import { useAppContext } from "./DoomContext";
-    import { MapObject, PlayerMapObject, SoundIndex, store, type Sector, type SoundEmitter, DoomWad, xyDistSqr } from "../doom";
+    import { MapObject, PlayerMapObject, SoundIndex, store, type Sector, type SoundEmitter, DoomWad, xyDistSqr, word, dword } from "../doom";
     import { Vector3 } from "three";
     import { randInt } from "three/src/math/MathUtils";
 
@@ -70,15 +70,13 @@
     }
 
     const soundBuffers = new Map<string, AudioBuffer>()
-    const word = (buff: Uint8Array, offset: number) => buff[offset + 1] << 8 | buff[offset];
-    const dword = (buff: Uint8Array, offset: number) => word(buff, offset + 2) << 16 | word(buff, offset);
     function soundBuffer(name: string) {
         if (!soundBuffers.has(name)) {
             const buff = wad.lumpByName(name).data;
             const sampleRate = word(buff, 0x2);
             const numSamples = dword(buff, 0x4) - 32;
             const buffer = audio.createBuffer(1, numSamples, sampleRate);
-            buffer.getChannelData(0).set(buff.slice(0x18, numSamples));
+            buffer.getChannelData(0).set(buff.slice(0x18, 0x18 + numSamples));
             soundBuffers.set(name, buffer);
         }
         return soundBuffers.get(name);
@@ -101,7 +99,6 @@
 
             const isSectorLocation = location && 'soundTarget' in location;
             const isPositional = player && location && location !== player;
-            const now = audio.currentTime;
 
             // FIXME: SoundIndex[snd] can be undefined?
             const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
@@ -109,7 +106,6 @@
             this.soundNode.buffer = soundBuffer(name);
             this.soundNode.playbackRate.value = timescale;
             this.soundNode.addEventListener('ended', this.deactivate);
-            this.soundNode.start(now);
             // A controversial feature? https://doomwiki.org/wiki/Random_sound_pitch_removed
             if (snd === SoundIndex.sfx_sawup || snd === SoundIndex.sfx_sawhit) {
                 this.soundNode.detune.value = randInt(-8, 8) * 4;
@@ -118,8 +114,10 @@
                 this.soundNode.detune.value = randInt(-16, 16) * 4;
             }
 
+            const now = audio.currentTime;
             this.gainNode = gainNode(now, soundGain, this.soundNode.buffer);
             this.gainNode.connect(audioRoot);
+            this.soundNode.start(now);
 
             if (!isPositional) {
                 this.soundNode.connect(this.gainNode);
