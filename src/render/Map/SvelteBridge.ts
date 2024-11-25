@@ -1,5 +1,5 @@
 import type { Vector3 } from 'three';
-import { MapRuntime, PlayerMapObject as PMO, store, type MapObject as MO, type Sector, type SideDef, type Sprite, type Store, type WallTextureType } from '../../doom';
+import { MapRuntime, PlayerMapObject as PMO, store, type LineDef, type MapObject as MO, type Sector, type Sprite, type Store } from '../../doom';
 
 
 interface RenderData {
@@ -68,7 +68,16 @@ export function bridgeEventsToReadables(map: MapRuntime) {
         sector.renderData['ceilFlat'].set(sector.ceilFlat);
     };
     const updateSectorLight = (sector: Sector) => sector.renderData['light'].set(sector.light);
-    const updateTexture = (side: SideDef, prop: WallTextureType) => side.renderData[prop].set(side[prop]);
+    const updateTexture = (line: LineDef) => {
+        line.right.renderData['lower'].set(line.right.lower);
+        line.right.renderData['middle'].set(line.right.middle);
+        line.right.renderData['upper'].set(line.right.upper);
+        if (line.left) {
+            line.left.renderData['lower'].set(line.left.lower);
+            line.left.renderData['middle'].set(line.left.middle);
+            line.left.renderData['upper'].set(line.left.upper);
+        }
+    }
     map.events.on('sector-flat', updateSectorFlat);
     map.events.on('sector-light', updateSectorLight);
     map.events.on('sector-z', updateSectorZ);

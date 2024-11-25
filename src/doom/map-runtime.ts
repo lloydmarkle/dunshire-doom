@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { MapData, type LineDef, type Thing, type Action, type Sector, type SideDef } from "./map-data";
+import { MapData, type LineDef, type Thing, type Action, type Sector } from "./map-data";
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
@@ -12,6 +12,7 @@ import { derived } from "svelte/store";
 import type { Sprite } from "./sprite";
 import { EventEmitter } from "./events";
 
+export type LineSide = 'left' | 'right';
 export type WallTextureType = 'upper' | 'lower' | 'middle';
 type MapEvents = {
     // mobj changes
@@ -23,7 +24,7 @@ type MapEvents = {
     ['sector-light']: [Sector],
     ['sector-z']: [Sector],
     ['sector-flat']: [Sector],
-    ['wall-texture']: [SideDef, WallTextureType],
+    ['wall-texture']: [LineDef],
 }
 
 const episode4MusicMap = [
@@ -83,7 +84,8 @@ interface AnimatedTexture {
     frames: string[];
     index: number;
     speed: number;
-    side: SideDef;
+    line: LineDef;
+    side: LineSide
     prop: WallTextureType;
 }
 
@@ -177,13 +179,13 @@ export class MapRuntime {
             this.initializeFlatTextureAnimation(sector, 'floorFlat', sector.floorFlat);
         }
         for (const linedef of this.data.linedefs) {
-            this.initializeWallTextureAnimation(linedef.right, 'lower');
-            this.initializeWallTextureAnimation(linedef.right, 'middle');
-            this.initializeWallTextureAnimation(linedef.right, 'upper');
+            this.initializeWallTextureAnimation(linedef, 'right', 'lower');
+            this.initializeWallTextureAnimation(linedef, 'right', 'middle');
+            this.initializeWallTextureAnimation(linedef, 'right', 'upper');
             if (linedef.left) {
-                this.initializeWallTextureAnimation(linedef.left, 'lower');
-                this.initializeWallTextureAnimation(linedef.left, 'middle');
-                this.initializeWallTextureAnimation(linedef.left, 'upper');
+                this.initializeWallTextureAnimation(linedef, 'left', 'lower');
+                this.initializeWallTextureAnimation(linedef, 'left', 'middle');
+                this.initializeWallTextureAnimation(linedef, 'left', 'upper');
             }
         }
     }
@@ -273,8 +275,8 @@ export class MapRuntime {
         this.animatedTextures.forEach(anim => {
             if (this.game.time.tick.val % anim.speed === 0) {
                 anim.index = (anim.index + 1) % anim.frames.length;
-                anim.side[anim.prop] = anim.frames[anim.index];
-                this.events.emit('wall-texture', anim.side, anim.prop);
+                anim.line[anim.side][anim.prop] = anim.frames[anim.index];
+                this.events.emit('wall-texture', anim.line);
             }
         });
         this.animatedFlats.forEach(anim => {
@@ -311,20 +313,21 @@ export class MapRuntime {
         this.animatedFlats.set(key, { index, prop, frames, speed, sector });
     }
 
-    initializeWallTextureAnimation(side: SideDef, prop: WallTextureType) {
-        if (!side[prop]) {
+    initializeWallTextureAnimation(line: LineDef, side: LineSide, prop: WallTextureType) {
+        const textureName = line[side][prop];
+        if (!textureName) {
             return;
         }
-        const key = prop[0] + side.num;
-        const animInfo = this.game.wad.animatedWalls.get(side[prop]);
+        const key = side[0] + prop[0] + line.num;
+        const animInfo = this.game.wad.animatedWalls.get(textureName);
         if (!animInfo) {
             // remove animation that was applied to this target
             this.animatedTextures.delete(key);
             return;
         }
         const { frames, speed } = animInfo
-        const index = animInfo.frames.indexOf(side[prop]);
-        this.animatedTextures.set(key, { index, side, prop, frames, speed });
+        const index = animInfo.frames.indexOf(textureName);
+        this.animatedTextures.set(key, { index, line, side, prop, frames, speed });
     }
 
     addAction(action: Action) {
@@ -376,20 +379,20 @@ export class MapRuntime {
         const special = triggerSpecial(mobj, linedef, trigger, side);
         if (special && trigger !== 'W') {
             // TODO: if special is already triggered (eg. by walking over a line) the switch shouldn't trigger
-            if (this.tryToggle(special, linedef, linedef.right, 'upper')) {
+            if (this.tryToggle(special, linedef, 'upper')) {
                 return;
             }
-            if (this.tryToggle(special, linedef, linedef.right, 'middle')) {
+            if (this.tryToggle(special, linedef, 'middle')) {
                 return;
             }
-            if (this.tryToggle(special, linedef, linedef.right, 'lower')) {
+            if (this.tryToggle(special, linedef, 'lower')) {
                 return;
             }
         }
     }
 
-    private tryToggle(special: SpecialDefinition, linedef: LineDef, side: SideDef, prop: WallTextureType) {
-        const textureName = side[prop];
+    private tryToggle(special: SpecialDefinition, linedef: LineDef, prop: WallTextureType) {
+        const textureName = linedef.right[prop];
         const toggleTexture = this.game.wad.switchToggle(textureName);
         if (!toggleTexture || linedef.switchAction) {
             return false;
@@ -399,8 +402,8 @@ export class MapRuntime {
         const sound = (linedef.special === 11 || linedef.special === 51)
             ? SoundIndex.sfx_swtchx : SoundIndex.sfx_swtchn;
         this.game.playSound(sound, linedef.right.sector);
-        side[prop] = toggleTexture;
-        this.events.emit('wall-texture', side, prop);
+        linedef.right[prop] = toggleTexture;
+        this.events.emit('wall-texture', linedef);
         if (!special.repeatable) {
             return true;
         }
@@ -413,8 +416,8 @@ export class MapRuntime {
             }
             // restore original state
             this.game.playSound(SoundIndex.sfx_swtchn, linedef.right.sector);
-            side[prop] = textureName;
-            this.events.emit('wall-texture', side, prop);
+            linedef.right[prop] = textureName;
+            this.events.emit('wall-texture', linedef);
             linedef.switchAction = null;
             this.removeAction(action);
         };

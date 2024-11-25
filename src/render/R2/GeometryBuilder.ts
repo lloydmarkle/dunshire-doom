@@ -1,10 +1,9 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
-import type { MapTextureAtlas, TextureAtlas } from "./TextureAtlas";
+import type { MapTextureAtlas } from "./TextureAtlas";
 import { HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Store, type Vertex, type WallTextureType } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
-import { sectorLightAnimations } from '../../doom/specials';
 
 // https://github.com/mrdoob/three.js/issues/17361
 function flipWindingOrder(geometry: BufferGeometry) {
@@ -386,27 +385,9 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
     }
 
     for (const rs of renderSectors) {
-        rs.linedefs.map(ld => {
+        rs.linedefs.forEach(ld => {
             const updaters = mapBuilder.addLinedef(ld);
             linedefUpdaters.set(ld.num, updaters);
-
-            if (ld.left) {
-                if (updaters.lower) {
-                    ld.left.renderData['lower'] = () => updaters.lower(mapUpdater);
-                    ld.right.renderData['lower'] = () => updaters.lower(mapUpdater);
-                }
-                if (updaters.upper) {
-                    ld.left.renderData['upper'] = () => updaters.upper(mapUpdater);
-                    ld.right.renderData['upper'] = () => updaters.upper(mapUpdater);
-                }
-                if (updaters.midLeft) {
-                    ld.left.renderData['middle'] = () => updaters.midLeft(mapUpdater);
-                }
-            }
-            ld.right.renderData['middle'] = () => {
-                updaters.midRight?.(mapUpdater);
-                updaters.single?.(mapUpdater);
-            }
         });
         if (!rs.geometry) {
             // Plutonia MAP29?
@@ -436,10 +417,6 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
         }
     }
 
-    const updateSidedefTexture = (side: SideDef, prop: WallTextureType) => side.renderData[prop]?.();
-    mapRuntime.events.on('wall-texture', updateSidedefTexture);
-    disposables.push(() => mapRuntime.events.off('wall-texture', updateSidedefTexture));
-
     // try to minimize subscriptions by grouping lindefs that listen to a sector change
     // and only subscribing to that sector once. I'm not sure it's worth it. Actually, I'm
     // not sure using svelte store makes sense anymore at all and I'll probably remove it
@@ -464,11 +441,22 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
         });
     }
 
-    const updateSectorFlat = (sector: Sector) => sectorFlatChanges.get(sector.num).forEach(fn => fn());
+    const updateLinedefTexture = (line: LineDef) => {
+        const updaters = linedefUpdaters.get(line.num);
+        updaters.lower?.(mapUpdater);
+        updaters.midLeft?.(mapUpdater);
+        updaters.midRight?.(mapUpdater);
+        updaters.upper?.(mapUpdater);
+        updaters.single?.(mapUpdater);
+    }
+    mapRuntime.events.on('wall-texture', updateLinedefTexture);
+    disposables.push(() => mapRuntime.events.off('wall-texture', updateLinedefTexture));
+
+    const updateSectorFlat = (sector: Sector) => sectorFlatChanges.get(sector.num)?.forEach(fn => fn());
     mapRuntime.events.on('sector-flat', updateSectorFlat);
     disposables.push(() => mapRuntime.events.off('sector-flat', updateSectorFlat));
 
-    const updateSectorZ = (sector: Sector) => sectorZChanges.get(sector.num).forEach(fn => fn());
+    const updateSectorZ = (sector: Sector) => sectorZChanges.get(sector.num)?.forEach(fn => fn());
     mapRuntime.events.on('sector-z', updateSectorZ);
     disposables.push(() => mapRuntime.events.off('sector-z', updateSectorZ));
 
