@@ -191,7 +191,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         const bothLindefs = [...leftlines, ...linedefs];
         const unequalFloorNoLowerTexture = (ld: LineDef) => ld.left &&
                 (ld.right.sector.zFloor !== ld.left.sector.zFloor
-                && !ld.left.lower.val && !ld.right.lower.val
+                && !ld.left.lower && !ld.right.lower
                 // skip over closed doors and raised platforms
                 && ld.right.sector.zFloor !== ld.right.sector.zCeil
                 && ld.left.sector.zFloor !== ld.left.sector.zCeil);

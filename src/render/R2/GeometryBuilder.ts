@@ -1,7 +1,7 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import type { MapTextureAtlas, TextureAtlas } from "./TextureAtlas";
-import { HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Store, type Vertex } from "../../doom";
+import { HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Store, type Vertex, type WallTextureType } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
 import { sectorLightAnimations } from '../../doom/specials';
@@ -125,12 +125,10 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
     const flatGeoBuilder = (flatName: string) =>
         flatName === 'F_SKY1' ? skyBuilder : geoBuilder;
 
-    type TextureType = 'upper' | 'lower' | 'middle';
-    const chooseTexture = (ld: LineDef, type: TextureType, useLeft = false) => {
+    const chooseTexture = (ld: LineDef, type: WallTextureType, useLeft = false) => {
         let textureL = ld.left?.[type];
         let textureR = ld.right[type];
-        let texture = useLeft ? (textureL?.val ?? textureR.val) : (textureR.val ?? textureL?.val);
-        return texture;
+        return useLeft ? (textureL ?? textureR) : (textureR ?? textureL);
     }
 
     const addLinedef = (ld: LineDef): LindefUpdater => {
@@ -173,7 +171,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         // Overall we draw way more geometry than needed.
         //
         // See also E3M6 https://doomwiki.org/wiki/File:E3m6_three.PNG
-        const ceilFlatL = (ld.left?.sector ?? {}).ceilFlat;
+        const ceilFlatL = ld.left?.sector?.ceilFlat;
         const ceilFlatR = ld.right.sector.ceilFlat;
         const needSkyWall = ceilFlatR === 'F_SKY1';
         const skyHack = (ceilFlatL === 'F_SKY1' && needSkyWall);
@@ -202,7 +200,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         }
 
         // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
-        function pegging(type: TextureType, height: number) {
+        function pegging(type: WallTextureType, height: number) {
             let offset = 0;
             if (ld.left) {
                 if (type === 'lower' && (ld.flags & 0x0010)) {
@@ -279,8 +277,6 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             }
 
             // And middle(s)
-            const middleL = ld.left.middle;
-            const middleR = ld.right.middle;
             const middleUpdater = (idx: GeoInfo, side: SideDef) => (m: MapGeometryUpdater) => {
                 const tx = chooseTexture(ld, 'middle', side === ld.left);
                 const pic = textures.wallTexture(tx)[1];
@@ -295,7 +291,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 m.applyWallTexture(idx, tx, width, height,
                     side.xOffset.initial, pegging('middle', height));
             };
-            if (middleL.val) {
+            if (ld.left.middle) {
                 const geo = builder.createWallGeo(width, height, mid, top, angle + Math.PI);
                 const idx = builder.addWallGeometry(geo, ld.left.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
@@ -303,7 +299,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
 
                 result.midLeft = middleUpdater(idx, ld.left);
             }
-            if (middleR.val) {
+            if (ld.right.middle) {
                 const geo = builder.createWallGeo(width, height, mid, top, angle);
                 const idx = builder.addWallGeometry(geo, ld.right.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
@@ -396,25 +392,21 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
 
             if (ld.left) {
                 if (updaters.lower) {
-                    disposables.push(ld.left.lower.subscribe(() => updaters.lower(mapUpdater)));
+                    ld.left.renderData['lower'] = () => updaters.lower(mapUpdater);
+                    ld.right.renderData['lower'] = () => updaters.lower(mapUpdater);
                 }
                 if (updaters.upper) {
-                    disposables.push(ld.left.upper.subscribe(() => updaters.upper(mapUpdater)));
+                    ld.left.renderData['upper'] = () => updaters.upper(mapUpdater);
+                    ld.right.renderData['upper'] = () => updaters.upper(mapUpdater);
                 }
                 if (updaters.midLeft) {
-                    disposables.push(ld.left.middle.subscribe(() => updaters.midLeft(mapUpdater)));
+                    ld.left.renderData['middle'] = () => updaters.midLeft(mapUpdater);
                 }
             }
-            if (updaters.lower) {
-                disposables.push(ld.right.lower.subscribe(() => updaters.lower(mapUpdater)));
-            }
-            if (updaters.upper) {
-                disposables.push(ld.right.upper.subscribe(() => updaters.upper(mapUpdater)));
-            }
-            disposables.push(ld.right.middle.subscribe(() =>{
+            ld.right.renderData['middle'] = () => {
                 updaters.midRight?.(mapUpdater);
                 updaters.single?.(mapUpdater);
-            }));
+            }
         });
         if (!rs.geometry) {
             // Plutonia MAP29?
@@ -443,6 +435,10 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
             appendUpdater(sectorFlatChanges, extra.flatSector, () => mapUpdater.applyFlatTexture(idx, (extra.ceil ? extra.flatSector.ceilFlat : extra.flatSector.floorFlat)));
         }
     }
+
+    const updateSidedefTexture = (side: SideDef, prop: WallTextureType) => side.renderData[prop]?.();
+    mapRuntime.events.on('wall-texture', updateSidedefTexture);
+    disposables.push(() => mapRuntime.events.off('wall-texture', updateSidedefTexture));
 
     // try to minimize subscriptions by grouping lindefs that listen to a sector change
     // and only subscribing to that sector once. I'm not sure it's worth it. Actually, I'm

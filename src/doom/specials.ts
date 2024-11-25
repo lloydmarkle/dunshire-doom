@@ -59,8 +59,8 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     const missingTextureSize = 64;
     for (const ld of map.data.linedefs) {
         if (ld.left?.sector === sector || ld.right.sector === sector) {
-            const ltx = map.game.wad.wallTextureData(ld.left.lower.val);
-            const rtx = map.game.wad.wallTextureData(ld.right.lower.val);
+            const ltx = map.game.wad.wallTextureData(ld.left.lower);
+            const rtx = map.game.wad.wallTextureData(ld.right.lower);
             target = Math.min(target, (ltx?.height ?? missingTextureSize), (rtx?.height ?? missingTextureSize));
         }
     }

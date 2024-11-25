@@ -80,12 +80,14 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
 }
 
 export interface SideDef {
+    num: number;
     xOffset: Store<number>;
     yOffset: Store<number>;
     sector: Sector;
-    upper: Store<string>;
-    lower: Store<string>;
-    middle: Store<string>;
+    upper: string;
+    lower: string;
+    middle: string;
+    renderData: any;
 }
 function sideDefsLump(lump: Lump, sectors: Sector[]) {
     const len = 30;
@@ -97,12 +99,12 @@ function sideDefsLump(lump: Lump, sectors: Sector[]) {
     for (let i = 0; i < num; i++) {
         const xOffset = store(int16(word(lump.data, 0 + i * len)));
         const yOffset = store(int16(word(lump.data, 2 + i * len)));
-        const upper = store(fixTextureName(lumpString(lump.data, 4 + i * len, 8)));
-        const lower = store(fixTextureName(lumpString(lump.data, 12 + i * len, 8)));
-        const middle = store(fixTextureName(lumpString(lump.data, 20 + i * len, 8)));
+        const upper = fixTextureName(lumpString(lump.data, 4 + i * len, 8));
+        const lower = fixTextureName(lumpString(lump.data, 12 + i * len, 8));
+        const middle = fixTextureName(lumpString(lump.data, 20 + i * len, 8));
         const sectorId = int16(word(lump.data, 28 + i * len));
         const sector = sectors[sectorId];
-        sidedefs[i] = { xOffset, yOffset, sector, lower, middle, upper };
+        sidedefs[i] = { num: i, xOffset, yOffset, sector, lower, middle, upper, renderData: {} };
     }
     return sidedefs;
 }
