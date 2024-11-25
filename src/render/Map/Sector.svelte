@@ -8,7 +8,7 @@
     import ExtraFlat from "./ExtraFlat.svelte";
 
     export let renderSector: RenderSector;
-    const { zFloor, zCeil, floorFlat, ceilFlat, light } = renderSector.sector;
+    const { zFloor, zCeil, floorFlat, ceilFlat, light } = renderSector.sector.renderData;
     const { geometry, zHackCeil, zHackFloor, mobjs, extraFlats } = renderSector;
     $: mo = [...$mobjs].sort((a, b) => a.id - b.id);
 

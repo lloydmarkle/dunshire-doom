@@ -29,8 +29,8 @@
     // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
     // There may be other places this happens but we correct it by doing a little hack
     // Actually gzdoom has lots of little corrections https://github.com/ZDoom/gzdoom/blob/master/wadsrc/static/zscript/level_compatibility.zs
-    $: textureL = linedef.left?.[type];
-    $: textureR = linedef.right[type];
+    $: textureL = linedef.left?.renderData?.[type];
+    $: textureR = linedef.right.renderData[type];
     $: texture = useLeft ? ($textureL ?? $textureR) : ($textureR ?? $textureL);
 
     const { yOffset, xOffset } = sidedef;
@@ -50,9 +50,9 @@
         $fakeContrast === 'gradual' ? Math.cos(angle * 2 + Math.PI) * 16 :
         0;
     const extraLight = map.player.extraLight;
-    const { light } = sidedef.sector;
-    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
-    const { zFloor : zFloorR, zCeil : zCeilR, skyHeight } = linedef.right.sector
+    const { light } = sidedef.sector.renderData;
+    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector?.renderData ?? {};
+    const { zFloor : zFloorR, zCeil : zCeilR, skyHeight } = linedef.right.sector.renderData
 
     // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
     // and we get a ~25% performance boost. I'd rather keep this and use the BSP to cull walls
@@ -123,8 +123,8 @@
 
     function lineStroke() {
         return !linedef.left ? wad.palettes[0][176] :
-            (linedef.left.sector.zFloor.val !== linedef.right.sector.zFloor.val) ? wad.palettes[0][64] :
-            (linedef.left.sector.zCeil.val !== linedef.right.sector.zCeil.val) ?  wad.palettes[0][231] :
+            (linedef.left.sector.zFloor !== linedef.right.sector.zFloor) ? wad.palettes[0][64] :
+            (linedef.left.sector.zCeil !== linedef.right.sector.zCeil) ?  wad.palettes[0][231] :
             wad.palettes[0][96];
     }
 

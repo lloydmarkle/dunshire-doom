@@ -18,14 +18,14 @@
     const angle = Math.atan2(vy, vx);
     const leftAngle = angle + Math.PI;
 
-    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
-    const { middle: middleL }  = linedef.left ?? {};
-    const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
-    const { middle: middleR }  = linedef.right;
+    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector?.renderData ?? {};
+    const { middle: middleL }  = linedef.left?.renderData ?? {};
+    const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector.renderData
+    const { middle: middleR }  = linedef.right.renderData;
 
     // sky-hack https://doomwiki.org/wiki/Sky_hack
-    const { ceilFlat: ceilFlatL } = linedef.left?.sector ?? {};
-    const { ceilFlat: ceilFlatR } = linedef.right.sector;
+    const { ceilFlat: ceilFlatL } = linedef.left?.sector?.renderData ?? {};
+    const { ceilFlat: ceilFlatR } = linedef.right.sector.renderData;
 
     // Detect the skyhack is simple but how it's handled is... messy. How it
     // works is:

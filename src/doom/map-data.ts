@@ -127,6 +127,8 @@ export interface Sector {
     ceilFlat: string;
     // part of skyhack
     skyHeight?: number;
+    // special rendering data
+    renderData: any;
     // Game processing data
     center: Vector3;
     specialData: any;
@@ -151,6 +153,7 @@ function sectorsLump(lump: Lump) {
         const tag = int16(word(lump.data, 24 + i * len));
         sectors[i] = {
             tag, type, zFloor, zCeil, ceilFlat, floorFlat, light,
+            renderData: {},
             num: i,
             specialData: null,
             soundC: 0,

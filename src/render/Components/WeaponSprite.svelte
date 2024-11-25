@@ -6,6 +6,7 @@
     import { useDoom, useDoomMap } from "../DoomContext";
     import type { Sprite } from "../../doom/sprite";
     import { ShadowsShader } from '../Shaders/ShadowsShader';
+    import { onDestroy } from "svelte";
 
     export let sprite: Sprite;
     export let sector: Sector;
@@ -37,8 +38,12 @@
         }
     }
 
-    // FIXME: we can't subscribe here anymore!
     $: light = sector.light;
+    const updateLight = (sec: Sector) => light = (sec === sector) ? sec.light : light;
+    map.events.on('sector-light', updateLight);
+    onDestroy(() => map.events.off('sector-light', updateLight));
+
+    // FIXME: we can't subscribe here anymore!
     $: if (sprite && (sprite.fullbright || light !== undefined)) {
         const col = textures.lightColor(sprite?.fullbright ? 255 : light + $extraLight);
         if (material instanceof MeshStandardMaterial) {

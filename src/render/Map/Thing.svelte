@@ -105,7 +105,7 @@
         }
     }
 
-    $: light = $sector.light;
+    $: light = $sector.renderData.light;
     $: if ($sprite.fullbright || $light !== undefined) {
         const col = textures.lightColor($sprite.fullbright ? 255 : $light + $extraLight);
         if (material instanceof ShaderMaterial) {
