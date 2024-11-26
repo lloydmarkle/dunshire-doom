@@ -98,7 +98,7 @@ const effect = (effects: SectorEffectFunction[], select: SectorSelectorFunction)
 const assignFloorFlat = (map: MapRuntime, from: Sector, to: Sector) => {
     to.floorFlat = from.floorFlat;
     map.events.emit('sector-flat', to);
-    map.initializeFlatTextureAnimation(to, 'floor', to.floorFlat);
+    map.initializeFlatTextureAnimation(to, 'floorFlat');
 }
 
 const assignSectorType = (map: MapRuntime, from: Sector, to: Sector) => {

@@ -31,9 +31,10 @@
         const vx = linedef.v[1].x - linedef.v[0].x;
         const vy = linedef.v[1].y - linedef.v[0].y;
         const angle = Math.atan2(vy, vx) - HALF_PI;
-        map.player.position.update(vec => vec.set(linedef.v[0].x, linedef.v[0].y, linedef.right.sector.zFloor.val - 41));
-        map.player.pitch.set(0);
-        map.player.direction.set(angle + Math.PI);
+        map.player.position.set(linedef.v[0].x, linedef.v[0].y, linedef.right.sector.zFloor + 41);
+        map.player.pitch = 0;
+        map.player.direction = angle + Math.PI;
+        map.events.emit('mobj-updated-position', map.player);
     }
 
     function changeLinedef(ev) {
@@ -61,14 +62,14 @@
     {#if linedef.left}
         <h4>Right sidedef</h4>
     {/if}
-    <SidedefEditor {map} sidedef={linedef.right} />
+    <SidedefEditor {map} {linedef} side="right" />
 </div>
 {#if linedef.left && linedef.left.sector === linedef.right.sector}
     <div class="alert alert-warning">SELF-REF</div>
 {:else if linedef.left}
     <div>
         <h4>Left sidedef</h4>
-        <SidedefEditor {map} sidedef={linedef.left} />
+        <SidedefEditor {map} {linedef} side="left" />
     </div>
 {/if}
 

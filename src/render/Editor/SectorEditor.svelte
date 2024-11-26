@@ -4,13 +4,34 @@
     import { useAppContext, useDoom } from "../DoomContext";
     import NumberChooser from "./NumberChooser.svelte";
     import TextureChooser from "./TextureChooser.svelte";
+    import { derived, writable } from "svelte/store";
 
     export let map: MapRuntime;
     export let sector: Sector;
 
     const { editor } = useAppContext();
     const { wad } = useDoom();
-    const { light, zCeil, zFloor, floorFlat, ceilFlat } = sector;
+    const originalZCeil = sector.zCeil;
+    const originalZFloor = sector.zFloor;
+
+    const light = writable(sector.light);
+    const ceilFlat = writable(sector.ceilFlat);
+    const floorFlat = writable(sector.floorFlat);
+    const zFloor = writable(sector.zFloor);
+    const zCeil = writable(sector.zCeil);
+    derived([light, floorFlat, ceilFlat, zCeil, zFloor], () => new Date()).subscribe(() => {
+        sector.ceilFlat = $ceilFlat;
+        sector.floorFlat = $floorFlat;
+        sector.zCeil = $zCeil;
+        sector.zFloor = $zFloor;
+        sector.light = $light;
+        // it's simpler to just notify that everything changed (even if it didn't)
+        map.events.emit('sector-flat', sector);
+        map.events.emit('sector-light', sector);
+        map.events.emit('sector-z', sector);
+        map.initializeFlatTextureAnimation(sector, 'ceilFlat');
+        map.initializeFlatTextureAnimation(sector, 'floorFlat');
+    });
 
     let showSelector = false;
     function toggleSelector() {
@@ -52,7 +73,8 @@
     }
 
     function goto() {
-        map.player.position.update(vec => vec.copy(sector.center));
+        map.player.position.copy(sector.center);
+        map.events.emit('mobj-updated-position', map.player);
     }
 
     function changeSector(ev) {
@@ -64,7 +86,7 @@
 
     $: linedefs = map.data.linedefs.filter(ld => ld.right.sector === sector || ld.left?.sector === sector);
     const sidedefBrief = (side: SideDef) =>
-        `z[${side.sector.zFloor.val}:${side.sector.zCeil.val}], [${[side.lower.val, side.middle.val, side.upper.val]}]`;
+        `z[${side.sector.zFloor}:${side.sector.zCeil}], [${[side.lower, side.middle, side.upper]}]`;
 </script>
 
 <h3>Sector <NumberChooser num={sector.num} on:select={changeSector} /></h3>
@@ -108,16 +130,16 @@ There are lots of possibilities.
 <div class="bg-neutral rounded-box p-2">
     <span>Floor ceiling gap {$zCeil - $zFloor}</span>
     <label class="label">
-        <span class="label-text">Ceiling height {$zCeil} (original {sector.zCeil.initial})</span>
+        <span class="label-text">Ceiling height {$zCeil} (original {originalZCeil})</span>
         <input type="text" class="input" inputmode="numeric" pattern="[0-9]*" bind:value={$zCeil} />
     </label>
     <label class="label">
-        <span class="label-text">Floor height {$zFloor} (original {sector.zFloor.initial})</span>
+        <span class="label-text">Floor height {$zFloor} (original {originalZFloor})</span>
         <input type="text" class="input" inputmode="numeric" pattern="[0-9]*" bind:value={$zFloor} />
     </label>
 </div>
-<TextureChooser {wad} label="Ceiling" type="flat" bind:value={$ceilFlat} on:change={() => map.initializeTextureAnimation(ceilFlat, 'flat')} />
-<TextureChooser {wad} label="Floor" type="flat" bind:value={$floorFlat} on:change={() => map.initializeTextureAnimation(floorFlat, 'flat')} />
+<TextureChooser {wad} label="Ceiling" type="flat" bind:value={$ceilFlat} />
+<TextureChooser {wad} label="Floor" type="flat" bind:value={$floorFlat} />
 
 <div class="collapse bg-neutral collapse-arrow">
     <input type="checkbox" />

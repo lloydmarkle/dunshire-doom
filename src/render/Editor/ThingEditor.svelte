@@ -7,6 +7,7 @@
     import { MapObject } from "../../doom/map-object";
     import NumberChooser from "./NumberChooser.svelte";
     import { reveal } from "./TextureChooser.svelte";
+    import { onDestroy } from "svelte";
 
     const { editor } = useAppContext();
     const { textures, wad } = useDoom();
@@ -23,7 +24,7 @@
         [0x0010, 'Multiplayer-only'],
     ]
 
-    const { direction, sprite, position } = thing;
+    const { sprite, position } = thing;
     $: frames = wad.spriteFrames($sprite.name);
     $: frame = frames[$sprite.frame][8] ?? frames[$sprite.frame][0];
     $: texture = textures.get(frame.name, 'sprite');
@@ -39,17 +40,18 @@
         map.destroy(thing);
         const pos = thing.position;
         thing = map.spawn(mapObjectInfo.findIndex(e => e.doomednum === th.type), pos.x, pos.y);
-        setDirection($direction * ToDegrees)();
+        setDirection(thing.direction * ToDegrees)();
         $editor.selected = thing;
 
         selectorFilter = '';
         showOptions = false;
     }
 
-    $: directionButton = Math.floor($direction * ToDegrees) / 45;
+    $: directionButton = Math.floor(thing.direction * ToDegrees) / 45;
     function setDirection(degrees: number) {
         return () => {
             thing.direction = degrees * ToRadians;
+            map.events.emit('mobj-updated-sprite', thing, thing.sprite.val);
         };
     }
 
@@ -75,10 +77,15 @@
     }
 
     let subsectors = [];
-    $: if ($position) {
-        subsectors = []
-        thing.subsectors(s => subsectors.push(s));
-    }
+    const updateSubsectors = (mo: MapObject) => {
+        if (mo === thing) {
+            subsectors = []
+            thing.subsectors(s => subsectors.push(s));
+        }
+    };
+    updateSubsectors(thing);
+    map.events.on('mobj-updated-position', updateSubsectors);
+    onDestroy(() => map.events.off('mobj-updated-position', updateSubsectors));
 
     $: types = Object.keys(MapObjectIndex)
         .filter(e => !isNaN(Number(e)))
@@ -119,16 +126,20 @@
     -->
 </div>
 <div>
-    <div>Position: {[Math.floor($position.x), Math.floor($position.y), Math.floor($position.z)]}</div>
+    <div>Position: {[Math.floor(position.x), Math.floor(position.y), Math.floor(position.z)]}</div>
     <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
-    <div>Sectors: [{[...new Set(subsectors.map(e => e.sector.num))]}]</div>
+    <div>Sectors: [
+        {#each [...new Set(subsectors.map(e => e.sector))] as sector}
+            <button class="link link-primary" on:click={() => $editor.selected = sector}>{sector.num}</button>
+        {/each}
+    ]</div>
 </div>
 <div class="self-center p-4 w-48 grid grid-cols-3 gap-1 rounded-box bg-neutral">
     <button class="btn" class:btn-primary={directionButton === 7} on:click={setDirection(315)}>NW</button>
     <button class="btn" class:btn-primary={directionButton === 6} on:click={setDirection(270)}>North</button>
     <button class="btn" class:btn-primary={directionButton === 5} on:click={setDirection(225)}>NE</button>
     <button class="btn" class:btn-primary={directionButton === 0} on:click={setDirection(0)}>West</button>
-    <span class="w-8 text-center self-center text-xs">{Math.floor($direction * ToDegrees)} degrees</span>
+    <span class="w-8 text-center self-center text-xs">{Math.floor(thing.direction * ToDegrees)} degrees</span>
     <button class="btn" class:btn-primary={directionButton === 4} on:click={setDirection(180)}>East</button>
     <button class="btn" class:btn-primary={directionButton === 1} on:click={setDirection(45)}>SW</button>
     <button class="btn" class:btn-primary={directionButton === 2} on:click={setDirection(90)}>South</button>

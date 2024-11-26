@@ -158,9 +158,6 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
         if (geometry) {
             geometry.computeBoundingBox();
-            // FIXME: needed for sound
-            // sector.zFloor.subscribe(floor => geometry.boundingBox.min.z = floor);
-            // sector.zCeil.subscribe(ceil => geometry.boundingBox.max.z = ceil);
         }
         const linedefs = sectorRightLindefs.get(sector) ?? [];
         const zHackCeil = readable(0);

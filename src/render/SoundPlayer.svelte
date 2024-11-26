@@ -1,6 +1,6 @@
 <script lang="ts">
     import { useAppContext } from "./DoomContext";
-    import { MapObject, PlayerMapObject, SoundIndex, store, type Sector, type SoundEmitter, DoomWad, xyDistSqr, word, dword } from "../doom";
+    import { MapObject, PlayerMapObject, SoundIndex, type Sector, type SoundEmitter, DoomWad, xyDistSqr, word, dword } from "../doom";
     import { Vector3 } from "three";
     import { randInt } from "three/src/math/MathUtils";
 
@@ -40,34 +40,39 @@
     // Camera position or player position? I think camera is probably more useful (especially for orthogonal/follow cam)
     // even though it's less accurate.
     $: playerPosition = player?.position ?? defaultPosition;
-    $: yaw = player?.direction;
-    $: pitch = player?.pitch;
-    // $: updateListener($playerPosition, $yaw, $pitch);
-    // function updateListener(position: Vector3, yaw: number, pitch: number) {
-    //     if (!player) {
-    //         // if we don't have a player, we don't need positional audio
-    //         return;
-    //     }
-    //     if (audio.listener.positionX) {
-    //         audio.listener.positionX.value = position.x;
-    //         audio.listener.positionY.value = position.y;
-    //         audio.listener.positionZ.value = position.z;
-    //     } else {
-    //         audio.listener.setPosition(position.x, position.y, position.z);
-    //     }
-    //     if (audio.listener.forwardX) {
-    //         audio.listener.forwardX.value = Math.cos(yaw);
-    //         audio.listener.forwardY.value = Math.sin(yaw);
-    //         audio.listener.forwardZ.value = 0;
-    //         audio.listener.upX.value = 0;
-    //         audio.listener.upY.value = 0;
-    //         audio.listener.upZ.value = Math.cos(pitch);
-    //     } else {
-    //         audio.listener.setOrientation(
-    //             Math.cos(yaw), Math.sin(yaw), 0,
-    //             0, 0, Math.cos(pitch));
-    //     }
-    // }
+    function updateListener(position: Vector3, yaw: number, pitch: number) {
+        if (!player) {
+            // if we don't have a player, we don't need positional audio
+            return;
+        }
+        if (audio.listener.positionX) {
+            audio.listener.positionX.value = position.x;
+            audio.listener.positionY.value = position.y;
+            audio.listener.positionZ.value = position.z;
+        } else {
+            audio.listener.setPosition(position.x, position.y, position.z);
+        }
+        if (audio.listener.forwardX) {
+            audio.listener.forwardX.value = Math.cos(yaw);
+            audio.listener.forwardY.value = Math.sin(yaw);
+            audio.listener.forwardZ.value = 0;
+            audio.listener.upX.value = 0;
+            audio.listener.upY.value = 0;
+            audio.listener.upZ.value = Math.cos(pitch);
+        } else {
+            audio.listener.setOrientation(
+                Math.cos(yaw), Math.sin(yaw), 0,
+                0, 0, Math.cos(pitch));
+        }
+    }
+    $: if (player) {
+        // don't bother unsubscribe because if the map changes, it will have a new event emitter anyway
+        player.map.events.on('mobj-updated-position', mo => {
+            if (mo === player) {
+                updateListener(player.position, player.direction, player.pitch);
+            }
+        })
+    }
 
     const soundBuffers = new Map<string, AudioBuffer>()
     function soundBuffer(name: string) {
@@ -134,7 +139,7 @@
             pan.rolloffFactor = 1;
             // set position based on current mobj position (we could subscribe but objects don't move fast and sounds
             // aren't long so it didn't seem worth it)
-            const t = audio.currentTime + .1; // if we do this immediately, we get crackling as the sound position changes
+            const t = audio.currentTime + .05; // if we do this immediately, we get crackling as the sound position changes
             pan.positionX.linearRampToValueAtTime(position.x, t);
             pan.positionY.linearRampToValueAtTime(position.y, t);
             // use player position for sector sound sources otherwise we use the middle-z and that may be above or below the player
@@ -153,7 +158,7 @@
             // sounds pass through walls)
             if (location instanceof MapObject) {
                 // add a filter to play low freqency when outside but delay it based on xy distance
-                if (location.sector.val.ceilFlat.val === 'F_SKY1') {
+                if (location.sector.val.ceilFlat === 'F_SKY1') {
                     // can't be 0 otherwise gainNode will error because we use exponential ramps
                     const gain = soundGain * .4 * (1 - Math.min(.99999999, this.dist / 1_000_000));
                     const fGain = gainNode(now, gain, this.soundNode.buffer);
@@ -166,9 +171,9 @@
                     filter.connect(fGain);
                 }
                 // don't add echo if we are outside
-                if (location.sector.val.ceilFlat.val !== 'F_SKY1') {
+                if (location.sector.val.ceilFlat !== 'F_SKY1') {
                     // calculate echo based on height of the room. It's not accurate but interesting to play with.
-                    const heightM = (location.sector.val.zCeil.val - location.sector.val.zFloor.val) * verticalMeters;
+                    const heightM = (location.sector.val.zCeil - location.sector.val.zFloor) * verticalMeters;
                     const delay = heightM * 2 / speedOfSound;
                     const eGain = gainNode(now + delay, soundGain * .4, this.soundNode.buffer);
                     eGain.connect(audioRoot);

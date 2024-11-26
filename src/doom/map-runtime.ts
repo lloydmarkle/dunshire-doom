@@ -175,8 +175,8 @@ export class MapRuntime {
 
         // initialize animated textures
         for (const sector of this.data.sectors) {
-            this.initializeFlatTextureAnimation(sector, 'ceilFlat', sector.ceilFlat);
-            this.initializeFlatTextureAnimation(sector, 'floorFlat', sector.floorFlat);
+            this.initializeFlatTextureAnimation(sector, 'ceilFlat');
+            this.initializeFlatTextureAnimation(sector, 'floorFlat');
         }
         for (const linedef of this.data.linedefs) {
             this.initializeWallTextureAnimation(linedef, 'right', 'lower');
@@ -297,19 +297,20 @@ export class MapRuntime {
         }
     }
 
-    initializeFlatTextureAnimation(sector: Sector, prop: 'ceilFlat' | 'floorFlat', target: string) {
-        if (!target) {
+    initializeFlatTextureAnimation(sector: Sector, prop: 'ceilFlat' | 'floorFlat') {
+        const textureName = sector[prop];
+        if (!textureName) {
             return;
         }
         const key = prop[0] + sector.num;
-        const animInfo = this.game.wad.animatedFlats.get(target);
+        const animInfo = this.game.wad.animatedFlats.get(textureName);
         if (!animInfo) {
             // remove animation that was applied to this target
             this.animatedFlats.delete(key);
             return;
         }
         const { frames, speed } = animInfo
-        const index = animInfo.frames.indexOf(target);
+        const index = animInfo.frames.indexOf(textureName);
         this.animatedFlats.set(key, { index, prop, frames, speed, sector });
     }
 
