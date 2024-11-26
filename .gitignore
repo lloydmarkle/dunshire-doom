@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 
 *.wad
+bundle-stats.html
