@@ -1159,18 +1159,20 @@ export enum StateIndex {
 }
 
 export interface State {
-	sprite: SpriteIndex,
-	frame: number,
-	tics: number,
-	action: ActionIndex,
-	nextState: StateIndex,
-	// unused?
-	misc1: number,
-	misc2: number
+	sprite: SpriteIndex;
+	frame: number;
+	tics: number;
+	action: ActionIndex;
+	nextState: StateIndex;
+	// unused
+	misc1: number;
+	misc2: number;
+	// for ui
+	spriteIndex: number;
 }
 
 const createState = (sprite: SpriteIndex, frame: number, tics: number, action: ActionIndex, nextState: StateIndex, misc1: number, misc2: number) =>
-	({ sprite, frame, tics, action, nextState, misc1, misc2 });
+	({ sprite, frame, tics, action, nextState, misc1, misc2, spriteIndex: 0 });
 
 export interface MapObjectInfo {
 	doomednum: number,

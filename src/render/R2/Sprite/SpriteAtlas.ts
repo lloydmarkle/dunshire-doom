@@ -1,12 +1,11 @@
 import { DataTexture, FloatType, NearestFilter, RGBAIntegerFormat, ShortType } from "three";
-import { DoomWad, SpriteNames, type Picture } from "../../../doom";
+import { DoomWad, SpriteNames, states, type Picture } from "../../../doom";
 import { findNearestPower2, findPacking } from "../TextureAtlas";
 
 export class SpriteSheet {
     readonly uvIndex: DataTexture;
     readonly spriteInfo: DataTexture;
     readonly sheet: DataTexture;
-    private spriteFrames = {};
 
     constructor(wad: DoomWad, maxSize: number) {
         const sprites = SpriteNames.map(sprite => wad.spriteFrames(sprite).flat().flat().map(f => ({ ...f, sprite }))).flat();
@@ -30,12 +29,13 @@ export class SpriteSheet {
             this.spriteInfo.image.data[3 + n * 4] = frame.rotation;
         }
 
+        let spriteFrames = {};
         const indexFrame = (n: number, frame: { sprite : string, rotation: number, frame: number }) => {
-            let frames = this.spriteFrames[frame.sprite] ?? [];
+            let frames = spriteFrames[frame.sprite] ?? [];
             if (frame.rotation === 0 || frame.rotation === 1) {
                 frames[frame.frame] = n;
             }
-            this.spriteFrames[frame.sprite] = frames;
+            spriteFrames[frame.sprite] = frames;
         }
 
         let textures: [number, Picture][] = [];
@@ -84,9 +84,12 @@ export class SpriteSheet {
                 tAtlas.image.data[3 + idx * 4] = tAtlas.image.data[3 + orig * 4];
             }
         }
-    }
 
-    indexOf(sprite: string, frame: number) {
-        return this.spriteFrames[sprite][frame];
+        // assign State.spriteIndex:
+        for (const state of states) {
+            if (spriteFrames[SpriteNames[state.sprite]]) {
+                state.spriteIndex = spriteFrames[SpriteNames[state.sprite]][state.frame & 0x7fff];
+            }
+        }
     }
 }

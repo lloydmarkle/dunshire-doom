@@ -8,6 +8,7 @@ const FF_FRAMEMASK = 0x7fff;
 export interface Sprite {
     name: string;
     frame: number;
+    state: State;
     fullbright: boolean;
     ticks: number;
 }
@@ -55,9 +56,10 @@ export class SpriteStateMachine {
         this.ticks = Math.max(0, this.ticks + tickOffset);
         let sprite = this.sprite.val;
         if (!sprite) {
-            sprite = { name: '', frame: 0, fullbright: false, ticks: 0 };
+            sprite = { name: '', frame: 0, fullbright: false, ticks: 0, state: this.state };
             this.sprite.set(sprite);
         }
+        sprite.state = this.state;
         sprite.ticks = this.ticks;
         sprite.name = SpriteNames[this.state.sprite];
         sprite.frame = this.state.frame & FF_FRAMEMASK;

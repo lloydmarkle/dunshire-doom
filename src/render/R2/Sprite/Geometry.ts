@@ -105,9 +105,10 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             thingsMeshes.push(createChunk());
             thingsMeshes = thingsMeshes;
         }
+        const mesh = thingsMeshes[m];
         // set count on last chunk (assume everything else stays at chunkSize)
         // NB: count will not decrease because removed items may not be at the end of the list
-        thingsMeshes[m].count = Math.max(n + 1, thingsMeshes[m].count);
+        mesh.count = Math.max(n + 1, mesh.count);
 
         const isPlayer = mo instanceof PlayerMapObject;
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
@@ -116,23 +117,22 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0);
 
         const updateSprite = (sprite: Sprite) => {
-            const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
-            thingsMeshes[m].geometry.attributes.texN.array[n * 2] = spriteIndex;
+            mesh.geometry.attributes.texN.array[n * 2] = sprite.state.spriteIndex;
 
-            // rendering flags
-            thingsMeshes[m].geometry.attributes.texN.array[n * 2 + 1] = (
+            // // rendering flags
+            mesh.geometry.attributes.texN.array[n * 2 + 1] = (
                 spriteFlags
                 | (sprite.fullbright ? 1 : 0)
                 | ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0)
                 | ((mo.info.flags & MFFlags.MF_INFLOAT) ? 16 : 0));
-            thingsMeshes[m].geometry.attributes.texN.needsUpdate = true;
+                mesh.geometry.attributes.texN.needsUpdate = true;
 
             // movement info for interpolation
-            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 0] = sprite.ticks ? mo.info.speed / sprite.ticks : 0;
-            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 1] = mo.movedir;
-            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
-            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 3] = mo.direction;
-            thingsMeshes[m].geometry.attributes.motion.needsUpdate = true;
+            mesh.geometry.attributes.motion.array[n * 4 + 0] = sprite.ticks ? mo.info.speed / sprite.ticks : 0;
+            mesh.geometry.attributes.motion.array[n * 4 + 1] = mo.movedir;
+            mesh.geometry.attributes.motion.array[n * 4 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
+            mesh.geometry.attributes.motion.array[n * 4 + 3] = mo.direction;
+            mesh.geometry.attributes.motion.needsUpdate = true;
         };
 
         const updatePosition = () => {
@@ -142,16 +142,16 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
                 // hide player
                 s.set(0, 0, 0);
             }
-            thingsMeshes[m].setMatrixAt(n, mat.compose(mo.position, q, s));
-            thingsMeshes[m].instanceMatrix.needsUpdate = true;
+            mesh.setMatrixAt(n, mat.compose(mo.position, q, s));
+            mesh.instanceMatrix.needsUpdate = true;
 
             // NB: don't interpolate player velocity because they already update every frame
             if (!isPlayer) {
                 // velocity for interpolation
-                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
-                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
-                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
-                thingsMeshes[m].geometry.attributes.vel.needsUpdate = true;
+                mesh.geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
+                mesh.geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
+                mesh.geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
+                mesh.geometry.attributes.vel.needsUpdate = true;
             }
         };
 
@@ -164,18 +164,18 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             // We can't actually remove an instanced geometry but we can hide it until something else uses the free slot.
             // We hide by moving it far away or scaling it very tiny (making it effectively invisible)
             s.set(0, 0, 0);
-            thingsMeshes[m].setMatrixAt(n, mat.compose(mo.position, q, s));
-            thingsMeshes[m].instanceMatrix.needsUpdate = true;
+            mesh.setMatrixAt(n, mat.compose(mo.position, q, s));
+            mesh.instanceMatrix.needsUpdate = true;
         };
 
         // custom attributes
         subs.push(mo.sector.subscribe(sec => {
-            thingsMeshes[m].geometry.attributes.doomLight.array[n] = sec.num;
-            thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
+            mesh.geometry.attributes.doomLight.array[n] = sec.num;
+            mesh.geometry.attributes.doomLight.needsUpdate = true;
         }));
 
-        thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n] = mo.id;
-        thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
+        mesh.geometry.attributes[inspectorAttributeName].array[n] = mo.id;
+        mesh.geometry.attributes[inspectorAttributeName].needsUpdate = true;
 
         updateSprite(mo.sprite.val);
         updatePosition();
@@ -199,5 +199,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
     };
 
     const root = new Object3D();
+    root.frustumCulled = false;
     return { add, remove, dispose, root, shadowState, resetGeometry };
 }
