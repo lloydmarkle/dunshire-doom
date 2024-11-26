@@ -8,8 +8,8 @@
     const position = map.player.position;
     const palette = wad.palettes[0];
 
-    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
-    const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
+    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector?.renderData ?? {};
+    const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector.renderData
 
     $: lineStroke = (function() {
         // return !linedef.left || (linedef.flags & 0x0020) ? palette[176] :

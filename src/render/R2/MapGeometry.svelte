@@ -7,8 +7,9 @@
     import Wireframe from '../Debug/Wireframe.svelte';
     import { mapMeshMaterials } from './MapMeshMaterial';
     import { onDestroy } from 'svelte';
-    import type { MapRuntime } from '../../doom';
+    import type { MapObject, MapRuntime } from '../../doom';
     import type { MapLighting } from './MapLighting';
+    import { writable } from 'svelte/store';
 
     export let map: MapRuntime;
     export let lighting: MapLighting;
@@ -85,6 +86,15 @@
     $: castShadow = receiveShadow;
     const { position, extraLight } = map.player;
 
+    const playerPosition = writable(position);
+    const updatePlayer = (mo: MapObject) => {
+        if (mo === map.player) {
+            playerPosition.set(position);
+        }
+    };
+    map.events.on('mobj-updated-position', updatePlayer);
+    onDestroy(() => map.events.off('mobj-updated-position', updatePlayer));
+
     const hit = (geom: BufferGeometry) => (ev) => {
         if (!ev.face) {
             return;
@@ -133,16 +143,16 @@
     <Wireframe />
 </T.Mesh>
 
-<!-- {#if usePlayerLight}
+{#if usePlayerLight}
     <T.PointLight
         {castShadow}
         color={$playerLight}
         intensity={10}
         distance={400}
         decay={0.2}
-        position.x={$position.x}
-        position.y={$position.y}
-        position.z={$position.z + 40}
+        position.x={$playerPosition.x}
+        position.y={$playerPosition.y}
+        position.z={$playerPosition.z + 40}
         shadow.bias={shadowBias}
     />
-{/if} -->
+{/if}
