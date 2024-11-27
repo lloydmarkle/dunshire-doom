@@ -97,7 +97,7 @@ const _losStart = new Vector3();
 const _losVec = new Vector3();
 export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     const rj = mobj1.map.data.rejects;
-    const idx = (mobj1.sector.val.num * mobj1.map.data.sectors.length) + mobj2.sector.val.num;
+    const idx = (mobj1.sector.num * mobj1.map.data.sectors.length) + mobj2.sector.num;
     if (rj[idx >> 3] & (1 << (idx & 7))) {
         return false;
     }

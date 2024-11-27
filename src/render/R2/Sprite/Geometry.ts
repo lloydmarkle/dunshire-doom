@@ -1,5 +1,5 @@
 import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
-import { HALF_PI, MapObjectIndex, MFFlags, PlayerMapObject, type MapObject, type Sprite  } from "../../../doom";
+import { HALF_PI, MapObjectIndex, MFFlags, PlayerMapObject, type MapObject, type Sector, type Sprite  } from "../../../doom";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
 import type { SpriteMaterial } from "./Materials";
@@ -110,6 +110,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         // NB: count will not decrease because removed items may not be at the end of the list
         mesh.count = Math.max(n + 1, mesh.count);
 
+        let sector: Sector = null;
         const isPlayer = mo instanceof PlayerMapObject;
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
         const spriteFlags =
@@ -145,6 +146,12 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             mesh.setMatrixAt(n, mat.compose(mo.position, q, s));
             mesh.instanceMatrix.needsUpdate = true;
 
+            if (sector !== mo.sector) {
+                sector = mo.sector;
+                mesh.geometry.attributes.doomLight.array[n] = mo.sector.num;
+                mesh.geometry.attributes.doomLight.needsUpdate = true;
+            }
+
             // NB: don't interpolate player velocity because they already update every frame
             if (!isPlayer) {
                 // velocity for interpolation
@@ -169,11 +176,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         };
 
         // custom attributes
-        subs.push(mo.sector.subscribe(sec => {
-            mesh.geometry.attributes.doomLight.array[n] = sec.num;
-            mesh.geometry.attributes.doomLight.needsUpdate = true;
-        }));
-
         mesh.geometry.attributes[inspectorAttributeName].array[n] = mo.id;
         mesh.geometry.attributes[inspectorAttributeName].needsUpdate = true;
 

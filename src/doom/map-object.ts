@@ -70,11 +70,13 @@ export class MapObject {
     readonly sectorChanged: (sector: Sector) => void;
     readonly positionChanged: () => void;
 
+    private _sector: Sector;
+    get sector(): Sector { return this._sector; };
+
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
     readonly position: Vector3;
     direction: number;
-    readonly sector = store<Sector>(null);
     readonly sprite = this._state.sprite;
     readonly velocity = new Vector3();
     readonly renderShadow = store(false);
@@ -112,7 +114,7 @@ export class MapObject {
         // only players, monsters, and missiles are moveable which affects how we choose zFloor and zCeil
         const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_MISSILE) || spec.moType === MapObjectIndex.MT_PLAYER;
         const highestZFloor = !moveable
-            ? (sector: Sector, zFloor: number) => (this.sector.val ?? sector).zFloor
+            ? (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor
             : (sector: Sector, zFloor: number) => {
                 const ceil = lowestZCeil(sector, sector.zCeil);
                 this.subsectors(subsector => {
@@ -128,7 +130,7 @@ export class MapObject {
             };
 
         const lowestZCeil = !moveable
-            ? (sector: Sector, zCeil: number) => (this.sector.val ?? sector).zCeil
+            ? (sector: Sector, zCeil: number) => (this.sector ?? sector).zCeil
             : (sector: Sector, zCeil: number) => {
                 this.subsectors(subsector => {
                     const ceil = (sector === subsector.sector) ? zCeil : subsector.sector.zCeil;
@@ -193,14 +195,12 @@ export class MapObject {
                 ? this.zCeil - this.info.height
                 // we want the sector with the highest floor which means we float a little when standing on an edge
                 : highestZFloor(sector, sector.zFloor);
-            if (!this.sector.val) {
+            if (!this._sector) {
                 // first time setting sector so set zpos based on sector containing the object center
                 p.z = sector.zFloor;
             }
             this._onGround = p.z <= this._zFloor;
-            if (this.sector.val !== sector) {
-                this.sector.set(sector);
-            }
+            this._sector = sector;
             if (lastZFloor !== this._zFloor) {
                 this.applyGravity();
             }
@@ -696,7 +696,7 @@ export class PlayerMapObject extends MapObject {
         });
 
         // check special sectors
-        const sector = this.sector.val;
+        const sector = this.sector;
         // different from this.onGround because that depends on this.zFloor which takes into account surrounding sector
         // here we are only looking at the sector containing the player center
         const onGround = this.position.z <= sector.zFloor;
@@ -760,7 +760,7 @@ export class PlayerMapObject extends MapObject {
         }
 
         // end of game hell hack
-        if (this.sector.val.type == 11 && amount >= this.health.val) {
+        if (this.sector.type == 11 && amount >= this.health.val) {
             amount = this.health.val - 1;
         }
 

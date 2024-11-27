@@ -30,8 +30,8 @@
 
     const vis = renderSector.visible;
     $: visible = $vis;
-    const { sector, sprite, renderShadow } = thing;
-    const { direction, position: tpos } = thing.renderData;
+    const { sprite, renderShadow } = thing;
+    const { sector, direction, position: tpos } = thing.renderData;
     const invertYOffset = (thing.info.flags & MFFlags.InvertSpriteYOffset);
     const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
     const isMissile = (thing.info.flags & MFFlags.MF_MISSILE || thing.type === MapObjectIndex.MT_EXTRABFG);

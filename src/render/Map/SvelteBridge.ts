@@ -5,6 +5,7 @@ import { MapRuntime, PlayerMapObject as PMO, store, type LineDef, type MapObject
 interface RenderData {
     position: Store<Vector3>
     direction: Store<number>
+    sector: Store<Sector>
 }
 
 export interface MapObject1 extends MO {
@@ -30,11 +31,15 @@ export function bridgeEventsToReadables(map: MapRuntime) {
         }
     }
 
-    const updateMobjPosition = (mo: MapObject) => mo.renderData['position']?.set(mo.position);
+    const updateMobjPosition = (mo: MapObject) => {
+        mo.renderData['position']?.set(mo.position);
+        mo.renderData['sector']?.set(mo.sector);
+    }
 
     const addMobj = (mo: MapObject) => {
         mo.renderData['position'] = store(mo.position);
         mo.renderData['direction'] = store(mo.direction);
+        mo.renderData['sector'] = store(mo.sector);
     }
 
     map.objs.forEach(addMobj);

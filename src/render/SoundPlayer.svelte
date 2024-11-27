@@ -158,7 +158,7 @@
             // sounds pass through walls)
             if (location instanceof MapObject) {
                 // add a filter to play low freqency when outside but delay it based on xy distance
-                if (location.sector.val.ceilFlat === 'F_SKY1') {
+                if (location.sector.ceilFlat === 'F_SKY1') {
                     // can't be 0 otherwise gainNode will error because we use exponential ramps
                     const gain = soundGain * .4 * (1 - Math.min(.99999999, this.dist / 1_000_000));
                     const fGain = gainNode(now, gain, this.soundNode.buffer);
@@ -171,9 +171,9 @@
                     filter.connect(fGain);
                 }
                 // don't add echo if we are outside
-                if (location.sector.val.ceilFlat !== 'F_SKY1') {
+                if (location.sector.ceilFlat !== 'F_SKY1') {
                     // calculate echo based on height of the room. It's not accurate but interesting to play with.
-                    const heightM = (location.sector.val.zCeil - location.sector.val.zFloor) * verticalMeters;
+                    const heightM = (location.sector.zCeil - location.sector.zFloor) * verticalMeters;
                     const delay = heightM * 2 / speedOfSound;
                     const eGain = gainNode(now + delay, soundGain * .4, this.soundNode.buffer);
                     eGain.connect(audioRoot);

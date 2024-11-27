@@ -254,7 +254,7 @@ function positionVileFire(fire: MapObject, target: MapObject) {
 
 let soundPropagateCount = 1;
 export function propagateSound(emitter: MapObject) {
-    propagateSoundRecursive(emitter, soundPropagateCount++, emitter.sector.val);
+    propagateSoundRecursive(emitter, soundPropagateCount++, emitter.sector);
 }
 
 function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sector, depth = 0) {
@@ -291,7 +291,7 @@ export const monsterMoveActions: ActionMap = {
     [ActionIndex.A_Look]: mobj => {
         mobj.chaseThreshold = 0;
 
-        const soundTarget = mobj.sector.val.soundTarget;
+        const soundTarget = mobj.sector.soundTarget;
         if (soundTarget && soundTarget.info.flags & MFFlags.MF_SHOOTABLE) {
             mobj.chaseTarget = soundTarget;
             if (mobj.info.flags & MFFlags.MF_AMBUSH && !hasLineOfSight(mobj, soundTarget)) {
@@ -963,7 +963,7 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
                     // because it means we are moving away from the wall. For example, many imps in E1M7 are stuck in
                     // blocking wall/window ledges so this lets them move.
                     // Make sure front and back sectors are not the same (see grate walls after the zigzag in E1M1)
-                    if (mobj.sector.val === back && front !== back) {
+                    if (mobj.sector === back && front !== back) {
                         return true;
                     }
                 } else {

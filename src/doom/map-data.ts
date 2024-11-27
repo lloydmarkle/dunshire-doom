@@ -91,6 +91,7 @@ export const linedefSlope = (() => {
 
 
 export interface SideDef {
+    // With R2, those don't need to be stores but it also doesn't really hurt because we don't update them
     xOffset: Store<number>;
     yOffset: Store<number>;
     sector: Sector;

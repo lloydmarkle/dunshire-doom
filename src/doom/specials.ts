@@ -960,7 +960,7 @@ const createTeleportDefinition = (type: number, trigger: string, translateFn: ty
 export const teleportReorientMove = (mobj: MapObject, dest: MapObject) => {
     mobj.velocity.set(0, 0, 0);
     mobj.direction = dest.direction;
-    mobj.position.set(dest.position.x, dest.position.y, dest.sector.val.zFloor);
+    mobj.position.set(dest.position.x, dest.position.y, dest.sector.zFloor);
     mobj.positionChanged();
 
     if (mobj.type === MapObjectIndex.MT_PLAYER) {
@@ -969,7 +969,7 @@ export const teleportReorientMove = (mobj: MapObject, dest: MapObject) => {
     }
 }
 const teleportPreserveMove = (mobj: MapObject, dest: MapObject) => {
-    mobj.position.set(dest.position.x, dest.position.y, dest.sector.val.zFloor);
+    mobj.position.set(dest.position.x, dest.position.y, dest.sector.zFloor);
     mobj.positionChanged();
     // also freeze player?
 }
@@ -989,7 +989,7 @@ const teleportThingInSectorTarget = (mobj: MapObject, linedef: LineDef, applyFn:
     // FIXME: for maps with lots of mobjs and teleports, this is going to be slow
     const teleports = mobj.map.objs.filter(mo => mo.type === MapObjectIndex.MT_TELEPORTMAN);
     for (const tp of teleports) {
-        if (tp.sector.val.tag === linedef.tag && applyFn(tp)) {
+        if (tp.sector.tag === linedef.tag && applyFn(tp)) {
             break; // done!
         }
     }

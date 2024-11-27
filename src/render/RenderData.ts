@@ -294,16 +294,18 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     // TODO: Need some profiler input here,
     let mobjMap = new Map<MapObject, RenderSector>();
     const monitor = (mobj: MapObject) => {
+        let sector: Sector = null;
         if (mobj.info.flags & MFFlags.MF_NOSECTOR) {
             return;
         }
-        mobj.sector.subscribe(sec => {
+        if (mobj.sector !== sector) {
+            sector = mobj.sector;
             const lastRS = mobjMap.get(mobj);
             lastRS?.mobjs.update(s => { s.delete(mobj); return s });
-            const nextRS = secMap.get(sec);
+            const nextRS = secMap.get(sector);
             mobjMap.set(mobj, nextRS)
             nextRS.mobjs.update(s => s.add(mobj));
-        });
+        }
     }
     const unmonitor = (mobj: MapObject) => {
         const lastRS = mobjMap.get(mobj);
@@ -315,6 +317,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     mapRuntime.objs.forEach(monitor);
     mapRuntime.events.on('mobj-added', monitor);
     mapRuntime.events.on('mobj-removed', unmonitor);
+    mapRuntime.events.on('mobj-updated-position', monitor);
 
     console.timeEnd('b-rs')
     return rSectors;

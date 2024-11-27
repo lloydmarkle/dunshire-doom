@@ -15,16 +15,25 @@
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
     import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
     import Weapon from "./Weapon.svelte";
-    import type { PlayerMapObject } from "./SvelteBridge";
+    import type { MapObject, PlayerMapObject } from "./SvelteBridge";
+    import { onDestroy } from "svelte";
 
     const { map, renderSectors } = useDoomMap();
     const { cameraMode, renderMode } = useAppContext().settings;
     const player = map.player as PlayerMapObject;
 
-    const { damageCount, bonusCount, inventory, sector } = player;
+    const { damageCount, bonusCount, inventory } = player;
     const { position: playerPosition } = player.renderData;
-    $: renderSector = $sector && renderSectors.find(e => e.sector === $sector)
-    $: zFloor = $sector.renderData.zFloor;
+    let zFloor = 0;
+    let sector = player.sector;
+    const movePlayer = (mo: MapObject) => {
+        if (mo === player) {
+            sector = mo.sector;
+            zFloor = mo.position.z;
+        }
+    }
+    map.events.on('mobj-updated-position', movePlayer);
+    onDestroy(() => map.events.off('mobj-updated-position', movePlayer));
 
     // not sure this is correct but it looks about right https://doomwiki.org/wiki/Aspect_ratio
     const yScale = (4 / 3) / (16 / 10);
@@ -64,13 +73,13 @@
 </script>
 
 {#if $renderMode === 'r1' && $cameraMode !== '1p'}
-    <Thing {renderSector} thing={player} />
+    <Thing renderSector={renderSectors.find(e => e.sector === sector)} thing={player} />
 
     <T.Mesh
         geometry={new CircleGeometry(player.info.radius)}
         position.x={$playerPosition.x}
         position.y={$playerPosition.y}
-        position.z={$zFloor + 1}
+        position.z={zFloor + 1}
         material={new MeshStandardMaterial({ color: "black", opacity: 0.6, transparent: true })}
     />
 {/if}
