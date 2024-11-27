@@ -1,5 +1,5 @@
-import { DataTexture, SRGBColorSpace } from "three";
-import { sineIn } from "svelte/easing";
+import { Color, DataTexture, SRGBColorSpace } from "three";
+import { sineIn, sineOut } from "svelte/easing";
 import type { MapRuntime, Sector } from "../../doom";
 
 // TODO: How many copies of this function do we have?
@@ -21,7 +21,8 @@ export function buildLightMap(map: MapRuntime) {
     const lightLevels = new DataTexture(scaledLight, 16, 16);
     for (let i = 0; i < maxLight + 1; i++) {
         // scale light using a curve to make it look more like doom
-        const light = Math.floor(sineIn(i / maxLight) * maxLight);
+        // kind of a hack though... I think if we may be able to replace this by doom's light diminishing
+        const light = Math.min(255, Math.max(0, Math.floor(sineIn(i / maxLight) * maxLight * .8 + i * .2)));
         scaledLight[i * 4 + 0] = light;
         scaledLight[i * 4 + 1] = light;
         scaledLight[i * 4 + 2] = light;
