@@ -91,10 +91,10 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
 
             const float oneSixteenth = 1.0 / 16.0;
             float doomLightLevel(float level) {
-                float light = level * 256.0;
+                float light = clamp(level, 0.0, 1.0) * 255.0;
                 vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
                 vec4 sectorLightLevel = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
-                return clamp(sectorLightLevel.g, 0.0, 1.0);
+                return sectorLightLevel.g;
             }
 
             const float fakeContrastStep = 16.0 / 256.0;

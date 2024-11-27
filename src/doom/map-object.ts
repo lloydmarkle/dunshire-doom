@@ -705,6 +705,7 @@ export class PlayerMapObject extends MapObject {
             // only cause pain every 31st tick or about .89s
             const isPainTick = (this.map.game.time.tick.val & 0x1f) === 0;
             const causePain = !haveRadiationSuit && isPainTick;
+            // TODO: Boom has some additional pain/secret bits https://doomwiki.org/wiki/Sector#Boom
             if (sector.type === 9) {
                 this.stats.secrets += 1;
                 sector.type = 0;

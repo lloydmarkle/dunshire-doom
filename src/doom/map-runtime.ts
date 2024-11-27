@@ -387,7 +387,8 @@ export class MapRuntime {
 
         for (const sector of this.data.sectors) {
             const type = sector.type;
-            const action = sectorLightAnimations[type]?.(this, sector);
+            // first 4 bytes are for lighting effects (https://doomwiki.org/wiki/Sector#Boom)
+            const action = sectorLightAnimations[type & 0xf]?.(this, sector);
             if (action) {
                 this.actions.add(action);
             }

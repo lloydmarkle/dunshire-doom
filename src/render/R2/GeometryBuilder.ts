@@ -331,8 +331,9 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             if (needsScrolling) {
                 let { dx, dy } = linedefScrollSpeed(ld);
                 for (let i = 0; i < geo.attributes.position.count; i++) {
-                    geo.attributes.doomOffset.array[i * 2 + 0] = dx;
-                    geo.attributes.doomOffset.array[i * 2 + 1] = -dy; // flip y!!
+                     // draw floors/ceilings with direction flipped!!
+                    geo.attributes.doomOffset.array[i * 2 + 0] = -dx;
+                    geo.attributes.doomOffset.array[i * 2 + 1] = -dy;
                 }
             }
         }

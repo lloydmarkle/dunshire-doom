@@ -873,12 +873,12 @@ const strobeFlash =
             if (--ticks) {
                 return;
             }
-            if (sector.light === max) {
-                ticks = darkTicks;
-                sector.light = min;
-            } else {
+            if (sector.light === min) {
                 ticks = lightTicks;
                 sector.light = max;
+            } else {
+                ticks = darkTicks;
+                sector.light = min;
             }
             map.events.emit('sector-light', sector);
         };
@@ -909,7 +909,7 @@ const glowLight = (map: MapRuntime, sector: Sector) => {
     let step = -8;
     return () => {
         let val = sector.light + step;
-        if (val <= min || val >= max) {
+        if ((step < 0 && val <= min) || (step > 0 && val >= max)) {
             step = -step;
             val += step;
         }
