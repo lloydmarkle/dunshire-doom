@@ -15,7 +15,7 @@
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
     import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
     import Weapon from "./Weapon.svelte";
-    import type { MapObject, PlayerMapObject } from "./SvelteBridge";
+    import { monitorMapObject, type PlayerMapObject } from "./SvelteBridge";
     import { onDestroy } from "svelte";
 
     const { map, renderSectors } = useDoomMap();
@@ -26,14 +26,10 @@
     const { position: playerPosition } = player.renderData;
     let zFloor = 0;
     let sector = player.sector;
-    const movePlayer = (mo: MapObject) => {
-        if (mo === player) {
-            sector = mo.sector;
-            zFloor = mo.position.z;
-        }
-    }
-    map.events.on('mobj-updated-position', movePlayer);
-    onDestroy(() => map.events.off('mobj-updated-position', movePlayer));
+    onDestroy(monitorMapObject(map, player, mo => {
+        sector = mo.sector;
+        zFloor = mo.position.z;
+    }));
 
     // not sure this is correct but it looks about right https://doomwiki.org/wiki/Aspect_ratio
     const yScale = (4 / 3) / (16 / 10);

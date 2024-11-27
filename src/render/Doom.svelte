@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { type Game, type GameLogicFailure, randomNorm } from "../doom";
+    import { type Game, randomNorm } from "../doom";
     import { onMount, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";

@@ -8,6 +8,7 @@
     import NumberChooser from "./NumberChooser.svelte";
     import { reveal } from "./TextureChooser.svelte";
     import { onDestroy } from "svelte";
+    import { monitorMapObject } from "../Map/SvelteBridge";
 
     const { editor } = useAppContext();
     const { textures, wad } = useDoom();
@@ -77,15 +78,10 @@
     }
 
     let subsectors = [];
-    const updateSubsectors = (mo: MapObject) => {
-        if (mo === thing) {
-            subsectors = []
-            thing.subsectors(s => subsectors.push(s));
-        }
-    };
-    updateSubsectors(thing);
-    map.events.on('mobj-updated-position', updateSubsectors);
-    onDestroy(() => map.events.off('mobj-updated-position', updateSubsectors));
+    onDestroy(monitorMapObject(map, thing, mo => {
+        subsectors.length = 0;
+        thing.subsectors(s => subsectors.push(s));
+    }));
 
     $: types = Object.keys(MapObjectIndex)
         .filter(e => !isNaN(Number(e)))

@@ -1,7 +1,6 @@
 import type { Vector3 } from 'three';
 import { MapRuntime, PlayerMapObject as PMO, store, type LineDef, type MapObject as MO, type Sector, type Sprite, type Store } from '../../doom';
 
-
 interface RenderData {
     position: Store<Vector3>
     direction: Store<number>
@@ -98,4 +97,17 @@ export function bridgeEventsToReadables(map: MapRuntime) {
         map.events.off('wall-texture', updateTexture);
     };
     return { dispose };
+}
+
+// a common pattern with map.events is to watch for a specific object (mostly the player) to change so we
+// create a little function to reduce the boiler plate code
+export function monitorMapObject<T extends MO>(map: MapRuntime, mobj: T, fn: (mo: T) => void) {
+    const onChange = (mo: T) => {
+        if (mo === mobj) {
+            fn(mo);
+        }
+    }
+    fn(mobj);
+    map.events.on('mobj-updated-position', onChange);
+    return () => map.events.off('mobj-updated-position', onChange);
 }

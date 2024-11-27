@@ -1,11 +1,12 @@
 <script lang="ts">
     import { T, useTask } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
-    import { HALF_PI, MapObject } from "../../../doom";
+    import { HALF_PI } from "../../../doom";
     import { Vector3 } from "three";
     import { tweened } from "svelte/motion";
     import { quadOut } from "svelte/easing";
     import { onDestroy } from "svelte";
+    import { monitorMapObject } from "../SvelteBridge";
 
     export let yScale: number;
 
@@ -32,8 +33,8 @@
             move: _3pDir,
             hitLine: hit => {
                 if (hit.line.left) {
-                    const ceil = Math.min(hit.line.left.sector.zCeil.val, hit.line.right.sector.zCeil.val);
-                    const floor = Math.max(hit.line.left.sector.zFloor.val, hit.line.right.sector.zFloor.val);
+                    const ceil = Math.min(hit.line.left.sector.zCeil, hit.line.right.sector.zCeil);
+                    const floor = Math.max(hit.line.left.sector.zFloor, hit.line.right.sector.zFloor);
                     const gap = ceil - floor;
                     if (gap > 0 && floor - _ppos.z < -20) {
                         return true; // two-sided but there is a gap for the camera so keep searching
@@ -47,24 +48,18 @@
 
     const { position, angle } = camera;
     let tz = tweened(0, { easing: quadOut });
-    const updatePosition = (mo: MapObject) => {
-        if (mo === map.player) {
-            $angle.x = map.player.pitch + HALF_PI;
-            $angle.z = map.player.direction - HALF_PI;
+    onDestroy(monitorMapObject(map, map.player, mo => {
+        $angle.x = mo.pitch + HALF_PI;
+        $angle.z = mo.direction - HALF_PI;
 
-            $position.x = -Math.sin(-$angle.x) * -Math.sin(-$angle.z) * zoom + map.player.position.x + shoulderOffset * Math.cos($angle.z);
-            $position.y = -Math.sin(-$angle.x) * -Math.cos(-$angle.z) * zoom + map.player.position.y + shoulderOffset * Math.sin($angle.z);
-            $tz = map.player.position.z;
-            if ($cameraMode === '3p') {
-                clipPosition($position);
-            }
+        $position.x = -Math.sin(-$angle.x) * -Math.sin(-$angle.z) * zoom + mo.position.x + shoulderOffset * Math.cos($angle.z);
+        $position.y = -Math.sin(-$angle.x) * -Math.cos(-$angle.z) * zoom + mo.position.y + shoulderOffset * Math.sin($angle.z);
+        $tz = mo.position.z;
+        if ($cameraMode === '3p') {
+            clipPosition($position);
         }
-    }
+    }));
     $: $position.z = Math.cos($angle.x) * zoom + $tz + followHeight;
-    updatePosition(map.player);
-
-    map.events.on('mobj-updated-position', updatePosition);
-    onDestroy(() => map.events.off('mobj-updated-position', updatePosition));
 </script>
 
 <T.PerspectiveCamera

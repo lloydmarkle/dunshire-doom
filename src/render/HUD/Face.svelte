@@ -65,9 +65,8 @@
         if (!player.attacker) {
             return 'other';
         }
-        const dir = player.direction.val;
         const ang = angleBetween(player, player.attacker);
-        const angle = normalizeAngle(ang - dir) - Math.PI;
+        const angle = normalizeAngle(ang - player.direction) - Math.PI;
         return (angle > -QUARTER_PI && angle < QUARTER_PI) ? 'other' :
             angle > 0 ? 'left' : 'right';
     }

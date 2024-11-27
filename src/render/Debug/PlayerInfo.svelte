@@ -1,10 +1,11 @@
 <script lang="ts">
     import { Vector3 } from "three";
-    import type { MapObject, PlayerInventory, PlayerMapObject } from "../../doom";
+    import type { PlayerInventory, PlayerMapObject } from "../../doom";
     import { ToDegrees, tickTime, ticksPerSecond } from "../../doom";
     import { fly } from "svelte/transition";
     import { useAppContext } from "../DoomContext";
     import { onDestroy } from "svelte";
+    import { monitorMapObject } from "../Map/SvelteBridge";
 
     export let player: PlayerMapObject;
     export let interactive = true;
@@ -14,18 +15,13 @@
     const tick = player.map.game.time.tick;
 
     let subsectors = [];
-    const updatePosition = (mo: MapObject) => {
-        if (mo === player) {
-            position = player.position;
-            direction = player.direction;
-            subsectors.length = 0;
-            player.subsectors(s => subsectors.push(s));
-        }
-    }
-    updatePosition(player);
-
-    player.map.events.on('mobj-updated-position', updatePosition);
-    onDestroy(() => player.map.events.off('mobj-updated-position', updatePosition));
+    onDestroy(monitorMapObject(player.map, player, mo => {
+        position = player.position;
+        direction = player.direction;
+        sector = player.sector;
+        subsectors.length = 0;
+        player.subsectors(s => subsectors.push(s));
+    }));
 
     const debugBuild = import.meta.env.DEV;
 
@@ -63,7 +59,7 @@
         <div>pos: {vec(position)}</div>
         <div>vel: {vec(velocity)} {velocityPerTick(velocity.length()).toFixed(2)}</div>
         <div>dir: [{(direction * ToDegrees).toFixed(3)}]</div>
-        <div class:hidden={!debugBuild}>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
+        <div class:hidden={!debugBuild}>sect: {sector.num}, [floor, ceil]=[{sector.zFloor}, {sector.zCeil}]</div>
         <div class:hidden={!debugBuild}>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
         <div class:hidden={!debugBuild}>Subsectors: [{subsectors.map(e => e.num)}]</div>
         <div class:hidden={!debugBuild}>viewHeight: {$viewHeight.toFixed(2)}</div>

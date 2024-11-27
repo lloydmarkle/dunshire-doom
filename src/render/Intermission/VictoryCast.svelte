@@ -9,7 +9,7 @@
 
     const yScale = (16 / 10) / (4 / 3);
 
-    let map = new MapRuntime('MAP30', game);
+    let map = new MapRuntime('MAP30', wad.readMap('MAP30'), game);
     let castNumber = 0;
     const cast: [MapObjectIndex, string][] = [
         [MapObjectIndex.MT_POSSESSED, _T('CC_ZOMBIE')],

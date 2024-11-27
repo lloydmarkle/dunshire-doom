@@ -7,9 +7,9 @@
     import Wireframe from '../Debug/Wireframe.svelte';
     import { mapMeshMaterials } from './MapMeshMaterial';
     import { onDestroy } from 'svelte';
-    import type { MapObject, MapRuntime } from '../../doom';
+    import type { MapRuntime } from '../../doom';
     import type { MapLighting } from './MapLighting';
-    import { writable } from 'svelte/store';
+    import { monitorMapObject } from '../Map/SvelteBridge';
 
     export let map: MapRuntime;
     export let lighting: MapLighting;
@@ -84,16 +84,11 @@
     $: usePlayerLight = $playerLight !== '#000000';
     $: receiveShadow = usePlayerLight;
     $: castShadow = receiveShadow;
-    const { position, extraLight } = map.player;
+    let { position: playerPosition, extraLight } = map.player;
 
-    const playerPosition = writable(position);
-    const updatePlayer = (mo: MapObject) => {
-        if (mo === map.player) {
-            playerPosition.set(position);
-        }
-    };
-    map.events.on('mobj-updated-position', updatePlayer);
-    onDestroy(() => map.events.off('mobj-updated-position', updatePlayer));
+    onDestroy(monitorMapObject(map, map.player, mo => {
+        playerPosition = mo.position;
+    }));
 
     const hit = (geom: BufferGeometry) => (ev) => {
         if (!ev.face) {
@@ -150,9 +145,9 @@
         intensity={10}
         distance={400}
         decay={0.2}
-        position.x={$playerPosition.x}
-        position.y={$playerPosition.y}
-        position.z={$playerPosition.z + 40}
+        position.x={playerPosition.x}
+        position.y={playerPosition.y}
+        position.z={playerPosition.z + 40}
         shadow.bias={shadowBias}
     />
 {/if}

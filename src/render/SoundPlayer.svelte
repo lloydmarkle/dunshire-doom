@@ -3,6 +3,8 @@
     import { MapObject, PlayerMapObject, SoundIndex, type Sector, type SoundEmitter, DoomWad, xyDistSqr, word, dword } from "../doom";
     import { Vector3 } from "three";
     import { randInt } from "three/src/math/MathUtils";
+    import { onDestroy } from "svelte";
+    import { monitorMapObject } from "./Map/SvelteBridge";
 
     export let audioRoot: AudioNode;
     export let wad: DoomWad;
@@ -65,14 +67,9 @@
                 0, 0, Math.cos(pitch));
         }
     }
-    $: if (player) {
-        // don't bother unsubscribe because if the map changes, it will have a new event emitter anyway
-        player.map.events.on('mobj-updated-position', mo => {
-            if (mo === player) {
-                updateListener(player.position, player.direction, player.pitch);
-            }
-        })
-    }
+    onDestroy(monitorMapObject(player.map, player, mo => {
+        updateListener(player.position, player.direction, player.pitch);
+    }));
 
     const soundBuffers = new Map<string, AudioBuffer>()
     function soundBuffer(name: string) {

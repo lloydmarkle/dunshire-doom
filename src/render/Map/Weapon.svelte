@@ -3,7 +3,7 @@
     import { weaponTop, type PlayerMapObject } from "../../doom";
     import WeaponSprite from "../Components/WeaponSprite.svelte";
     import { useDoom } from "../DoomContext";
-    import type { MapObject } from "./SvelteBridge";
+    import { monitorMapObject } from "./SvelteBridge";
     import { onDestroy } from "svelte";
 
     export let player: PlayerMapObject;
@@ -13,9 +13,7 @@
     const { weapon } = player;
 
     let sector = player.sector;
-    const movePlayer = (mo: MapObject) => sector = (mo === player) ? mo.sector : sector;
-    player.map.events.on('mobj-updated-position', movePlayer);
-    onDestroy(() => player.map.events.off('mobj-updated-position', movePlayer));
+    onDestroy(monitorMapObject(player.map, player, mo => sector = mo.sector));
 
     $: sprite = $weapon.sprite;
     $: flashSprite = $weapon.flashSprite;

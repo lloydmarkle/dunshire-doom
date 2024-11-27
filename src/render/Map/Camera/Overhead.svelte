@@ -1,11 +1,12 @@
 <script lang="ts">
     import { T, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
-    import { HALF_PI, MapObject } from "../../../doom";
+    import { HALF_PI } from "../../../doom";
     import { tweened } from "svelte/motion";
     import { quadOut } from "svelte/easing";
-    import { type Vector3, FogExp2, Fog } from "three";
+    import { FogExp2 } from "three";
     import { onDestroy } from "svelte";
+    import { monitorMapObject } from "../SvelteBridge";
 
     export let yScale: number;
 
@@ -22,19 +23,13 @@
     $: $angle.x = 0;
 
     const tz = tweened(0, { easing: quadOut });
-    const updatePosition = (mo: MapObject) => {
-        if (mo === map.player) {
-            $position.x = map.player.position.x;
-            $position.y = map.player.position.y;
-            $tz = map.player.position.z;
-            $angle.z = map.player.direction - HALF_PI;
-        }
-    }
+    onDestroy(monitorMapObject(map, map.player, mo => {
+            $position.x = mo.position.x;
+            $position.y = mo.position.y;
+            $tz = mo.position.z;
+            $angle.z = mo.direction - HALF_PI;
+    }));
     $: $position.z = zoom + $tz;
-    updatePosition(map.player);
-
-    map.events.on('mobj-updated-position', updatePosition);
-    onDestroy(() => map.events.off('mobj-updated-position', updatePosition));
 
     const threlte = useThrelte();
     const originalFog = threlte.scene.fog;

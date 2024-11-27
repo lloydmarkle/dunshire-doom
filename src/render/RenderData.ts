@@ -137,7 +137,6 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     });
     const sectorRightLindefs = new Map<Sector, LineDef[]>();
     const sectorLeftLindefs = new Map<Sector, LineDef[]>();
-    const taggedLinedefs = new Map<number, LineDef[]>();
     map.linedefs.filter(ld => {
         const right = sectorRightLindefs.get(ld.right.sector) ?? [];
         right.push(ld);
@@ -147,12 +146,6 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             const left = sectorLeftLindefs.get(ld.left.sector) ?? [];
             left.push(ld);
             sectorLeftLindefs.set(ld.left.sector, left);
-        }
-
-        if (ld.tag) {
-            const tagged = taggedLinedefs.get(ld.tag) ?? [];
-            taggedLinedefs.set(ld.tag, tagged);
-            tagged.push(ld);
         }
     });
 
@@ -174,7 +167,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         const visible = store(true)
         const mobjs = store(new Set<MapObject>());
         const extraFlats = [];
-        const taggedLines = taggedLinedefs.get(sector.tag) ?? [];
+        const taggedLines = mapRuntime.linedefsByTag.get(sector.tag) ?? [];
         const renderSector: RenderSector = { visible, sector, subsectors, geometry, linedefs, zHackFloor, zHackCeil, flatLighting, mobjs, extraFlats, taggedLines };
         rSectors.push(renderSector);
         secMap.set(renderSector.sector, renderSector);
