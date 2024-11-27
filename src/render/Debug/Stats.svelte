@@ -51,8 +51,5 @@
     }
 
     onMount(() => document.body.appendChild(stats.dom));
-    onDestroy(() => {
-        stop();
-        document.body.removeChild(stats.dom)
-    });
+    onDestroy(() => document.body.removeChild(stats.dom));
 </script>

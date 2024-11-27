@@ -95,16 +95,14 @@
         let lastFrameTime = -1000;
 
         // A nifty hack to watch all settings for changes and then force a re-render when the menu is open
-        let settingsChanged = false;
         const allSettings = Object.keys(settings).filter(k => typeof settings[k] === 'object').map(k => settings[k]);
-        derived(allSettings, () => new Date()).subscribe(() => settingsChanged = true);
+        derived(allSettings, () => new Date()).subscribe(() => threlteCtx?.advance());
 
         const menuFn: FrameRequestCallback = (time) => {
             time *= .001;
             frameReq = requestAnimationFrame(obj.nextFn);
-            // update within 50ms if a setting changes otherwise use 1fps
-            let frameTime = $editor.selected || settingsChanged ? .05 : 1;
-            settingsChanged = false;
+            // update within 50ms on editor selection otherwise use 1fps
+            let frameTime = $editor.selected ? .05 : 1;
             if (time - lastFrameTime > frameTime) {
                 threlteCtx?.advance();
                 lastFrameTime = time - (time % frameTime);
@@ -137,6 +135,8 @@
         return obj;
     })();
     $: updateFrame.nextFn = showMenu ? updateFrame.menuFn : updateFrame.gameFn;
+    // force render on screensize change
+    $: if (viewSize) threlteCtx?.advance();
 
     const rendererParameters: WebGLRendererParameters = {
         // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
