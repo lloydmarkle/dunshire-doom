@@ -63,6 +63,7 @@ export class MapObject {
     chaseThreshold = 0;
     chaseTarget: MapObject;
     tracerTarget: MapObject;
+    lastPlayerCheck = 0;
 
     readonly resurrect: () => void;
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;

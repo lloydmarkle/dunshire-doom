@@ -4,7 +4,7 @@ import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatS
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector } from '../map-data';
 import { attackRange, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
 import { exitLevel, telefragTargets, teleportReorientMove } from '../specials';
 
@@ -769,29 +769,37 @@ const _directionTable = Object.fromEntries([
 const _findPlayerVec1 = new Vector3();
 const _findPlayerVec2 = new Vector3();
 function findPlayerTarget(mobj: MapObject, allAround = false) {
-    for (let i = 0; i < mobj.map.players.length; i++) {
-        const player = mobj.map.players[i];
+    // DOOM's P_LookForPlayers only looked at 2 players at a time
+    const playerCount = Math.min(2, mobj.map.players.length);
+    for (let i = 0; i < playerCount; i++) {
+        const player = mobj.map.players[mobj.lastPlayerCheck];
+        mobj.lastPlayerCheck = (mobj.lastPlayerCheck + 1) % mobj.map.players.length;
+
         if (player.isDead) {
             continue;
         }
 
-        const distSqr = xyDistSqr(mobj.position, player.position);
-        if (distSqr < meleeRangeSqr) {
-            return player;
-        }
-
-        _findPlayerVec1.set(player.position.x - mobj.position.x, player.position.y - mobj.position.y, 0);
-        const v2 = _directionTable[mobj.direction] ??
-            _findPlayerVec2.set(Math.cos(mobj.direction), Math.sin(mobj.direction), 0);
-        const dot = v2.dot(_findPlayerVec1);
-        if (dot < 0 && !allAround) {
+        const lineOfSight = hasLineOfSight(mobj, player);
+        if (!lineOfSight) {
             continue;
         }
 
-        const lineOfSight = hasLineOfSight(mobj, player);
-        if (lineOfSight) {
-            return player;
+        if (!allAround) {
+            _findPlayerVec1.set(player.position.x - mobj.position.x, player.position.y - mobj.position.y, 0);
+            const v2 = _directionTable[mobj.direction] ??
+                _findPlayerVec2.set(Math.cos(mobj.direction), Math.sin(mobj.direction), 0);
+            const dot = v2.dot(_findPlayerVec1);
+            if (dot < 0) {
+                continue;
+            }
+
+            const distSqr = xyDistSqr(mobj.position, player.position);
+            if (dot < 0 && distSqr > meleeRangeSqr) {
+                continue;
+            }
         }
+
+        return player;
     }
     return null;
 }

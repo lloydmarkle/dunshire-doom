@@ -174,6 +174,9 @@ export class MapRuntime {
             keys: '',
         });
         this.player = new PlayerMapObject(store(inv), playerThing);
+        this.players[this.players.length - 1] = this.player;
+        this.objs.push(this.player);
+        this.events.emit('mobj-added', this.player);
         // restore values from last level (and subscribe to preserve values for next level)
         this.player.health.set(game.inventory.health);
         this.player.health.subscribe(health => game.inventory.health = health);
@@ -182,8 +185,6 @@ export class MapRuntime {
             game.inventory.lastWeapon = inventoryWeapon(weapon.name);
             weapon.activate(this.player);
         });
-        this.objs.push(this.player);
-        this.events.emit('mobj-added', this.player);
 
         this.input = new GameInput(this, game.input);
 
