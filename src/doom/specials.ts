@@ -996,7 +996,6 @@ const teleportThingInSectorTarget = (mobj: MapObject, linedef: LineDef, applyFn:
 }
 
 const lineWithTag = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
-    // const hitPoint = sweepAABBLine(mobj.position.val, 1, mobj.velocity, linedef.v);
     const lines = mobj.map.linedefsByTag.get(linedef.tag);
     for (const ld of lines) {
         if (ld === linedef) {
@@ -1011,9 +1010,16 @@ const lineWithTag = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject)
         const py = ld.v[0].y + (ld.v[1].y - ld.v[0].y) * frac;
         mobj.position.set(px, py, mobj.position.z);
         mobj.positionChanged();
+        return true;
     }
+    return false;
 }
-const lineWithTagReversed = () => {
+const lineWithTagReversed = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
+    const applied = lineWithTag(mobj, linedef, applyFn);
+    if (applied) {
+        // +180 turn
+        mobj.direction = mobj.direction + Math.PI;
+    }
 }
 
 export const telefragTargets = (mobj: MapObject) => {
@@ -1044,22 +1050,22 @@ const teleportDefinitions = [
     createTeleportDefinition(126, 'WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
     createTeleportDefinition(125, 'W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
     // extended
-    // createTeleportDefinition(174, 'S1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
-    // createTeleportDefinition(195, 'SR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
-    // createTeleportDefinition(207, 'W1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
-    // createTeleportDefinition(208, 'WR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
-    // createTeleportDefinition(209, 'S1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
-    // createTeleportDefinition(210, 'SR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
-    // createTeleportDefinition(243, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTag),
+    createTeleportDefinition(174, 'S1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
+    createTeleportDefinition(195, 'SR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
+    createTeleportDefinition(207, 'W1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
+    createTeleportDefinition(208, 'WR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
+    createTeleportDefinition(209, 'S1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
+    createTeleportDefinition(210, 'SR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
+    createTeleportDefinition(243, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTag),
     createTeleportDefinition(244, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTag),
-    // createTeleportDefinition(262, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
-    // createTeleportDefinition(263, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
-    // createTeleportDefinition(264, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
-    // createTeleportDefinition(265, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
-    // createTeleportDefinition(266, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTag),
-    // createTeleportDefinition(267, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTag),
-    // createTeleportDefinition(268, 'W1', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget),
-    // createTeleportDefinition(269, 'WR', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget),
+    createTeleportDefinition(262, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
+    createTeleportDefinition(263, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
+    createTeleportDefinition(264, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
+    createTeleportDefinition(265, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
+    createTeleportDefinition(266, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTag),
+    createTeleportDefinition(267, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTag),
+    createTeleportDefinition(268, 'W1', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget),
+    createTeleportDefinition(269, 'WR', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget),
 ];
 
 export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
