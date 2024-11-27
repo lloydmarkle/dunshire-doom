@@ -791,7 +791,7 @@ const maxNeighbourLight = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.light), 0);
 const minNeighbourLight = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.light), 255);
-export const lowestLight = (sectors: Sector[], max: number) =>
+const lowestLight = (sectors: Sector[], max: number) =>
     sectors.reduce((last, sec) => Math.min(last, sec.light), max);
 
 const createLightingDefinition = (type: number, trigger: string, targetValueFn: TargetValueFunction) => ({
@@ -805,6 +805,7 @@ const lightingDefinitions = [
     createLightingDefinition(12, 'W1', maxNeighbourLight),
     createLightingDefinition(80, 'WR', maxNeighbourLight),
     createLightingDefinition(104, 'W1', minNeighbourLight),
+    // As far as I can tell, type 17 is only used in tnt 09. It's extra special
     createLightingDefinition(17, 'W1', null),
     createLightingDefinition(35, 'W1', setLightLevel(35)),
     createLightingDefinition(79, 'WR', setLightLevel(35)),
@@ -814,6 +815,16 @@ const lightingDefinitions = [
     createLightingDefinition(138, 'SR', setLightLevel(255)),
     // extended
     createLightingDefinition(157, 'WR', minNeighbourLight),
+    createLightingDefinition(156, 'WR', null),
+    createLightingDefinition(157, 'WR', minNeighbourLight),
+    createLightingDefinition(169, 'S1', maxNeighbourLight),
+    createLightingDefinition(170, 'S1', setLightLevel(35)),
+    createLightingDefinition(171, 'S1', setLightLevel(255)),
+    createLightingDefinition(172, 'S1', null),
+    createLightingDefinition(173, 'S1', minNeighbourLight),
+    createLightingDefinition(192, 'SR', maxNeighbourLight),
+    createLightingDefinition(193, 'SR', null),
+    createLightingDefinition(194, 'SR', minNeighbourLight),
 ];
 
 export const createLightingAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
@@ -835,10 +846,9 @@ export const createLightingAction = (mobj: MapObject, linedef: LineDef, trigger:
 
     let triggered = false;
     let targetValue = -1;
-    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.sectorsByTag.get(linedef.tag) ?? [];
     for (const sector of sectors) {
-        if (def.type === 17) {
-            // As far as I can tell, type 17 is only used in tnt 09. It's extra special
+        if (!def.targetValueFn) {
             map.addAction(strobeFlash(5, 35)(map, sector));
         } else {
             if (targetValue === -1) {
@@ -857,7 +867,7 @@ const strobeFlash =
     (map: MapRuntime, sector: Sector) => {
         const max = sector.light;
         const nearestMin = lowestLight(map.data.sectorNeighbours(sector), max);
-        const min = (nearestMin === max) ? 0 : nearestMin;
+        const min = (nearestMin >= max) ? 0 : nearestMin;
         let ticks = synchronized ? 1 : map.game.rng.int(1, 7);
         return () => {
             if (--ticks) {
