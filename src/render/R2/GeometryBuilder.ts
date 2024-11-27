@@ -1,6 +1,6 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
-import type { MapTextureAtlas } from "./TextureAtlas";
+import { TransparentWindowTexture, type MapTextureAtlas } from "./TextureAtlas";
 import { linedefSlope, HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Vertex, type WallTextureType } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
@@ -126,6 +126,9 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         flatName === 'F_SKY1' ? skyBuilder : geoBuilder;
 
     const chooseTexture = (ld: LineDef, type: WallTextureType, useLeft = false) => {
+        if (ld.transparentWindowHack) {
+            return TransparentWindowTexture.TextureName;
+        }
         let textureL = ld.left?.[type];
         let textureR = ld.right[type];
         return useLeft ? (textureL ?? textureR) : (textureR ?? textureL);
@@ -194,7 +197,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         const skyHeight = ld.right.sector.skyHeight;
 
         let builder = geoBuilder;
-        if (ld.special === 260) {
+        if (ld.special === 260 || ld.transparentWindowHack) {
             builder = translucencyBuilder;
         }
 
@@ -429,7 +432,7 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
             // add a tiny offset to z to make sure extra flat is rendered below (floor) or above) ceil) the actual
             // flat to avoid z-fighting. We can use a small offset because doom z values are integers except when the
             // platform is moving but we can tolerate a small error for moving platforms.
-            let zOffset = extra.ceil ? 0.0001 : -0.0001;
+            let zOffset = extra.ceil ? 0.001 : -0.001;
             appendUpdater(sectorZChanges, extra.zSector, () => mapUpdater.moveFlat(idx, zOffset + (extra.ceil ? extra.zSector.zCeil : extra.zSector.zFloor)));
             appendUpdater(sectorFlatChanges, extra.flatSector, () => mapUpdater.applyFlatTexture(idx, (extra.ceil ? extra.flatSector.ceilFlat : extra.flatSector.floorFlat)));
         }

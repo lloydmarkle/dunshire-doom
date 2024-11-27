@@ -9,7 +9,7 @@
 
     export let renderSector: RenderSector;
     const { zFloor, zCeil, floorFlat, ceilFlat, light } = renderSector.sector.renderData;
-    const { geometry, zHackCeil, zHackFloor, mobjs, extraFlats } = renderSector;
+    const { geometry, mobjs, extraFlats } = renderSector;
     $: mo = [...$mobjs].sort((a, b) => a.id - b.id);
 
     // Why wrap this in a div? It reduces the cost of reflow from adding/removing DOM nodes.
@@ -22,7 +22,7 @@
         <Flat
             {renderSector}
             light={$light}
-            vertical={$zFloor + $zHackFloor}
+            vertical={$zFloor}
             textureName={$floorFlat}
         />
 
@@ -30,7 +30,7 @@
             ceiling
             {renderSector}
             light={$light}
-            vertical={(renderSector.sector.skyHeight ?? $zCeil) + $zHackCeil}
+            vertical={renderSector.sector.skyHeight ?? $zCeil}
             textureName={$ceilFlat}
         />
 

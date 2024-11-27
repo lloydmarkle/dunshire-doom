@@ -129,13 +129,35 @@ function packTextures(textures: [number, Picture][], maxSize: number) {
     return result;
 }
 
+export class TransparentWindowTexture implements Picture {
+    static TextureName = '$WHITE';
+    readonly xOffset = 0;
+    readonly yOffset = 0;
+    readonly width = 1;
+    readonly height = 1;
+
+    toBuffer(buffer: Uint8ClampedArray): void {
+        buffer[0] = buffer[1] = buffer[2] = 255;
+        buffer[3] = 25;
+    }
+
+    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, ax: number, ay: number): void {
+        let i = 4 * (ay * width + ax);
+        buffer[i + 0] = buffer[i + 1] = buffer[i + 2] = 255;
+        buffer[i + 3] = 25;
+    }
+}
+
 export class MapTextureAtlas {
     index: DataTexture;
     texture: DataTexture;
     private textures = new Map<string, [number, Picture]>();
     private flats = new Map<string, [number, Picture]>();
 
-    constructor(private wad: DoomWad, private atlas: TextureAtlas) {}
+    constructor(private wad: DoomWad, private atlas: TextureAtlas) {
+        const data = this.atlas.insertTexture(new TransparentWindowTexture());
+        this.textures.set(TransparentWindowTexture.TextureName, data);
+    }
 
     commit() {
         this.atlas.commit();

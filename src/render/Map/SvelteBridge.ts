@@ -28,18 +28,16 @@ export function bridgeEventsToReadables(map: MapRuntime) {
         } else {
             mo.sprite.set(sprite);
         }
-    }
-
+    };
     const updateMobjPosition = (mo: MapObject) => {
         mo.renderData['position']?.set(mo.position);
         mo.renderData['sector']?.set(mo.sector);
-    }
-
+    };
     const addMobj = (mo: MapObject) => {
         mo.renderData['position'] = store(mo.position);
         mo.renderData['direction'] = store(mo.direction);
         mo.renderData['sector'] = store(mo.sector);
-    }
+    };
 
     map.objs.forEach(addMobj);
     map.events.on('mobj-added', addMobj);
@@ -81,7 +79,7 @@ export function bridgeEventsToReadables(map: MapRuntime) {
             line.left.renderData['middle'].set(line.left.middle);
             line.left.renderData['upper'].set(line.left.upper);
         }
-    }
+    };
     map.events.on('sector-flat', updateSectorFlat);
     map.events.on('sector-light', updateSectorLight);
     map.events.on('sector-z', updateSectorZ);

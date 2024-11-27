@@ -15,8 +15,8 @@
     const angle = Math.atan2(vy, vx);
     const leftAngle = angle + Math.PI;
 
-    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left.sector;
-    const { zFloor : zFloorR } = linedef.right.sector;
+    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left.sector.renderData;
+    const { zFloor : zFloorR } = linedef.right.sector.renderData;
     const { yOffset } = linedef.left;
     $: floorGap = $zFloorR - $zFloorL;
     $: top = $zCeilL + $yOffset + floorGap;
