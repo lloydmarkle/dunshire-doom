@@ -1393,6 +1393,9 @@ export function pusherAction(map: MapRuntime, linedef: LineDef) {
     let movement = new Vector3();
 
     const sectors = map.sectorsByTag.get(linedef.tag);
+    if (!sectors) {
+        return;
+    }
     const { dx, dy } = linedefScrollSpeed(linedef);
     movement.set(dx, dy, 0);
     const action = () => {

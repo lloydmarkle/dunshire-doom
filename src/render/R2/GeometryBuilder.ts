@@ -1,10 +1,11 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import { TransparentWindowTexture, type MapTextureAtlas } from "./TextureAtlas";
-import { linedefSlope, HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Vertex, type WallTextureType } from "../../doom";
+import { linedefSlope, HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Vertex, type WallTextureType, MapObject } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
 import { linedefScrollSpeed } from '../../doom/specials';
+import { monitorMapObject } from '../Map/SvelteBridge';
 
 // https://github.com/mrdoob/three.js/issues/17361
 function flipWindingOrder(geometry: BufferGeometry) {
@@ -182,6 +183,10 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         const top = 1;
         const height = 1;
 
+        // TODO: This mostly works but lighting isn't quite right. For sectors the real sector is below the control sector
+        // then we need to use the control sector light but really only for the parts below the real sector. We could
+        // split the lines and apply different lights. We could also update the lights based on camera position. It all
+        // feels messy so I'll skip it for now.
         let rSec = chooseSector(ld.right.sector.transfer?.right?.sector, ld.right.sector);
         let lSec = chooseSector(ld.left?.sector?.transfer?.right?.sector, ld.left?.sector);
 
@@ -292,13 +297,17 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 const pic = textures.wallTexture(tx)[1];
                 // NOTE: don't use transfer properties here.. is this correct? It is required for
                 // http://localhost:5173/#wad=doom2&wad=sunder+2407&skill=4&map=MAP20&player-x=-8812.18&player-y=3810.27&player-z=371.98&player-aim=-0.75&player-dir=3.18
-                const zFloor = Math.max(ld.left.sector.zFloor, ld.right.sector.zFloor);
-                const zCeil = Math.min(ld.left.sector.zCeil, ld.right.sector.zCeil);
+                // but breaks the rev cages in profanepromiseland:
+                // http://localhost:5173/#wad=doom2&wad=profanepromiseland_rc1&skill=4&map=MAP01&player-x=-2480.63&player-y=-2639.95&player-z=375.95&player-aim=-0.17&player-dir=8.60
+                const zFloor = Math.max(lSec.zFloor, rSec.zFloor);
+                const zCeil = Math.min(lSec.zCeil, rSec.zCeil);
+                // const zFloor = Math.max(ld.left.sector.zFloor, ld.right.sector.zFloor);
+                // const zCeil = Math.min(ld.left.sector.zCeil, ld.right.sector.zCeil);
                 // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
                 // and lower unpegged sticks to the ground
                 let top = ((ld.flags & 0x0010) ? Math.min(zFloor + pic.height, zCeil) : zCeil) + side.yOffset.val;
                 // don't repeat so clip by height or floor/ceiling gap
-                let height = Math.min(pic.height, zCeil - zFloor + side.yOffset.val);
+                let height = Math.min(pic.height, top - zFloor);
                 m.changeWallHeight(idx, top, height);
                 m.applyWallTexture(idx, tx, width, height,
                     side.xOffset.initial, pegging('middle', height));
@@ -319,7 +328,6 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
 
                 result.midRight = middleUpdater(idx, ld.right);
             }
-
         } else {
             const geo = builder.createWallGeo(width, height, mid, top, angle);
             const idx = builder.addWallGeometry(geo, rSec.num);
@@ -352,7 +360,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         }
     }
 
-    const addSector = (rs: RenderSector): [GeoInfo, GeoInfo, GeoInfo[]] => {
+    const addSector = (rs: RenderSector): [GeoInfo, GeoInfo, GeoInfo[], [GeoInfo, GeoInfo]] => {
         const sector = chooseSector(rs.sector.transfer?.right?.sector, rs.sector);
         const floorGeo = rs.geometry.clone();
         const floor = flatGeoBuilder(sector.floorFlat).addFlatGeometry(floorGeo, sector.num);
@@ -374,7 +382,19 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             extras.push(flatGeoBuilder(flat).addFlatGeometry(geo, extra.lightSector.num));
             applySectorSpecials(rs, geo, extra.ceil);
         }
-        return [ceil, floor, extras];
+
+        let transfers: [GeoInfo, GeoInfo] = null;
+        if (rs.sector.transfer) {
+            // create an extra floor and ceiling although we won't always use them
+            const transferSec = rs.sector.transfer.right.sector;
+            const transferFloor = flatGeoBuilder(transferSec.floorFlat).addFlatGeometry(rs.geometry.clone(), transferSec.num);
+            const geo = rs.geometry.clone();
+            flipWindingOrder(geo);
+            const transferCeiling = flatGeoBuilder(transferSec.floorFlat).addFlatGeometry(geo, transferSec.num);
+            transfers = [transferFloor, transferCeiling];
+        }
+
+        return [ceil, floor, extras, transfers];
     }
 
     function build() {
@@ -417,6 +437,7 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
         map.set(sector.num, list);
     }
 
+    let transferChangers = [];
     for (const rs of renderSectors) {
         rs.linedefs.forEach(ld => {
             const updaters = mapBuilder.addLinedef(ld);
@@ -427,61 +448,7 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
             continue;
         }
 
-        let [ceil, floor, extras] = mapBuilder.addSector(rs);
-
-        const transferSec = rs.sector.transfer?.right?.sector ?? rs.sector;
-        if (transferSec) {
-            const changer = () => {
-                // TODO: also set palette?
-                const playerEye = mapRuntime.player.position.z + mapRuntime.player.viewHeight.val;
-                const twoSpaceCase = transferSec.zFloor < rs.sector.zFloor;
-                // if (twoSpaceCase) {
-                    // I don't think this is quite right, we need to handle the A case (playerEye > transfer.zCeil)
-                    mapUpdater.applyFlatTexture(ceil, rs.sector.ceilFlat);
-                    mapUpdater.applyFlatTexture(floor, rs.sector.floorFlat);
-                    mapUpdater.moveFlat(ceil, rs.sector.skyHeight ?? transferSec.zCeil);
-                    mapUpdater.moveFlat(floor, transferSec.zFloor);
-                // } else {
-                //     // This isn't right (yet).. we probably need to insert at fake flat and toggle it for a ceiling because in PD2,
-                //     // we get a sky we can't switch from sky to non-sky flats
-                //     const lightsAndFlats = playerEye > transferSec.zCeil || playerEye < transferSec.zFloor ? transferSec : rs.sector;
-                //     mapUpdater.applyLightLevel(floor, lightsAndFlats.num);
-                //     mapUpdater.applyLightLevel(ceil, lightsAndFlats.num);
-                //     mapUpdater.applyFlatTexture(ceil, lightsAndFlats.ceilFlat);
-                //     mapUpdater.applyFlatTexture(floor, lightsAndFlats.floorFlat);
-
-                //     if (playerEye > transferSec.zCeil) {
-                //         mapUpdater.moveFlat(ceil, rs.sector.skyHeight ?? rs.sector.zCeil);
-                //         mapUpdater.moveFlat(floor, transferSec.zCeil);
-                //     } else if (playerEye > transferSec.zFloor) {
-                //         mapUpdater.moveFlat(ceil, transferSec.zCeil);
-                //         mapUpdater.moveFlat(floor, transferSec.zFloor);
-                //     } else {
-                //         mapUpdater.moveFlat(ceil, transferSec.zFloor);
-                //         mapUpdater.moveFlat(floor, rs.sector.zFloor);
-                //     }
-                // }
-            };
-
-            // mapRuntime.events.on('mobj-updated-position', mo => {
-            //     if (mo === mapRuntime.player) {
-            //         changer();
-            //     }
-            // })
-            appendUpdater(sectorZChanges, rs.sector, changer);
-            appendUpdater(sectorZChanges, transferSec, changer);
-            appendUpdater(sectorFlatChanges, rs.sector, changer);
-            appendUpdater(sectorFlatChanges, transferSec, changer);
-        } else {
-            appendUpdater(sectorZChanges, rs.sector, () => {
-                mapUpdater.moveFlat(floor, rs.sector.zFloor);
-                mapUpdater.moveFlat(ceil, rs.sector.skyHeight ?? rs.sector.zCeil);
-            });
-            appendUpdater(sectorFlatChanges, rs.sector, () => {
-                mapUpdater.applyFlatTexture(ceil, rs.sector.ceilFlat);
-                mapUpdater.applyFlatTexture(floor, rs.sector.floorFlat);
-            });
-        }
+        let [ceil, floor, extras, transfers] = mapBuilder.addSector(rs);
 
         for (let i = 0; i < extras.length; i++) {
             let extra = rs.extraFlats[i];
@@ -493,7 +460,61 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
             appendUpdater(sectorZChanges, extra.zSector, () => mapUpdater.moveFlat(idx, zOffset + (extra.ceil ? extra.zSector.zCeil : extra.zSector.zFloor)));
             appendUpdater(sectorFlatChanges, extra.flatSector, () => mapUpdater.applyFlatTexture(idx, (extra.ceil ? extra.flatSector.ceilFlat : extra.flatSector.floorFlat)));
         }
+
+        if (!transfers) {
+            appendUpdater(sectorZChanges, rs.sector, () => {
+                mapUpdater.moveFlat(floor, rs.sector.zFloor);
+                mapUpdater.moveFlat(ceil, rs.sector.skyHeight ?? rs.sector.zCeil);
+            });
+            appendUpdater(sectorFlatChanges, rs.sector, () => {
+                mapUpdater.applyFlatTexture(ceil, rs.sector.ceilFlat);
+                mapUpdater.applyFlatTexture(floor, rs.sector.floorFlat);
+            });
+        } else {
+            const controlSec = rs.sector.transfer.right.sector;
+            const [tFloor, tCeil] = transfers;
+            const changer = () => {
+                mapUpdater.applyFlatTexture(ceil, rs.sector.ceilFlat);
+                mapUpdater.moveFlat(ceil, rs.sector.skyHeight ?? controlSec.zCeil);
+                mapUpdater.applyFlatTexture(floor, rs.sector.floorFlat);
+                mapUpdater.moveFlat(floor, controlSec.zFloor);
+
+                // we don't need to update fake floors if the real sector sector ceil and floor are within the control sector
+                if (rs.sector.zCeil <= controlSec.zCeil && rs.sector.zFloor >= controlSec.zFloor) {
+                    return;
+                }
+
+                // TODO: also set palette? we need to choose colours based on palette first
+                // TODO: if we add two more fake floors, I wonder if we could avoid listening to player movement? It's not super
+                // expensive (Sunder map20 has about 100 transfer lines) but it's probably cheaper to just add a few more
+                // triangles and not update them (unless a sector moves)
+                const playerEye = mapRuntime.player.position.z + mapRuntime.player.viewHeight.val;
+                if (playerEye >= controlSec.zCeil) {
+                    mapUpdater.applyFlatTexture(tCeil, controlSec.ceilFlat);
+                    mapUpdater.moveFlat(tCeil, controlSec.zFloor);
+                    mapUpdater.applyFlatTexture(tFloor, controlSec.floorFlat);
+                    mapUpdater.moveFlat(tFloor, rs.sector.zFloor);
+                } else if (playerEye >= controlSec.zFloor) {
+                    // hide fake floor and ceiling to use the real floor and ceiling
+                    mapUpdater.moveFlat(tCeil, controlSec.zCeil + .1);
+                    mapUpdater.moveFlat(tFloor, controlSec.zFloor - .1);
+                } else {
+                    mapUpdater.applyFlatTexture(tCeil, controlSec.ceilFlat);
+                    mapUpdater.moveFlat(tCeil, controlSec.zFloor);
+                    mapUpdater.applyFlatTexture(tFloor, controlSec.floorFlat);
+                    mapUpdater.moveFlat(tFloor, rs.sector.zFloor);
+                }
+            };
+
+            transferChangers.push(changer);
+            appendUpdater(sectorZChanges, rs.sector, changer);
+            appendUpdater(sectorZChanges, controlSec, changer);
+            appendUpdater(sectorFlatChanges, rs.sector, changer);
+            appendUpdater(sectorFlatChanges, controlSec, changer);
+        }
     }
+
+    disposables.push(monitorMapObject(mapRuntime, mapRuntime.player, () => transferChangers.forEach(fn => fn())));
 
     // try to minimize subscriptions by grouping lindefs that listen to a sector change
     // and only subscribing to that sector once. I'm not sure it's worth it. Actually, I'm
