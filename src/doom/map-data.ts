@@ -140,6 +140,7 @@ export interface Sector {
     skyHeight?: number;
     // special rendering data
     renderData: any;
+    transfer: LineDef;
     // Game processing data
     center: Vector3;
     specialData: any;
@@ -165,6 +166,7 @@ function sectorsLump(lump: Lump) {
         sectors[i] = {
             tag, type, zFloor, zCeil, ceilFlat, floorFlat, light,
             renderData: {},
+            transfer: null,
             num: i,
             specialData: null,
             soundC: 0,

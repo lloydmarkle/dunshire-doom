@@ -15,6 +15,7 @@ import {
 } from "../doom";
 import { sineIn } from 'svelte/easing';
 import { derived, readable, type Readable } from "svelte/store";
+import { Trash } from "@steeze-ui/heroicons";
 
 // all flats (floors/ceilings) are 64px
 const flatRepeat = 1 / 64;
@@ -168,6 +169,8 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         rSectors.push(renderSector);
         secMap.set(renderSector.sector, renderSector);
 
+        sector.transfer = (mapRuntime.linedefsByTag.get(sector.tag) ?? []).find(e => e.special === 242);
+
         // fascinating little render hack: self-referencing sector. Basically a sector where all lines are two-sided
         // and both sides refer to the same sector. For doom, that sector would be invisible but the renderer fills in the
         // floor and ceiling gaps magically. We can see the effect in Plutonia MAP02 (invisible bridge), MAP24 (floating cages),
@@ -179,17 +182,24 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         if (selfref && geometry) {
             selfReferencing.push(renderSector);
         }
+    }
+
+    // fake floors (separate loop so that we have transfer sectors assigned)
+    for (const sector of map.sectors) {
+        const linedefs = sectorRightLindefs.get(sector) ?? [];
+        const leftlines = sectorLeftLindefs.get(sector) ?? [];
+        const renderSector = secMap.get(sector);
 
         // floor hack (TNT MAP18): if the floors are unequal, and it's not a closed door/lift, and no front/back lower textures,
         // then we want to draw a floor at the height of the higher sector (like deep water). We can see this in the room
         // where revenants are in the floor or the exit room with the cyberdemon and brown sludge below the floating marble slabs
         const bothLindefs = [...leftlines, ...linedefs];
         const unequalFloorNoLowerTexture = (ld: LineDef) => ld.left &&
-                (ld.right.sector.zFloor !== ld.left.sector.zFloor
+                (heightSector(ld.right.sector).zFloor !== heightSector(ld.left.sector).zFloor
                 && !ld.left.lower && !ld.right.lower
                 // skip over closed doors and raised platforms
-                && ld.right.sector.zFloor !== ld.right.sector.zCeil
-                && ld.left.sector.zFloor !== ld.left.sector.zCeil);
+                && heightSector(ld.right.sector).zFloor !== heightSector(ld.right.sector).zCeil
+                && heightSector(ld.left.sector).zFloor !== heightSector(ld.left.sector).zCeil);
         const fakeFloorLines = bothLindefs.filter(unequalFloorNoLowerTexture);
         // If there is only one linedef... we'll just not add the fake floor and hope it's okay.
         // I've seen this done as a mapping trick to reference an unreachable sector
@@ -198,7 +208,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
                 let zSec = line.left.sector === sector ? line.right.sector : line.left.sector;
                 let lowerSec = (zSec.zFloor > sector.zFloor) ? sector : zSec;
                 renderSector.extraFlats.push({
-                    geometry,
+                    geometry: renderSector.geometry,
                     zSector: zSec,
                     flatSector: lowerSec,
                     lightSector: lowerSec,
@@ -323,6 +333,14 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
 
     console.timeEnd('b-rs')
     return rSectors;
+}
+
+const heightSector = (sec: Sector) => {
+    const transfer = sec.transfer?.right?.sector;
+    if (!transfer) {
+        return sec;
+    }
+    return transfer.zFloor < sec.zFloor ? transfer : sec;
 }
 
 function surroundingSector(map: MapRuntime, rs: RenderSector) {
