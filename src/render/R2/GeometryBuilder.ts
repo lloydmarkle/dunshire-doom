@@ -224,8 +224,6 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                     offset = (skyHeight ?? rSec.zCeil) - Math.max(lSec.zFloor, rSec.zFloor);
                 } else if (type === 'upper' && !(ld.flags & 0x0008)) {
                     offset = -height;
-                } else if (type === 'middle' && (ld.flags & 0x0010)) {
-                    offset = -height;
                 }
             } else if (ld.flags & 0x0010) {
                 // peg to floor (bottom left)
@@ -274,9 +272,6 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
 
                 result.lower = m => {
                     let useLeft = rSec.zFloor > lSec.zFloor;
-                    // FIXME: LD#40780 in Sunder MAP20 has zfighting. I think it's from big negative yoffset which pushes
-                    // the middle wall down and perhaps it should push the top of this wall down too. I'm not sure.
-                    // The sector floors also have problems in that area so something isn't right. (special 242)
                     const side = useLeft ? ld.left : ld.right;
                     const top = Math.max(rSec.zFloor, lSec.zFloor);
                     const height = top - Math.min(rSec.zFloor, lSec.zFloor);
@@ -295,22 +290,31 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             const middleUpdater = (idx: GeoInfo, side: SideDef) => (m: MapGeometryUpdater) => {
                 const tx = chooseTexture(ld, 'middle', side === ld.left);
                 const pic = textures.wallTexture(tx)[1];
-                // NOTE: don't use transfer properties here.. is this correct? It is required for
-                // http://localhost:5173/#wad=doom2&wad=sunder+2407&skill=4&map=MAP20&player-x=-8812.18&player-y=3810.27&player-z=371.98&player-aim=-0.75&player-dir=3.18
-                // but breaks the rev cages in profanepromiseland:
+                // Why two zFloors? For sectors with transfer properties (linedef special 242), it seems like we need it.
+                // We use the original (non transfer) to figure out the top and we use transfer property to figure out height
+                // For example, the green bars in Sundar map 20 need originalZFloor for top:
+                // http://localhost:5173/#wad=doom2&wad=sunder+2407&skill=4&map=MAP20&player-x=-8702.78&player-y=3756.88&player-z=179.72&player-aim=-0.07&player-dir=2.63
+                // While the rev cages in profanepromiseland need the transfer zFloor
+                // http://localhost:5173/#wad=doom2&wad=sunder+2407&skill=4&map=MAP20&player-x=-6510.42&player-y=4220.05&player-z=386.38&player-aim=-0.21&player-dir=-1.06
+                // Some other helpful test cases:
                 // http://localhost:5173/#wad=doom2&wad=profanepromiseland_rc1&skill=4&map=MAP01&player-x=-2480.63&player-y=-2639.95&player-z=375.95&player-aim=-0.17&player-dir=8.60
+                // http://localhost:5173/#wad=doom2&wad=profanepromiseland_rc1&skill=4&map=MAP01&player-x=-10019.15&player-y=5704.81&player-z=-147.16&player-aim=-0.06&player-dir=2.49
+                // http://localhost:5173/#wad=doom2&wad=pd2&skill=4&map=MAP01&player-x=174.85&player-y=506.97&player-z=212.69&player-aim=-0.29&player-dir=2.33
+                // This was tricky to figure out!
                 const zFloor = Math.max(lSec.zFloor, rSec.zFloor);
                 const zCeil = Math.min(lSec.zCeil, rSec.zCeil);
-                // const zFloor = Math.max(ld.left.sector.zFloor, ld.right.sector.zFloor);
-                // const zCeil = Math.min(ld.left.sector.zCeil, ld.right.sector.zCeil);
+                const originalZFloor = Math.max(ld.left.sector.zFloor, ld.right.sector.zFloor);
+                const originalZCeil = Math.min(ld.left.sector.zCeil, ld.right.sector.zCeil);
                 // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
                 // and lower unpegged sticks to the ground
-                let top = ((ld.flags & 0x0010) ? Math.min(zFloor + pic.height, zCeil) : zCeil) + side.yOffset.val;
+                let idealTop = ((ld.flags & 0x0010) ? originalZFloor + pic.height : originalZCeil) + side.yOffset.val;
+                let top = Math.min(zCeil, idealTop);
                 // don't repeat so clip by height or floor/ceiling gap
-                let height = Math.min(pic.height, top - zFloor);
+                let yOff = idealTop - top;
+                let height = Math.min(pic.height - yOff, top - zFloor);
                 m.changeWallHeight(idx, top, height);
                 m.applyWallTexture(idx, tx, width, height,
-                    side.xOffset.initial, pegging('middle', height));
+                    side.xOffset.initial, yOff + pegging('middle', height));
             };
             if (ld.left.middle) {
                 const geo = builder.createWallGeo(width, height, mid, top, angle + Math.PI);
