@@ -260,8 +260,8 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             continue;
         }
 
-        const leftRS = rSectors.find(sec => sec.sector === linedef.left.sector);
-        const rightRS = rSectors.find(sec => sec.sector === linedef.right.sector);
+        const leftRS = secMap.get(linedef.left.sector);
+        const rightRS = secMap.get(linedef.right.sector);
         const fakeFlorSec = leftRS.sector.zFloor < rightRS.sector.zFloor ? leftRS.sector : rightRS.sector;
         leftRS.extraFlats.push({
             geometry: leftRS.geometry,
