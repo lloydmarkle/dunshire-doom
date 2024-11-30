@@ -42,7 +42,6 @@ export interface LineDef {
     right?: SideDef;
     left?: SideDef;
     // used by renderer
-    transparentDoorHack: boolean;
     transparentWindowHack: boolean;
     // For game processing
     switchAction: Action;
@@ -72,7 +71,6 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
             right: sidedefs[rightSidedef],
             switchAction: null,
             hitC: 0,
-            transparentDoorHack: false,
             transparentWindowHack: false,
         };
     }

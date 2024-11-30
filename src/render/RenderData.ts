@@ -271,7 +271,6 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             ceil: false,
         });
 
-        linedef.transparentDoorHack = doorHack;
         linedef.transparentWindowHack = windowHack;
         if (doorHack) {
             // a door hack means that two flats will probably overlap. We find the sector that is not the door and

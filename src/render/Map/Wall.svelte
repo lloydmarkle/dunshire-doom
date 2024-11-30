@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { LOD } from "three";
     import type { LineDef } from "../../doom";
     import type { RenderSector } from "../RenderData";
     import WallFragment from "./WallFragment.svelte";
@@ -55,46 +56,40 @@
 
     {#if linedef.left}
         <!-- two-sided so figure out top and bottom -->
-        {#if $zCeilR !== $zCeilL && !skyHack}
+        {#if !skyHack}
             {@const useLeft = $zCeilL > $zCeilR}
             {@const height = useLeft ? $zCeilL - $zCeilR : $zCeilR - $zCeilL}
             {@const top = Math.max($zCeilR, $zCeilL)}
-            {#if height > 0}
-                <WallFragment
-                    {linedef} {useLeft}
-                    {visible} {width} {height} {top} {mid} angle={useLeft ? leftAngle : angle}
-                    type={'upper'}
-                />
-            {/if}
+            <WallFragment
+                {linedef} {useLeft}
+                {visible} {width} {height} {top} {mid} angle={useLeft ? leftAngle : angle}
+                type={'upper'}
+            />
         {/if}
-        {#if $zFloorL !== $zFloorR}
+        {#if true}
             {@const useLeft = $zFloorR > $zFloorL}
             {@const height = useLeft ? $zFloorR - $zFloorL : $zFloorL - $zFloorR}
             {@const top = Math.max($zFloorR, $zFloorL)}
-            {#if height > 0}
-                <WallFragment
-                    {linedef} {useLeft}
-                    {visible} {width} {height} {top} {mid} angle={useLeft ? leftAngle : angle}
-                    type={'lower'}
-                />
-            {/if}
+            <WallFragment
+                {linedef} {useLeft}
+                {visible} {width} {height} {top} {mid} angle={useLeft ? leftAngle : angle}
+                type={'lower'}
+            />
         {/if}
         <!-- And middle(s) -->
         {@const top = Math.min($zCeilL, $zCeilR)}
         {@const height = top - Math.max($zFloorL, $zFloorR)}
-        {#if height > 0}
-            {#if $middleL}
-                <WallFragment
-                    {linedef} useLeft doubleSidedMiddle
-                    {visible} {width} {height} {top} {mid} angle={leftAngle}
-                />
-            {/if}
-            {#if $middleR}
-                <WallFragment
-                    {linedef} doubleSidedMiddle
-                    {visible} {width} {height} {top} {mid} {angle}
-                />
-            {/if}
+        {#if $middleL}
+            <WallFragment
+                {linedef} useLeft doubleSidedMiddle
+                {visible} {width} {height} {top} {mid} angle={leftAngle}
+            />
+        {/if}
+        {#if $middleR}
+            <WallFragment
+                {linedef} doubleSidedMiddle
+                {visible} {width} {height} {top} {mid} {angle}
+            />
         {/if}
 
     {:else}

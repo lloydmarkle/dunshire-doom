@@ -1,7 +1,6 @@
 <script lang="ts">
     import Flat from "./Flat.svelte";
     import type { RenderSector } from "../RenderData";
-    import WallHackTransparentDoor from "./WallHackTransparentDoor.svelte";
     import Thing from "./Thing.svelte";
     import { MapObjectIndex } from "../../doom";
     import Wall from "./Wall.svelte";
@@ -40,11 +39,7 @@
     {/if}
 
     {#each renderSector.linedefs as linedef}
-        {#if linedef.transparentDoorHack}
-            <WallHackTransparentDoor {linedef} />
-        {:else}
-            <Wall {renderSector} {linedef} />
-        {/if}
+        <Wall {renderSector} {linedef} />
     {/each}
     {#each mo as thing (thing.id)}
         {#if thing.type !== MapObjectIndex.MT_PLAYER}
