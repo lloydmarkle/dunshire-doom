@@ -311,10 +311,17 @@ export class MapData {
             list.push(seg);
             portalSegsBySector.set(seg.linedef.right.sector, list);
         }
+
+        const subsectMap = new Map<Sector, SubSector[]>();
+        subsectors.forEach(subsec => {
+            const list = subsectMap.get(subsec.sector) ?? [];
+            list.push(subsec);
+            subsectMap.set(subsec.sector, list);
+        });
         for (const sector of this.sectors) {
             sector.portalSegs = portalSegsBySector.get(sector) ?? [];
             // compute sector centers which is used for sector sound origin
-            const mid = sectorMiddle(sector, subsectors);
+            const mid = sectorMiddle(sector, subsectMap.get(sector) ?? []);
             sector.center.set(mid.x, mid.y, (sector.zCeil + sector.zFloor) * .5);
         }
 
@@ -870,6 +877,9 @@ function sectorMiddle(sector: Sector, subsectors: SubSector[]) {
             mid.x += v.x;
             mid.y += v.y;
         }
+    }
+    if (!vcount) {
+        return mid;
     }
     mid.x /= vcount;
     mid.y /= vcount;

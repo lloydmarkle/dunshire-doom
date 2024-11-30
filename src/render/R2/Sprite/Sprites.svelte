@@ -134,7 +134,7 @@
         mo.renderData['geo'] = geo;
     }
     const updateMobjSprite = (mo: MapObject, sprite: Sprite) => {
-        let geo = mo.renderData['geo'];
+        const geo = mo.renderData['geo'];
         if (!geo) {
             // updateSprite events can happen before mobj-added so we have to be careful
             return;
@@ -163,7 +163,10 @@
         }
         mo.renderData['rinfo']?.updateSprite(sprite);
     }
-    const removeMobjs = (mo: MapObject) => mo.renderData['geo'].remove(mo);
+    const removeMobjs = (mo: MapObject) => {
+        mo.renderData['geo'].remove(mo);
+        mo.renderData['geo'] = mo.renderData['rinfo'] = null;
+    }
     const updateMobjPosition = (mo: MapObject) => mo.renderData['rinfo']?.updatePosition()
 
     map.objs.forEach(addMobj);

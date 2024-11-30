@@ -406,16 +406,22 @@ export class MapRuntime {
         this.sectorsByTag.clear();
         this.sectorObjs.clear();
         for (const sector of this.data.sectors) {
+            // NOTE: sectorObjs is mostly managed by map-objects themselves
+            this.sectorObjs.set(sector, new Set());
+
+            if (sector.tag === 0) {
+                continue;
+            }
             const tagged = this.sectorsByTag.get(sector.tag) ?? []
             this.sectorsByTag.set(sector.tag, tagged);
             tagged.push(sector);
-
-            // NOTE: sectorObjs is mostly managed by map-objects themselves
-            this.sectorObjs.set(sector, new Set());
         }
 
         this.linedefsByTag.clear();
         for (const ld of this.data.linedefs) {
+            if (ld.tag === 0) {
+                continue;
+            }
             const tagged = this.linedefsByTag.get(ld.tag) ?? [];
             this.linedefsByTag.set(ld.tag, tagged);
             tagged.push(ld);

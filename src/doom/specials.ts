@@ -45,6 +45,8 @@ const lowestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zFloor), sector.zFloor);
 const highestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), -floorMax);
+const highestNeighbourFloorInclusive = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), sector.zFloor);
 const nextNeighbourFloor = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor > sector.zFloor ? Math.min(last, sec.zFloor) : last, floorMax);
 const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
@@ -358,23 +360,23 @@ const liftDefinition = (type: number, trigger: string, waitTimeS: number, speed:
 // and doomwiki https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
 // Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
 const liftDefinitions = [
+    liftDefinition(10, 'W1m', 3, 4, -1, floorValue),
     liftDefinition(14, 'S1', 0, .5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
     liftDefinition(15, 'S1', 0, .5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger)),
     liftDefinition(20, 'S1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(21, 'S1', 3, 4, -1, floorValue),
     liftDefinition(22, 'W1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
     liftDefinition(47, 'G1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(53, 'W1', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual'),
+    liftDefinition(54, 'W1', 0, 0, 0, floorValue, 'stop'),
     liftDefinition(66, 'SR', 0, 0.5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger)),
+    liftDefinition(62, 'SR', 3, 4, -1, floorValue),
     liftDefinition(67, 'SR', 0, 0.5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
     liftDefinition(68, 'SR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(95, 'WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(54, 'W1', 0, 0, 0, floorValue, 'stop'),
-    liftDefinition(89, 'WR', 0, 0, 0, floorValue, 'stop'),
-    liftDefinition(10, 'W1m', 3, 4, -1, floorValue),
-    liftDefinition(21, 'S1', 3, 4, -1, floorValue),
-    liftDefinition(53, 'SR', 3, 1, -1, highestNeighbourFloor, 'perpetual'),
-    liftDefinition(62, 'SR', 3, 4, -1, floorValue),
-    liftDefinition(87, 'WR', 3, 1, -1, highestNeighbourFloor, 'perpetual'),
+    liftDefinition(87, 'WR', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual'),
     liftDefinition(88, 'WRm', 3, 4, -1, floorValue),
+    liftDefinition(89, 'WR', 0, 0, 0, floorValue, 'stop'),
+    liftDefinition(95, 'WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
     liftDefinition(120, 'WR', 3, 8, -1, floorValue),
     liftDefinition(121, 'W1', 3, 8, -1, floorValue),
     liftDefinition(122, 'S1', 3, 8, -1, floorValue),
@@ -399,7 +401,7 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
     }
 
     let triggered = false;
-    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.sectorsByTag.get(linedef.tag) ?? [];
     for (const sector of sectors) {
         if (def.stopper || sector.specialData !== null) {
             if (def.stopper) {

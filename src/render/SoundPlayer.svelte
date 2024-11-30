@@ -67,9 +67,15 @@
                 0, 0, Math.cos(pitch));
         }
     }
-    onDestroy(monitorMapObject(player.map, player, mo => {
-        updateListener(player.position, player.direction, player.pitch);
-    }));
+
+    let unsub = () => {};
+    onDestroy(unsub);
+    $: if (player?.map) {
+        unsub();
+        unsub = monitorMapObject(player?.map, player, mo => {
+            updateListener(mo.position, mo.direction, mo.pitch);
+        });
+    }
 
     const soundBuffers = new Map<string, AudioBuffer>()
     function soundBuffer(name: string) {

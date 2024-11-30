@@ -162,9 +162,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             }
         };
 
-        const subs = [];
         const dispose = () => {
-            subs.forEach(fn => fn());
             rmobjs.delete(mo.id);
             freeSlots.push(idx);
 
