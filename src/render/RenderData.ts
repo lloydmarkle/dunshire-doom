@@ -205,7 +205,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         // I've seen this done as a mapping trick to reference an unreachable sector
         if (fakeFloorLines.length && bothLindefs.every(ld => ld.left)) {
             for (const line of fakeFloorLines) {
-                let sec = line.left.sector === sector ? line.right.sector : line.left.sector;
+                const sec = line.left.sector === sector ? line.right.sector : line.left.sector;
                 renderSector.extraFlats.push({
                     geometry: renderSector.geometry,
                     zSector: sec,

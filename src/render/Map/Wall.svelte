@@ -20,9 +20,9 @@
     const leftAngle = angle + Math.PI;
 
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector?.renderData ?? {};
-    const { middle: middleL }  = linedef.left?.renderData ?? {};
+    const { middle: middleL, lower: lowerL, upper: upperL }  = linedef.left?.renderData ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector.renderData
-    const { middle: middleR }  = linedef.right.renderData;
+    const { middle: middleR, lower: lowerR, upper: upperR }  = linedef.right.renderData;
 
     // sky-hack https://doomwiki.org/wiki/Sky_hack
     const { ceilFlat: ceilFlatL } = linedef.left?.sector?.renderData ?? {};
@@ -56,7 +56,7 @@
 
     {#if linedef.left}
         <!-- two-sided so figure out top and bottom -->
-        {#if !skyHack}
+        {#if !skyHack && ($upperL || $upperR)}
             {@const useLeft = $zCeilL > $zCeilR}
             {@const height = useLeft ? $zCeilL - $zCeilR : $zCeilR - $zCeilL}
             {@const top = Math.max($zCeilR, $zCeilL)}
@@ -66,7 +66,7 @@
                 type={'upper'}
             />
         {/if}
-        {#if true}
+        {#if $lowerL || $lowerR}
             {@const useLeft = $zFloorR > $zFloorL}
             {@const height = useLeft ? $zFloorR - $zFloorL : $zFloorL - $zFloorR}
             {@const top = Math.max($zFloorR, $zFloorL)}
