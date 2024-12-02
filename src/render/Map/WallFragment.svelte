@@ -72,6 +72,7 @@
                 clippedTop = Math.min(Math.max($zCeilL, $zCeilR), top);
             }
             const yOff = top - clippedTop;
+            top = clippedTop;
             height = Math.min(texture2.userData.height - yOff, clippedTop - zFloor);
         }
         texture2.repeat.x = width * texture2.userData.invWidth;
