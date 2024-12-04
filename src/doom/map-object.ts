@@ -512,7 +512,7 @@ export class MapObject {
                         (this.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
                         (start.z - back.zFloor <= maxStepSize);
 
-                    // console.log('[sz,ez], [f,t,cf,do]',[start.z, back.zFloor.val], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
+                    // console.log('[sz,ez], [f,t,cf,do]',this.id,[start.z, back.zFloor], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
                     if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
                         if (hit.line.special) {
                             const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;

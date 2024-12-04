@@ -436,18 +436,19 @@ export class AmanatidesWooTrace {
         this.voxChange.x = Math.sign(vel.x);
         this.voxChange.y = Math.sign(vel.y);
         this.hasMovement = !(this.voxChange.x === 0 && this.voxChange.y === 0)
-        if (!this.hasMovement) {
-            return null;
-        }
         // See https://stackoverflow.com/questions/12367071
         const startX = (x - this.boundsLeft) / this.gridSize;
         const startY = (y - this.boundsBottom) / this.gridSize;
+        this.vox.x = Math.floor(startX);
+        this.vox.y = Math.floor(startY);
+        if (!this.hasMovement) {
+            return this.vox;
+        }
+
         this.tDelta.x = Math.abs(this.gridSize / vel.x);
         this.tDelta.y = Math.abs(this.gridSize / vel.y);
         this.tMax.x = this.tDelta.x * (vel.x < 0 ? decimal(startX) : 1 - decimal(startX));
         this.tMax.y = this.tDelta.y * (vel.y < 0 ? decimal(startY) : 1 - decimal(startY));
-        this.vox.x = Math.floor(startX);
-        this.vox.y = Math.floor(startY);
         return this.vox;
     }
 

@@ -236,9 +236,10 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
     for (const seg of segs) {
         let p = tracer.initFromLine(seg.v);
         while (p) {
-            blocks[p.y * dimensions.numCols + p.x].segs.push(seg);
-            blocks[p.y * dimensions.numCols + p.x].sectors.push(seg.linedef.right.sector);
-            blocks[p.y * dimensions.numCols + p.x].sectors.push(seg.linedef.left?.sector);
+            const block = blocks[p.y * dimensions.numCols + p.x];
+            block.segs.push(seg);
+            block.sectors.push(seg.linedef.right.sector);
+            block.sectors.push(seg.linedef.left?.sector);
             p = tracer.step();
         }
     }
@@ -263,10 +264,6 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
     }
 
     const moveMobj = (mo: MapObject) => {
-        if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
-            return;
-        }
-
         rev += 1;
         updateMobjBlock(mo, mo.position.x - mo.info.radius, mo.position.y - mo.info.radius);
         updateMobjBlock(mo, mo.position.x + mo.info.radius, mo.position.y - mo.info.radius);
@@ -277,7 +274,7 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
         }
 
         mo.blocks.forEach((blockRev, block) => {
-            if (rev === blockRev) {
+            if (rev === blockRev && !(mo.info.flags & MFFlags.MF_NOBLOCKMAP)) {
                 block.mobjs.add(mo);
             } else {
                 mo.blocks.delete(block);
@@ -350,7 +347,7 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
                     const side = seg.direction ? 1 : -1;
                     const sector = side === -1 ? seg.linedef.right.sector : seg.linedef.left.sector;
                     const overlap = aabbLineOverlap(point, radius, seg.linedef);
-                    hits.push({ sector, overlap, point, side, line: seg.linedef, fraction: hit.u });
+                    hits.push({ sector, seg, overlap, point, side, line: seg.linedef, fraction: hit.u });
                 }
             }
         }
@@ -406,7 +403,8 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
         let v = tracer.init(params.start.x, params.start.y, params.move);
         while (v) {
             scanBlock(params, blocks[v.y * dimensions.numCols + v.x], hits);
-            if (notify(params, hits)) break;
+            // if (notify(params, hits)) break;
+            notify(params, hits);
             v = tracer.step();
         }
     }
@@ -478,8 +476,76 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
         });
     }
 
+    const radiusTracer = (params: TraceParams, hitBlock: (block: Block) => boolean) => {
+        let bx = Math.floor((params.start.x - params.radius - minX) / blockSize);
+        let xEnd = Math.floor((params.start.x + params.radius - minX) / blockSize) + 1;
+        let yEnd = Math.floor((params.start.y + params.radius - minY) / blockSize) + 1;
+        let by = Math.floor((params.start.y - params.radius - minY) / blockSize);
+        let complete = false;
+        for (; !complete && bx < dimensions.numCols && bx < xEnd; bx++) {
+            by = Math.floor((params.start.y - params.radius - minY) / blockSize);
+            for (; !complete && by < dimensions.numRows && by < yEnd; by++) {
+                complete = hitBlock(blocks[by * dimensions.numCols + bx]);
+            }
+        }
+    }
+    const radiusTrace = (params: TraceParams) => {
+        let hits: TraceHit[] = [];
+        let firstScan = true;
+        radiusTracer(params, block => {
+            if (!block) return;
+            if (params.hitObject) {
+                for (const mobj of block.mobjs) {
+                    const hit = sweepAABBAABB(params.start, params.radius, params.move, mobj.position, mobj.info.radius);
+                    if (hit) {
+                        const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
+                        const sector = findSubSector(root, point.x, point.y).sector;
+                        const ov = aabbAabbOverlap(point, params.radius, mobj.position, mobj.info.radius);
+                        hits.push({ sector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
+                    }
+                }
+            }
+
+            if (params.hitLine) {
+                for (const seg of block.segs) {
+                    const hit = sweepAABBLine(params.start, params.radius, params.move, seg.v);
+                    if (hit) {
+                        const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
+                        const side = seg.direction ? 1 : -1;
+                        const sector = side === -1 ? seg.linedef.right.sector : seg.linedef.left.sector;
+                        const overlap = aabbLineOverlap(point, params.radius, seg.linedef);
+                        hits.push({ sector, seg, overlap, point, side, line: seg.linedef, fraction: hit.u });
+                    }
+                }
+            }
+
+            if (params.hitFlat) {
+                for (const sector of block.sectors) {
+                    // collide with floor or ceiling
+                    const floorHit = params.move.z < 0 && flatHit('floor', sector, sector.zFloor, params);
+                    if (floorHit) {
+                        hits.push(floorHit);
+                    }
+                    const ceilHit = params.move.z > 0 && flatHit('ceil', sector, sector.zCeil - (params.height ?? 0), params);
+                    if (ceilHit) {
+                        hits.push(ceilHit);
+                    }
+                    if (firstScan) {
+                        // already colliding with a ceiling (like a crusher)
+                        if (sector.zCeil - sector.zFloor - params.height < 0) {
+                            const point = params.start.clone().addScaledVector(params.move, 0);
+                            hits.push({ flat: 'ceil', sector, point, overlap: 0, fraction: 0 });
+                        }
+                    }
+                }
+                firstScan = false;
+            }
+            return notify(params, hits);
+        });
+    }
+
     // console.log('blocks',dimensions, [...blocks].sort((a,b)=>b.linedefs.length -a.linedefs.length))
-    return { dimensions, moveMobj, traceRay, traceMove };
+    return { dimensions, moveMobj, traceRay, traceMove, radiusTrace };
 }
 
 export interface Seg {
@@ -515,12 +581,13 @@ interface BaseTraceHit {
 export interface LineTraceHit extends BaseTraceHit {
     side: -1 | 1; // did we hit front side (1) or back side (-1)
     line: LineDef;
+    seg: Seg;
 }
 export interface MapObjectTraceHit extends BaseTraceHit {
     mobj: MapObject;
     axis: 'x' | 'y';
 }
-interface SectorTraceHit extends BaseTraceHit {
+export interface SectorTraceHit extends BaseTraceHit {
     flat: 'floor' | 'ceil';
 }
 export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit;
@@ -847,7 +914,7 @@ function createBspTracer(root: TreeNode) {
                         const side = seg.direction ? 1 : -1;
                         const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
                         const overlap = aabbLineOverlap(point, radius, seg.linedef);
-                        hits.push({ sector, overlap, point, side, line: seg.linedef, fraction: hit.u });
+                        hits.push({ sector, seg, overlap, point, side, line: seg.linedef, fraction: hit.u });
                     }
                 }
             }
