@@ -202,6 +202,7 @@ function blockmapLump(lump: Lump) {
 export interface Block {
     rev: number;
     segs: Seg[];
+    sectors: Sector[];
     mobjs: Set<MapObject>;
 }
 function buildBlockmap(root: TreeNode, segs: Seg[]) {
@@ -228,7 +229,7 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
 
     const blocks = Array<Block>(dimensions.numCols * dimensions.numRows);
     for (let i = 0; i < blocks.length; i++) {
-        blocks[i] = { rev: 0, segs: [], mobjs: new Set() };
+        blocks[i] = { rev: 0, segs: [], sectors: [], mobjs: new Set() };
     }
 
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
@@ -236,9 +237,13 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
         let p = tracer.initFromLine(seg.v);
         while (p) {
             blocks[p.y * dimensions.numCols + p.x].segs.push(seg);
+            blocks[p.y * dimensions.numCols + p.x].sectors.push(seg.linedef.right.sector);
+            blocks[p.y * dimensions.numCols + p.x].sectors.push(seg.linedef.left?.sector);
             p = tracer.step();
         }
     }
+    // filter sectors to be unique and not empty
+    blocks.forEach(b => b.sectors = b.sectors.filter((sec, i, arr) => sec && arr.indexOf(sec) === i));
 
     const blockFromCoords = (x: number, y: number) => {
         if (x > maxX || x < minX || y > maxY || y < minY) {
@@ -281,23 +286,22 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
         });
     }
 
-    // FIXME: how can we do this with blockmaps? Query all sectors?
-    const flatHit = (flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number, params: TraceParams): SectorTraceHit => {
+    const flatHit = (flat: SectorTraceHit['flat'], sector: Sector, zFlat: number, params: TraceParams): SectorTraceHit => {
         const u = (zFlat - params.start.z) / params.move.z;
         if (u < 0 || u > 1) {
             return null
         }
         const point = params.start.clone().addScaledVector(params.move, u);
-        const inSector = findSubSector(root, point.x, point.y) === subsector;
+        const inSector = findSubSector(root, point.x, point.y).sector === sector;
         if (!inSector) {
             return null;
         }
-        return { flat, sector: subsector.sector, point, overlap: 0, fraction: u };
+        return { flat, sector, point, overlap: 0, fraction: u };
     };
+    let firstScan = true;
     const nVec = new Vector3();
     const scanBlock = (params: TraceParams, block: Block, hits: TraceHit[]) => {
         if (!block) {
-            console.log('bad block?')
             return;
         }
         const radius = params.radius ?? 0;
@@ -351,24 +355,27 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
             }
         }
 
-        // if (params.hitFlat) {
-        //     // collide with floor or ceiling
-        //     const floorHit = params.move.z < 0 && flatHit('floor', block, sector.zFloor, params);
-        //     if (floorHit) {
-        //         hits.push(floorHit);
-        //     }
-        //     const ceilHit = params.move.z > 0 && flatHit('ceil', block, sector.zCeil - (params.height ?? 0), params);
-        //     if (ceilHit) {
-        //         hits.push(ceilHit);
-        //     }
-        // }
-        // if (params.hitFlat && firstSubsec) {
-        //     // already colliding with a ceiling (like a crusher)
-        //     if (sector.zCeil - sector.zFloor - params.height < 0) {
-        //         const point = params.start.clone().addScaledVector(params.move, 0);
-        //         hits.push({ flat: 'ceil', sector, point, overlap: 0, fraction: 0 });
-        //     }
-        // }
+        if (params.hitFlat) {
+            for (const sector of block.sectors) {
+                // collide with floor or ceiling
+                const floorHit = params.move.z < 0 && flatHit('floor', sector, sector.zFloor, params);
+                if (floorHit) {
+                    hits.push(floorHit);
+                }
+                const ceilHit = params.move.z > 0 && flatHit('ceil', sector, sector.zCeil - (params.height ?? 0), params);
+                if (ceilHit) {
+                    hits.push(ceilHit);
+                }
+                if (firstScan) {
+                    // already colliding with a ceiling (like a crusher)
+                    if (sector.zCeil - sector.zFloor - params.height < 0) {
+                        const point = params.start.clone().addScaledVector(params.move, 0);
+                        hits.push({ flat: 'ceil', sector, point, overlap: 0, fraction: 0 });
+                    }
+                }
+            }
+            firstScan = false;
+        }
     }
 
     function notify(params: TraceParams, hits: TraceHit[]) {
@@ -395,6 +402,7 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
     const traceRay = (params: TraceParams) => {
         let hits: TraceHit[] = [];
 
+        firstScan = true;
         let v = tracer.init(params.start.x, params.start.y, params.move);
         while (v) {
             scanBlock(params, blocks[v.y * dimensions.numCols + v.x], hits);
@@ -463,6 +471,7 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
     const bTracer = blockTrace();
     const traceMove = (params: TraceParams) => {
         let hits: TraceHit[] = [];
+        firstScan = true;
         bTracer(params, block => {
             scanBlock(params, block, hits);
             return notify(params, hits);
