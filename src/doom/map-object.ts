@@ -3,7 +3,7 @@ import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, signedLineDistance, ToRadians, type Vertex, randInt } from "./math";
-import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams } from "./map-data";
+import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block } from "./map-data";
 import { ticksPerSecond, type GameTime, tickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -72,6 +72,7 @@ export class MapObject {
 
     private _sector: Sector;
     get sector(): Sector { return this._sector; };
+    blocks = new Map<Block, number>();
 
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
@@ -169,6 +170,8 @@ export class MapObject {
         const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
         this.positionChanged = () => {
             const p = this.position;
+
+            map.data.blockMap.moveMobj(this);
 
             this.subsecRev += 1;
             // add any subsectors we are currently touching

@@ -199,12 +199,12 @@ function blockmapLump(lump: Lump) {
     return { originX, originY, numCols, numRows };
 }
 
+export interface Block {
+    rev: number;
+    linedefs: LineDef[];
+    mobjs: Set<MapObject>;
+}
 function buildBlockmap(linedefs: LineDef[]) {
-    interface Block {
-        linedefs: LineDef[];
-        mobjs: MapObject[];
-    }
-
     // newer maps (and UDMF) don't have block so skip the lump and just compute it
     const blockSize = 128;
     let minX = linedefs[0].v[0].x;
@@ -228,7 +228,7 @@ function buildBlockmap(linedefs: LineDef[]) {
 
     const blocks = Array<Block>(dimensions.numCols * dimensions.numRows);
     for (let i = 0; i < blocks.length; i++) {
-        blocks[i] = { linedefs: [], mobjs: [] };
+        blocks[i] = { rev: 0, linedefs: [], mobjs: new Set() };
     }
 
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
@@ -240,8 +240,48 @@ function buildBlockmap(linedefs: LineDef[]) {
         }
     }
 
+    const blockFromCoords = (x: number, y: number) => {
+        if (x > maxX || x < minX || y > maxY || y < minY) {
+            return null;
+        }
+        const col = Math.floor(x / blockSize);
+        const row = Math.floor(y / blockSize);
+        return blocks[col * dimensions.numRows + row];
+    };
+
+    let rev = 0;
+    const updateMobjBlock = (mo: MapObject, x: number, y: number) => {
+        const block = blockFromCoords(x, y);
+        if (block) {
+            mo.blocks.set(block, rev)
+        }
+    }
+
+    const moveMobj = (mo: MapObject) => {
+        if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
+            return;
+        }
+        rev += 1;
+        updateMobjBlock(mo, mo.position.x - mo.info.radius, mo.position.y - mo.info.radius);
+        updateMobjBlock(mo, mo.position.x + mo.info.radius, mo.position.y - mo.info.radius);
+        updateMobjBlock(mo, mo.position.x + mo.info.radius, mo.position.y + mo.info.radius);
+        updateMobjBlock(mo, mo.position.x - mo.info.radius, mo.position.y + mo.info.radius);
+        if (mo.info.radius >= blockSize) {
+            updateMobjBlock(mo, mo.position.x, mo.position.y);
+        }
+
+        mo.blocks.forEach((rev, block) => {
+            if (rev === block.rev) {
+                block.mobjs.add(mo);
+            } else {
+                mo.blocks.delete(block);
+                block.mobjs.delete(mo);
+            }
+        });
+    }
+
     console.log('blocks',dimensions, blocks.sort((a,b)=>b.linedefs.length -a.linedefs.length))
-    return { dimensions };
+    return { dimensions, moveMobj };
 }
 
 export interface Seg {
@@ -311,6 +351,7 @@ export class MapData {
     readonly nodes: TreeNode[];
     readonly rejects: Uint8Array;
     readonly blockMapBounds: Bounds;
+    readonly blockMap: ReturnType<typeof buildBlockmap>;
 
     constructor(lumps: Lump[]) {
         console.time('map-bin')
@@ -333,8 +374,7 @@ export class MapData {
         }
         const sidedefs = sideDefsLump(lumps[3], this.sectors);
         this.linedefs = lineDefsLump(lumps[2], this.vertexes, sidedefs);
-        const blockMap = buildBlockmap(this.linedefs);
-        console.log('dim',blockMap.dimensions,blockmapBounds)
+        this.blockMap = buildBlockmap(this.linedefs);
 
         const { segs, nodes, subsectors } = readBspData(lumps, this.vertexes, this.linedefs);
         this.nodes = nodes;
