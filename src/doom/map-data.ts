@@ -201,22 +201,22 @@ function blockmapLump(lump: Lump) {
 
 export interface Block {
     rev: number;
-    linedefs: LineDef[];
+    segs: Seg[];
     mobjs: Set<MapObject>;
 }
-function buildBlockmap(root: TreeNode, linedefs: LineDef[]) {
+function buildBlockmap(root: TreeNode, segs: Seg[]) {
     // newer maps (and UDMF) don't have block so skip the lump and just compute it
     const blockSize = 128;
-    let minX = linedefs[0].v[0].x;
-    let maxX = linedefs[0].v[0].x;
-    let minY = linedefs[0].v[0].y;
-    let maxY = linedefs[0].v[0].y;
-    for (const ld of linedefs) {
+    let minX = segs[0].v[0].x;
+    let maxX = segs[0].v[0].x;
+    let minY = segs[0].v[0].y;
+    let maxY = segs[0].v[0].y;
+    for (const seg of segs) {
         // +/- 1 to avoid rounding errors and accidentally querying outside the blockmap
-        minX = Math.min(ld.v[0].x - 1, ld.v[1].x - 1, minX);
-        maxX = Math.max(ld.v[0].x + 1, ld.v[1].x + 1, maxX);
-        minY = Math.min(ld.v[0].y - 1, ld.v[1].y - 1, minY);
-        maxY = Math.max(ld.v[0].y + 1, ld.v[1].y + 1, maxY);
+        minX = Math.min(seg.v[0].x - 1, seg.v[1].x - 1, minX);
+        maxX = Math.max(seg.v[0].x + 1, seg.v[1].x + 1, maxX);
+        minY = Math.min(seg.v[0].y - 1, seg.v[1].y - 1, minY);
+        maxY = Math.max(seg.v[0].y + 1, seg.v[1].y + 1, maxY);
     }
 
     const dimensions = {
@@ -228,14 +228,14 @@ function buildBlockmap(root: TreeNode, linedefs: LineDef[]) {
 
     const blocks = Array<Block>(dimensions.numCols * dimensions.numRows);
     for (let i = 0; i < blocks.length; i++) {
-        blocks[i] = { rev: 0, linedefs: [], mobjs: new Set() };
+        blocks[i] = { rev: 0, segs: [], mobjs: new Set() };
     }
 
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
-    for (const ld of linedefs) {
-        let p = tracer.initFromLine(ld.v);
+    for (const seg of segs) {
+        let p = tracer.initFromLine(seg.v);
         while (p) {
-            blocks[p.y * dimensions.numCols + p.x].linedefs.push(ld);
+            blocks[p.y * dimensions.numCols + p.x].segs.push(seg);
             p = tracer.step();
         }
     }
@@ -326,29 +326,27 @@ function buildBlockmap(root: TreeNode, linedefs: LineDef[]) {
 
         if (params.hitLine) {
             // collide with walls
-            for (const ld of block.linedefs) {
+            for (const seg of block.segs) {
                 // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
                 // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
                 // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
                 // other traces.
                 // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
-                if (!ld.left) {
-                    nVec.set(ld.v[1].y - ld.v[0].y, ld.v[0].x - ld.v[1].x, 0);
-                    const moveDot = params.move.dot(nVec);
-                    // NOTE: dot === 0 is special. We allow this only when we are moving
-                    // (if we aren't moving, dot will always be 0 and we skip everything)
-                    if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
-                        continue;
-                    }
+                nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
+                const moveDot = params.move.dot(nVec);
+                // NOTE: dot === 0 is special. We allow this only when we are moving
+                // (if we aren't moving, dot will always be 0 and we skip everything)
+                if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
+                    continue;
                 }
 
-                const hit = sweepAABBLine(params.start, radius, params.move, ld.v);
+                const hit = sweepAABBLine(params.start, radius, params.move, seg.v);
                 if (hit) {
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
-                    const side = signedLineDistance(ld.v, point) > 0 ? 1 : -1;
-                    const sector = ld.left ? (side === -1 ? ld.right.sector : ld.left.sector) : ld.right.sector;
-                    const overlap = aabbLineOverlap(point, radius, ld);
-                    hits.push({ sector, overlap, point, side, line: ld, fraction: hit.u });
+                    const side = seg.direction ? 1 : -1;
+                    const sector = side === -1 ? seg.linedef.right.sector : seg.linedef.left.sector;
+                    const overlap = aabbLineOverlap(point, radius, seg.linedef);
+                    hits.push({ sector, overlap, point, side, line: seg.linedef, fraction: hit.u });
                 }
             }
         }
@@ -572,7 +570,7 @@ export class MapData {
         completeSubSectors(rootNode, subsectors);
         this.bspTracer = createBspTracer(rootNode);
         this.subsectorTrace = createSubsectorTrace(rootNode);
-        this.blockMap = buildBlockmap(rootNode, this.linedefs);
+        this.blockMap = buildBlockmap(rootNode, segs);
 
         const portalSegsBySector = new Map<Sector, Seg[]>();
         for (const seg of segs) {
