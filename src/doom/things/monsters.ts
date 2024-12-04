@@ -86,7 +86,7 @@ const doom2BossActions: ActionMap = {
         mobj.map.game.playSound(SoundIndex.sfx_bossit);
         // find all brain targets (ideally we could attach this to the map but I guess it's okay to use a global variable)
         currentBrainTarget = 0;
-        brainTargets = mobj.map.objs.filter(mo => mo.type === MapObjectIndex.MT_BOSSTARGET);
+        brainTargets = [...mobj.map.objs].filter(mo => mo.type === MapObjectIndex.MT_BOSSTARGET);
     },
 	[ActionIndex.A_BrainSpit]: mobj => {
         brainSpitToggle = !brainSpitToggle;
@@ -756,7 +756,7 @@ export const monsterActions: ActionMap = {
 };
 
 const anyMonstersOfSameTypeAlive = (mobj: MapObject) =>
-    mobj.map.objs.filter(mo => mo.type === mobj.type).some(mo => !mo.isDead);
+    [...mobj.map.objs].filter(mo => mo.type === mobj.type).some(mo => !mo.isDead);
 
 export const monsterAiActions = { ...monsterMoveActions, ...monsterAttackActions };
 const allActions = { ...monsterActions, ...monsterAiActions, ...doom2BossActions, ...archvileActions };
@@ -1106,7 +1106,7 @@ function launchMapObject(mobj: MapObject, target: MapObject, zOffset: number, sp
 }
 
 function spawnLostSoul(parent: MapObject, angle: number) {
-    const lostSoulCount = parent.map.objs.reduce((count, m) => count + (m.type === MapObjectIndex.MT_SKULL ? 1 : 0), 0);
+    const lostSoulCount = [...parent.map.objs].reduce((count, m) => count + (m.type === MapObjectIndex.MT_SKULL ? 1 : 0), 0);
     const maxLostSouls = parent.map.game.settings.maxLostSouls.val;
     if (maxLostSouls > 0 && lostSoulCount > maxLostSouls) {
 	    return;

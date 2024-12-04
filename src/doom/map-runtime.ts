@@ -126,7 +126,7 @@ export class MapRuntime {
     tracers: ShotTrace[] = [];
     readonly trev = store(1);
     players: MapObject[] = [];
-    objs: MapObject[] = []; // TODO: make this readonly?
+    readonly objs = new Set<MapObject>();
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
     readonly disposables: (() => void)[] = [];
     readonly musicTrack: Store<string>;
@@ -175,7 +175,7 @@ export class MapRuntime {
         });
         this.player = new PlayerMapObject(store(inv), playerThing);
         this.players[this.players.length - 1] = this.player;
-        this.objs.push(this.player);
+        this.objs.add(this.player);
         this.events.emit('mobj-added', this.player);
         // restore values from last level (and subscribe to preserve values for next level)
         this.player.health.set(game.inventory.health);
@@ -262,7 +262,10 @@ export class MapRuntime {
         if (moType === MapObjectIndex.MT_PLAYER) {
             this.players.push(mobj);
         }
-        this.objs.push(mobj);
+        if (moType === MapObjectIndex.MT_TELEPORTMAN) {
+            this.teleportMobjs.push(mobj);
+        }
+        this.objs.add(mobj);
         this.events.emit('mobj-added', mobj);
         return mobj;
     }
@@ -270,8 +273,7 @@ export class MapRuntime {
     destroy(mobj: MapObject) {
         mobj.blocks.forEach((rev, block) => block.mobjs.delete(mobj));
         mobj.subsectors(subsector => subsector.mobjs.delete(mobj));
-        // TODO: perf?
-        this.objs = this.objs.filter(e => e !== mobj);
+        this.objs.delete(mobj);
         this.events.emit('mobj-removed', mobj);
     }
 
@@ -402,7 +404,6 @@ export class MapRuntime {
 
     updateCaches() {
         this.teleportMobjs.length = 0;
-        this.objs.filter(e => e.type === MapObjectIndex.MT_TELEPORTMAN).forEach(e => this.teleportMobjs.push(e));
 
         this.sectorsByTag.clear();
         this.sectorObjs.clear();

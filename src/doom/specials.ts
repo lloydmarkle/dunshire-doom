@@ -988,9 +988,7 @@ const teleportSoundAndFog = (mobj: MapObject, dest: MapObject) => {
 const noSpecialEffects = (mobj: MapObject, dest: MapObject) => {};
 
 const teleportThingInSectorTarget = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
-    // FIXME: for maps with lots of mobjs and teleports, this is going to be slow
-    const teleports = mobj.map.objs.filter(mo => mo.type === MapObjectIndex.MT_TELEPORTMAN);
-    for (const tp of teleports) {
+    for (const tp of mobj.map.teleportMobjs) {
         if (tp.sector.tag === linedef.tag && applyFn(tp)) {
             break; // done!
         }

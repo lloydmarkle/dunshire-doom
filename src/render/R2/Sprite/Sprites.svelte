@@ -41,7 +41,7 @@
         ev.stopPropagation();
 
         const id = ev.object.geometry.attributes.doomInspect.array[ev.instanceId];
-        $editor.selected = map.objs.find(e => e.id === id);
+        $editor.selected = [...map.objs].find(e => e.id === id);
     }
 
     let material = createSpriteMaterial(spriteSheet, lighting, { cameraMode: $cameraMode });
