@@ -225,7 +225,7 @@ export interface TreeNode {
 }
 
 interface BaseTraceHit {
-    subsector: SubSector;
+    sector: Sector;
     fraction: number; // 0-1 of how far we moved along the desired path
     overlap: number; // used to resolve a tie in hit fraction
     point: Vector3; // point of hit (maybe redundant because we can compute it from fraction and we don't use z anyway)
@@ -246,8 +246,8 @@ export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit;
 export type HandleTraceHit<T=TraceHit> = (hit: T) => boolean;
 
 export const hitSkyFlat = (hit: SectorTraceHit) =>
-    (hit.flat === 'ceil' && hit.subsector.sector.ceilFlat === 'F_SKY1') ||
-    (hit.flat === 'floor' && hit.subsector.sector.floorFlat === 'F_SKY1');
+    (hit.flat === 'ceil' && hit.sector.ceilFlat === 'F_SKY1') ||
+    (hit.flat === 'floor' && hit.sector.floorFlat === 'F_SKY1');
 
 export const hitSkyWall = (z: number, front: Sector, back: Sector) =>
     (front.ceilFlat === 'F_SKY1') && (
@@ -486,7 +486,7 @@ function createBspTracer(root: TreeNode) {
         if (!inSector) {
             return null;
         }
-        return { flat, subsector, point, overlap: 0, fraction: u };
+        return { flat, sector: subsector.sector, point, overlap: 0, fraction: u };
     };
 
     return (params: TraceParams) => {
@@ -519,6 +519,7 @@ function createBspTracer(root: TreeNode) {
         // maybe that is desired?
         let firstSubsec = true;
         subsectorTrace(params.start, params.move, radius, subsector => {
+            const sector = subsector.sector;
             // collide with things
             if (params.hitObject) {
                 for (const mobj of subsector.mobjs) {
@@ -534,7 +535,7 @@ function createBspTracer(root: TreeNode) {
                     if (hit) {
                         const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
                         const ov = aabbAabbOverlap(point, radius, mobj.position, mobj.info.radius);
-                        hits.push({ subsector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
+                        hits.push({ sector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
                     }
                 }
             }
@@ -560,27 +561,27 @@ function createBspTracer(root: TreeNode) {
                         const side = seg.direction ? 1 : -1;
                         const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
                         const overlap = aabbLineOverlap(point, radius, seg.linedef);
-                        hits.push({ subsector, overlap, point, side, line: seg.linedef, fraction: hit.u });
+                        hits.push({ sector, overlap, point, side, line: seg.linedef, fraction: hit.u });
                     }
                 }
             }
 
             if (params.hitFlat) {
                 // collide with floor or ceiling
-                const floorHit = params.move.z < 0 && flatHit('floor', subsector, subsector.sector.zFloor, params);
+                const floorHit = params.move.z < 0 && flatHit('floor', subsector, sector.zFloor, params);
                 if (floorHit) {
                     hits.push(floorHit);
                 }
-                const ceilHit = params.move.z > 0 && flatHit('ceil', subsector, subsector.sector.zCeil - (params.height ?? 0), params);
+                const ceilHit = params.move.z > 0 && flatHit('ceil', subsector, sector.zCeil - (params.height ?? 0), params);
                 if (ceilHit) {
                     hits.push(ceilHit);
                 }
             }
             if (params.hitFlat && firstSubsec) {
                 // already colliding with a ceiling (like a crusher)
-                if (subsector.sector.zCeil - subsector.sector.zFloor - params.height < 0) {
+                if (sector.zCeil - sector.zFloor - params.height < 0) {
                     const point = params.start.clone().addScaledVector(params.move, 0);
-                    hits.push({ flat: 'ceil', subsector, point, overlap: 0, fraction: 0 });
+                    hits.push({ flat: 'ceil', sector, point, overlap: 0, fraction: 0 });
                 }
             }
 
