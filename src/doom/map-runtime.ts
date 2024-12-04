@@ -268,6 +268,7 @@ export class MapRuntime {
     }
 
     destroy(mobj: MapObject) {
+        mobj.blocks.forEach((rev, block) => block.mobjs.delete(mobj));
         mobj.subsectors(subsector => subsector.mobjs.delete(mobj));
         // TODO: perf?
         this.objs = this.objs.filter(e => e !== mobj);

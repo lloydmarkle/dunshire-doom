@@ -42,6 +42,7 @@ export class MapObject {
     // set of subsectors we are touching
     private subsecRev = 0;
     private subsectorMap = new Map<SubSector, number>();
+    blocks = new Map<Block, number>();
 
     protected _state = new SpriteStateMachine(
         sprite => this.map.events.emit('mobj-updated-sprite', this, sprite),
@@ -72,7 +73,6 @@ export class MapObject {
 
     private _sector: Sector;
     get sector(): Sector { return this._sector; };
-    blocks = new Map<Block, number>();
 
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
