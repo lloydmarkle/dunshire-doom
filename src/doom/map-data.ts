@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { Vector3 } from "three";
 import { MapObject } from "./map-object";
-import { centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Vertex } from "./math";
+import { AmanatidesWooTrace, centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Line, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import { type Lump, int16, word, lumpString } from "../doom";
 import { readBspData } from "./wad/bsp-data";
@@ -35,7 +35,7 @@ function thingsLump(lump: Lump) {
 
 export interface LineDef {
     num: number;
-    v: Vertex[];
+    v: Line;
     flags: number;
     special: number;
     tag: number;
@@ -86,7 +86,6 @@ export const linedefSlope = (() => {
         return rs;
     }
 })();
-
 
 export interface SideDef {
     // With R2, those don't need to be stores but it also doesn't really hurt because we don't update them
@@ -200,8 +199,53 @@ function blockmapLump(lump: Lump) {
     return { originX, originY, numCols, numRows };
 }
 
+function buildBlockmap(linedefs: LineDef[]) {
+    interface Block {
+        linedefs: LineDef[];
+        mobjs: MapObject[];
+    }
+
+    // newer maps (and UDMF) don't have block so skip the lump and just compute it
+    const blockSize = 128;
+    let minX = linedefs[0].v[0].x;
+    let maxX = linedefs[0].v[0].x;
+    let minY = linedefs[0].v[0].y;
+    let maxY = linedefs[0].v[0].y;
+    for (const ld of linedefs) {
+        // +/- 1 to avoid rounding errors and accidentally querying outside the blockmap
+        minX = Math.min(ld.v[0].x - 1, ld.v[1].x - 1, minX);
+        maxX = Math.max(ld.v[0].x + 1, ld.v[1].x + 1, maxX);
+        minY = Math.min(ld.v[0].y - 1, ld.v[1].y - 1, minY);
+        maxY = Math.max(ld.v[0].y + 1, ld.v[1].y + 1, maxY);
+    }
+
+    const dimensions = {
+        originX: minX,
+        originY: minY,
+        numCols: Math.ceil((maxX - minX) / blockSize),
+        numRows: Math.ceil((maxY - minY) / blockSize),
+    }
+
+    const blocks = Array<Block>(dimensions.numCols * dimensions.numRows);
+    for (let i = 0; i < blocks.length; i++) {
+        blocks[i] = { linedefs: [], mobjs: [] };
+    }
+
+    const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
+    for (const ld of linedefs) {
+        let p = tracer.initFromLine(ld.v);
+        while (p) {
+            blocks[p.x * dimensions.numRows + p.y].linedefs.push(ld);
+            p = tracer.step();
+        }
+    }
+
+    console.log('blocks',dimensions, blocks.sort((a,b)=>b.linedefs.length -a.linedefs.length))
+    return { dimensions };
+}
+
 export interface Seg {
-    v: Vertex[];
+    v: Line;
     linedef: LineDef;
     direction: number;
 }
@@ -211,7 +255,7 @@ export interface SubSector {
     sector: Sector;
     segs: Seg[];
     vertexes: Vertex[];
-    bspLines: Vertex[][]; // <-- useful for debugging but maybe we can remove it?
+    bspLines: Line[]; // <-- useful for debugging but maybe we can remove it?
     // for collision detection
     mobjs: Set<MapObject>;
     bounds: Bounds;
@@ -219,7 +263,7 @@ export interface SubSector {
 }
 
 export interface TreeNode {
-    v: Vertex[];
+    v: Line;
     childRight: TreeNode | SubSector;
     childLeft: TreeNode | SubSector;
 }
@@ -280,15 +324,17 @@ export class MapData {
         );
 
         this.rejects = lumps[9].data;
-        const blockmap = blockmapLump(lumps[10]);
+        const blockmapBounds = blockmapLump(lumps[10]);
         this.blockMapBounds = {
-            top: blockmap.originY + blockmap.numRows * 128,
-            left: blockmap.originX,
-            bottom: blockmap.originY,
-            right: blockmap.originX + blockmap.numCols * 128,
+            top: blockmapBounds.originY + blockmapBounds.numRows * 128,
+            left: blockmapBounds.originX,
+            bottom: blockmapBounds.originY,
+            right: blockmapBounds.originX + blockmapBounds.numCols * 128,
         }
         const sidedefs = sideDefsLump(lumps[3], this.sectors);
         this.linedefs = lineDefsLump(lumps[2], this.vertexes, sidedefs);
+        const blockMap = buildBlockmap(this.linedefs);
+        console.log('dim',blockMap.dimensions,blockmapBounds)
 
         const { segs, nodes, subsectors } = readBspData(lumps, this.vertexes, this.linedefs);
         this.nodes = nodes;
@@ -698,7 +744,7 @@ function completeSubSectors(root: TreeNode, subsectors: SubSector[]) {
     subsectors.forEach(subsec => addExtraImplicitVertexes(subsec, createSubsectorTrace(root)));
 }
 
-function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
+function subsectorVerts(segs: Seg[], bspLines: Line[]) {
     // explicit points
     let verts = segs.map(e => e.v).flat();
 
@@ -764,7 +810,7 @@ function fixVertexes(
         const ld = word(segData.data, 6 + i * 12);
         const ldv0 = word(lineDefData.data, 0 + ld * 14);
         const ldv1 = word(lineDefData.data, 2 + ld * 14);
-        const line = [vertexes[ldv0], vertexes[ldv1]];
+        const line: Line = [vertexes[ldv0], vertexes[ldv1]];
 
         const vx0 = vertexes[v0];
         if (segVerts.has(v0) && !pointOnLine(vx0, line)) {
@@ -798,7 +844,7 @@ function addExtraImplicitVertexes(subsector: SubSector, tracer: ReturnType<typeo
             continue;
         }
 
-        const bspLines = vert.implicitLines as Vertex[][];
+        const bspLines = vert.implicitLines as Line[];
         _vec.set(vert.x, vert.y, 0);
         tracer(_vec, zeroVec, 5, subs => {
             if (subs === subsector) {

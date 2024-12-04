@@ -1,5 +1,5 @@
 import type { LineDef, Seg, SubSector, TreeNode } from "../map-data";
-import { type Bounds, type Vertex } from "../math";
+import { type Bounds, type Line, type Vertex } from "../math";
 import { int16, word, type Lump } from "./wadfile";
 import { readBspData as readZDoomBspData } from "./bsp-zdoom";
 import { readBspData as readDeepBspData } from "./bsp-deep";
@@ -32,7 +32,7 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
     for (let i = 0; i < num; i++) {
         const v0 = word(lump.data, 0 + i * len);
         const v1 = word(lump.data, 2 + i * len);
-        const v = [vertexes[v0], vertexes[v1]];
+        const v: Line = [vertexes[v0], vertexes[v1]];
         const linedefId = word(lump.data, 6 + i * len);
         const linedef = linedefs[linedefId];
         const direction = int16(word(lump.data, 8 + i * len));

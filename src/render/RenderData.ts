@@ -12,6 +12,7 @@ import {
     type MapRuntime,
     store,
     MFFlags,
+    type Line,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
 import { derived, readable, type Readable } from "svelte/store";
@@ -376,7 +377,7 @@ const searchNeighbourSector = (() => {
     const mid = { x: 0, y: 0 };
     const norm = { x: 0, y: 0 };
     const result = new Array<Sector>(2);
-    return (line: Vertex[], map: MapRuntime, dist: number) => {
+    return (line: Line, map: MapRuntime, dist: number) => {
         // compute linedef normal
         const dx = line[1].x - line[0].x;
         const dy = line[1].y - line[0].y;

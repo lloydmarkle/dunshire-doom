@@ -70,7 +70,7 @@
             <WadDropbox {wadStore} />
         {/if}
 
-        {#if 'exception' in error.details}
+        {#if error.details && 'exception' in error.details}
             {@const ex = error.details.exception}
             <div class="collapse collapse-arrow bg-base-300">
                 <input type="checkbox" />

@@ -1,5 +1,5 @@
 import type { LineDef, Seg, SubSector, TreeNode } from "../map-data";
-import { type Bounds, type Vertex } from "../math";
+import { type Bounds, type Line, type Vertex } from "../math";
 import { dword, int16, word, type Lump } from "./wadfile";
 
 // Honestly very similar to vanilla bsp but different enough that it felt better
@@ -25,7 +25,7 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
     for (let i = 0; i < num; i++) {
         const v0 = dword(lump.data, 0 + i * len);
         const v1 = dword(lump.data, 4 + i * len);
-        const v = [vertexes[v0], vertexes[v1]];
+        const v: Line = [vertexes[v0], vertexes[v1]];
         const linedefId = word(lump.data, 10 + i * len);
         const linedef = linedefs[linedefId];
         const direction = int16(word(lump.data, 12 + i * len));

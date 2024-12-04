@@ -124,7 +124,7 @@ export function randomNorm(min, max, skew) {
     return num
 }
 
-export function signedLineDistance(l: Vertex[], v: Vertex) {
+export function signedLineDistance(l: Line, v: Vertex) {
     // https://math.stackexchange.com/questions/274712
     // https://www.xarg.org/book/linear-algebra/2d-perp-product/
     return (v.x - l[0].x) * (l[1].y - l[0].y) - (v.y - l[0].y) * (l[1].x - l[0].x)
@@ -138,7 +138,7 @@ const lineLineIntersectionDetails = {
         return !(this.v < 0 || this.v > 1 || this.u < 0 || this.u > 1);
     }
 }
-function lineLineIntersectDetailed(l1: Vertex[], l2: Vertex[]): typeof lineLineIntersectionDetails | undefined {
+function lineLineIntersectDetailed(l1: Line, l2: Line): typeof lineLineIntersectionDetails | undefined {
     // fantastic article https://observablehq.com/@toja/line-box-intersection
     // wikipidia was helpful too https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line_segment
     const x1x2 = l1[0].x - l1[1].x, y1y2 = l1[0].y - l1[1].y,
@@ -158,14 +158,14 @@ function lineLineIntersectDetailed(l1: Vertex[], l2: Vertex[]): typeof lineLineI
     return lineLineIntersectionDetails;
 }
 
-export function lineLineIntersect(l1: Vertex[], l2: Vertex[], bounded = false): IntersectionPoint | undefined {
+export function lineLineIntersect(l1: Line, l2: Line, bounded = false): IntersectionPoint | undefined {
     const details = lineLineIntersectDetailed(l1, l2);
     return (!details || (bounded && !details.inBounds()))
         ? undefined : details;
 }
 
 
-export function pointOnLine(p: Vertex, l: Vertex[]) {
+export function pointOnLine(p: Vertex, l: Line) {
     const sd = signedLineDistance(l, p);
     return (
         sd > -0.00001 && sd < 0.00001 &&
@@ -174,7 +174,7 @@ export function pointOnLine(p: Vertex, l: Vertex[]) {
     );
 }
 
-export function closestPoint(l: Vertex[], p: Vertex): Vertex {
+export function closestPoint(l: Line, p: Vertex): Vertex {
     let A1 = l[1].y - l[0].y;
     let B1 = l[0].x - l[1].x;
     let det = A1 * A1 + B1 * B1;
@@ -229,13 +229,13 @@ const PIx2 = Math.PI * 2;
 // https://stackoverflow.com/questions/2320986
 export const normalizeAngle = (angle: number) => Math.PI + angle - (Math.floor((angle + Math.PI) / PIx2)) * PIx2;
 
-let _sweepZeroLine = [
+const _sweepZeroLine: Line = [
     { x: 0, y: 0 },
     { x: 0, y: 0 },
 ]
-let _sweepVec = { x: 0, y: 0, u: 0 };
-let _sweepLineNormal = { x: 0, y: 0 };
-export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex, line: Vertex[]): IntersectionPoint {
+const _sweepVec = { x: 0, y: 0, u: 0 };
+const _sweepLineNormal = { x: 0, y: 0 };
+export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex, line: Line): IntersectionPoint {
     // adaptaion of the code from this question:
     // https://gamedev.stackexchange.com/questions/29479
 
@@ -360,7 +360,7 @@ let _lineAABB2 = [
     { x: 0, y: 0, u: 0 },
     { x: 0, y: 0, u: 0 },
 ];
-export function lineBounds(line: Vertex[], bounds: Bounds) {
+export function lineBounds(line: Line, bounds: Bounds) {
     // hmmm.. this function is very similar to sweepAABBAABB.. maybe we can combine them?
     const left = bounds.left - line[0].x;
     const right = bounds.right - line[0].x;
@@ -403,9 +403,71 @@ export function lineBounds(line: Vertex[], bounds: Bounds) {
 }
 
 let _lineAABB = { x: 0, y: 0 };
-export function lineAABB(line: Vertex[], pos: Vertex, radius: number, bounded = true) {
+export function lineAABB(line: Line, pos: Vertex, radius: number, bounded = true) {
     _lineAABB.x = line[1].x - line[0].x;
     _lineAABB.y = line[1].y - line[0].y;
     // we can get lineAABB using sweep and setting the box radius to 0
     return sweepAABBAABB(line[0], 0, _lineAABB, pos, radius, bounded);
+}
+
+export type Line = [Vertex, Vertex];
+const decimal = (n: number) => (n % 1) + (n < 0 ? 1 : 0);
+// Classic algorithm http://www.cse.yorku.ca/~amana/research/grid.pdfs
+export class AmanatidesWooTrace {
+    private hasMovement = false;
+    private vox: Vertex = { x: 0, y: 0 };
+    private tMax: Vertex = { x: 0, y: 0 };
+    private tDelta: Vertex = { x: 0, y: 0 };
+    private voxChange: Vertex = { x: 0, y: 0 };
+
+    constructor(
+        private boundsLeft: number,
+        private boundsBottom: number,
+        private gridSize: number,
+        private numRows: number,
+        private numCols: number,
+    ) {}
+
+    initFromLine(line: Line) {
+        return this.init(line[0].x, line[0].y, { x: line[1].x - line[0].x, y: line[1].y - line[0].y });
+    }
+
+    init(x: number, y: number, vel: Vertex) {
+        this.voxChange.x = Math.sign(vel.x);
+        this.voxChange.y = Math.sign(vel.y);
+        this.hasMovement = !(this.voxChange.x === 0 && this.voxChange.y === 0)
+        if (!this.hasMovement) {
+            return null;
+        }
+        // See https://stackoverflow.com/questions/12367071
+        const startX = (x - this.boundsLeft) / this.gridSize;
+        const startY = (y - this.boundsBottom) / this.gridSize;
+        this.tDelta.x = Math.abs(this.gridSize / vel.x);
+        this.tDelta.y = Math.abs(this.gridSize / vel.y);
+        this.tMax.x = this.tDelta.x * (vel.x < 0 ? decimal(startX) : 1 - decimal(startX));
+        this.tMax.y = this.tDelta.y * (vel.y < 0 ? decimal(startY) : 1 - decimal(startY));
+        this.vox.x = Math.floor(startX);
+        this.vox.y = Math.floor(startY);
+        return this.vox;
+    }
+
+    private complete() {
+        const inBounds = this.vox.x >= 0 && this.vox.x <= this.numCols && this.vox.y >= 0 && this.vox.y <= this.numRows;
+        const atEnd = (this.tMax.x > 1 && this.tMax.y > 1);
+        return !this.hasMovement || !inBounds || atEnd;
+    }
+
+    step() {
+        if (this.complete()) {
+            return null;
+        }
+        if (this.tMax.x < this.tMax.y) {
+            this.tMax.x += this.tDelta.x;
+            this.vox.x += this.voxChange.x;
+        } else {
+            this.tMax.y += this.tDelta.y;
+            this.vox.y += this.voxChange.y;
+        }
+        return this.vox;
+    }
 }

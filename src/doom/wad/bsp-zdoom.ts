@@ -1,5 +1,5 @@
 import type { SubSector, TreeNode, LineDef, Seg } from "../map-data";
-import type { Vertex } from "../math";
+import type { Line, Vertex } from "../math";
 import { _invalidBounds, type BSPData } from "./bsp-data";
 import { dword, int16, word, type Lump } from "./wadfile";
 
@@ -35,7 +35,7 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
     for (let i = 0; i < numSegs; i++) {
         const v0 = dword(buff, offset); offset += 4;
         const v1 = dword(buff, offset); offset += 4;
-        const v = [fetchVert(v0), fetchVert(v1)];
+        const v: Line = [fetchVert(v0), fetchVert(v1)];
         const linedefId = word(buff, offset); offset += 2;
         const linedef = linedefs[linedefId];
         const direction = buff[offset]; offset += 1;
