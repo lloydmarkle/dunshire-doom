@@ -400,9 +400,9 @@ function buildBlockmap(root: TreeNode, linedefs: LineDef[]) {
         let v = tracer.init(params.start.x, params.start.y, params.move);
         while (v) {
             scanBlock(params, blocks[v.y * dimensions.numCols + v.x], hits);
+            if (notify(params, hits)) break;
             v = tracer.step();
         }
-        notify(params, hits);
     }
 
     const blockTrace = () => {
@@ -431,27 +431,28 @@ function buildBlockmap(root: TreeNode, linedefs: LineDef[]) {
             let mid = mTrace.init(params.start.x + params.radius * dx, params.start.y + params.radius * dy, params.move);
             let cw = cwTrace.init(params.start.x - params.radius * dx, params.start.y + params.radius * dy, params.move);
 
-            while (mid) {
-                tryHit(mid.x, mid.y);
-                tryHit(ccw.x, ccw.y);
-                tryHit(cw.x, cw.y);
+            let complete = false;
+            while (!complete && mid) {
+                complete = complete || tryHit(mid.x, mid.y);
+                complete = complete || tryHit(ccw.x, ccw.y);
+                complete = complete || tryHit(cw.x, cw.y);
 
                 if (ccw && mid) {
                     // fill in the gaps between ccw and mid corners
                     for (let i = Math.min(ccw.x, mid.x); i < Math.max(mid.x, ccw.x); i += 1) {
-                        tryHit(i, mid.y);
+                        complete = complete || tryHit(i, mid.y);
                     }
                     for (let i = Math.min(ccw.y, mid.y); i < Math.max(mid.y, ccw.y); i += 1) {
-                        tryHit(mid.x, i);
+                        complete = complete || tryHit(mid.x, i);
                     }
                 }
                 if (cw && mid) {
                     // fill in the gaps between mid and cw corners
                     for (let i = Math.min(cw.x, mid.x); i < Math.max(mid.x, cw.x); i += 1) {
-                        tryHit(i, mid.y);
+                        complete = complete || tryHit(i, mid.y);
                     }
                     for (let i = Math.min(cw.y, mid.y); i < Math.max(mid.y, cw.y); i += 1) {
-                        tryHit(mid.x, i);
+                        complete = complete || tryHit(mid.x, i);
                     }
                 }
 
@@ -466,9 +467,8 @@ function buildBlockmap(root: TreeNode, linedefs: LineDef[]) {
         let hits: TraceHit[] = [];
         bTracer(params, block => {
             scanBlock(params, block, hits);
-            return true;
+            return notify(params, hits);
         });
-        notify(params, hits);
     }
 
     // console.log('blocks',dimensions, [...blocks].sort((a,b)=>b.linedefs.length -a.linedefs.length))
