@@ -1,6 +1,6 @@
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
-import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatSpeed } from '../map-object';
+import { angleBetween, MapObject, xyDistanceBetween, maxStepSize, maxFloatSpeed } from '../map-object';
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, sweepAABBAABB, sweepAABBLine, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
@@ -413,11 +413,11 @@ export const monsterMoveActions: ActionMap = {
     },
 }
 
-const _moveHits = [] as (MapObjectTraceHit | LineTraceHit | SectorTraceHit)[];
+const _precomputedHits = [] as TraceHit[];
 function precomputeCollisions(mobj: MapObject) {
-    _moveHits.length = 0;
-    // mobj.map.data.traceMove({
-    mobj.map.data.blockMap.radiusTrace({
+    _precomputedHits.length = 0;
+    mobj.map.data.traceMove({
+    // mobj.map.data.blockMap.radiusTrace({
         start: mobj.position,
         move: zeroVec,
         radius: mobj.info.radius + mobj.info.speed,
@@ -430,20 +430,15 @@ function precomputeCollisions(mobj: MapObject) {
                 || (mobj.position.z + mobj.info.height < hit.mobj.position.z) // passed under target
                 || (mobj.position.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
             if (!skipHit) {
-                _moveHits.push(hit);
+                _precomputedHits.push(hit);
             }
             return true; // continue search
         },
         hitLine: hit => {
-            _moveHits.push(hit);
-            return true;
-        },
-        hitFlat: hit => {
-            _moveHits.push(hit);
+            _precomputedHits.push(hit);
             return true;
         },
     });
-    // console.log('hits', mobj.id, _moveHits.map(e=>[e,e.sector.num]))
 }
 
 function faceTarget(mobj: MapObject, target: MapObject) {
@@ -969,7 +964,7 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
     // (players nad floating monsters can though)
     const maxFloorChangeOK = (mobj.info.flags & MFFlags.MF_FLOAT) || maxFloorChange(mobj, move, moveRadius) <= maxStepSize;
 
-    let blocker = _moveHits.find(hit => {
+    return _precomputedHits.find(hit => {
         if ('mobj' in hit) {
             _nVec.set(mobj.position.x - mobj.position.x, mobj.position.y - mobj.position.y, 0);
             const moveDot = move.dot(_nVec);
@@ -1034,83 +1029,9 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
                     }
                 }
             }
-        } else if ('flat' in hit) {
-            return false;
-            // const point = sweepAABBAABB(mobj.position, moveRadius, move, hit.mobj.position, hit.mobj.info.radius);
-            // return Boolean(point);
         }
         return true;
     });
-
-    // let blocker: TraceHit = null;
-    // mobj.map.data.traceMove({
-    //     start: mobj.position,
-    //     move,
-    //     radius: moveRadius,
-    //     height: mobj.info.height,
-    //     hitObject: hit => {
-    //         const skipHit = false
-    //             || (hit.mobj === mobj) // don't collide with yourself
-    //             || !(hit.mobj.info.flags & hittableThing) // not hittable
-    //             || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
-    //             || (mobj.position.z + mobj.info.height < hit.mobj.position.z) // passed under target
-    //             || (mobj.position.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
-    //         if (skipHit) {
-    //             return true; // continue search
-    //         }
-    //         return !(blocker = hit);
-    //     },
-    //     hitLine: hit => {
-    //         const twoSided = Boolean(hit.line.left);
-    //         if (twoSided) {
-    //             const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
-    //             const front = hit.side <= 0 ? hit.line.right.sector : hit.line.left.sector;
-    //             const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
-    //             if (blocking) {
-    //                 // if it's a blocking wall but the back sector is the same as the start sector, we allow the move
-    //                 // because it means we are moving away from the wall. For example, many imps in E1M7 are stuck in
-    //                 // blocking wall/window ledges so this lets them move.
-    //                 // Make sure front and back sectors are not the same (see grate walls after the zigzag in E1M1)
-    //                 if (mobj.sector === back && front !== back) {
-    //                     return true;
-    //                 }
-    //             } else {
-    //                 const stepUpOK =
-    //                     (back.zFloor < front.zFloor) // not a step up
-    //                     || (back.zFloor - mobj.position.z <= maxStepSize && maxFloorChangeOK);
-    //                 const transitionGapOk = (back.zCeil - mobj.position.z >= mobj.info.height);
-    //                 const newCeilingFloorGapOk = (back.zCeil - back.zFloor >= mobj.info.height);
-    //                 const stepDownOK =
-    //                     (back.zFloor > front.zFloor) // not a step down
-    //                     || (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
-    //                     || (mobj.position.z - back.zFloor <= maxStepSize);
-
-    //                 if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
-    //                     // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
-    //                     mobj.movedir = MoveDirection.None;
-    //                     specialLines?.push(hit);
-    //                 }
-
-    //                 if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
-    //                     if (specialLines && hit.line.special) {
-    //                         const startSide = signedLineDistance(hit.line.v, mobj.position) < 0 ? -1 : 1;
-    //                         const endSide = signedLineDistance(hit.line.v, _centreMoveEnd) < 0 ? -1 : 1;
-    //                         if (startSide !== endSide) {
-    //                             specialLines.push(hit);
-    //                         }
-    //                     }
-    //                     return true; // step/ceiling/drop-off collision is okay so try next line
-    //                 }
-    //             }
-    //         }
-    //         return !(blocker = hit);
-    //     },
-    //     hitFlat: hit => {
-    //         const crushed = (hit.sector.zCeil - hit.sector.zFloor < mobj.info.height);
-    //         return !(blocker = crushed ? hit : null);
-    //     }
-    // });
-    return blocker;
 }
 
 function maxFloorChange(mobj: MapObject, move: Vector3, radius: number) {

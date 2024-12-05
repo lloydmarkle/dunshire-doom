@@ -740,13 +740,13 @@ export class MapData {
     }
 
     traceRay(p: TraceParams) {
-        // this.bspTracer(p);
-        this.blockMap.traceRay(p);
+        this.bspTracer(p);
+        // this.blockMap.traceRay(p);
     }
 
     traceMove(p: TraceParams) {
-        // this.bspTracer(p);
-        this.blockMap.traceMove(p);
+        this.bspTracer(p);
+        // this.blockMap.traceMove(p);
     }
 
     traceSubsectors(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) {
