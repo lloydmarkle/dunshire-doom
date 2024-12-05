@@ -205,19 +205,21 @@ export interface Block {
     sectors: Sector[];
     mobjs: Set<MapObject>;
 }
-function buildBlockmap(root: TreeNode, segs: Seg[]) {
+function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
     // newer maps (and UDMF) don't have block so skip the lump and just compute it
     const blockSize = 128;
-    let minX = segs[0].v[0].x;
-    let maxX = segs[0].v[0].x;
-    let minY = segs[0].v[0].y;
-    let maxY = segs[0].v[0].y;
-    for (const seg of segs) {
-        // +/- 1 to avoid rounding errors and accidentally querying outside the blockmap
-        minX = Math.min(seg.v[0].x - 1, seg.v[1].x - 1, minX);
-        maxX = Math.max(seg.v[0].x + 1, seg.v[1].x + 1, maxX);
-        minY = Math.min(seg.v[0].y - 1, seg.v[1].y - 1, minY);
-        maxY = Math.max(seg.v[0].y + 1, seg.v[1].y + 1, maxY);
+    let minX = subsectors[0].segs[0].v[0].x;
+    let maxX = subsectors[0].segs[0].v[0].x;
+    let minY = subsectors[0].segs[0].v[0].y;
+    let maxY = subsectors[0].segs[0].v[0].y;
+    for (const subsector of subsectors) {
+        for (const seg of subsector.segs) {
+            // +/- 1 to avoid rounding errors and accidentally querying outside the blockmap
+            minX = Math.min(seg.v[0].x - 1, seg.v[1].x - 1, minX);
+            maxX = Math.max(seg.v[0].x + 1, seg.v[1].x + 1, maxX);
+            minY = Math.min(seg.v[0].y - 1, seg.v[1].y - 1, minY);
+            maxY = Math.max(seg.v[0].y + 1, seg.v[1].y + 1, maxY);
+        }
     }
 
     const dimensions = {
@@ -233,17 +235,32 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
     }
 
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
-    for (const seg of segs) {
-        let p = tracer.initFromLine(seg.v);
-        while (p) {
-            const block = blocks[p.y * dimensions.numCols + p.x];
-            block.segs.push(seg);
-            block.sectors.push(seg.linedef.right.sector);
-            block.sectors.push(seg.linedef.left?.sector);
-            p = tracer.step();
+    for (const subsector of subsectors) {
+        for (const seg of subsector.segs) {
+           let p = tracer.initFromLine(seg.v);
+            while (p) {
+                const block = blocks[p.y * dimensions.numCols + p.x];
+                block.segs.push(seg);
+                block.sectors.push(seg.linedef.right.sector);
+                block.sectors.push(seg.linedef.left?.sector);
+                p = tracer.step();
+            }
+        }
+
+        let bx = Math.floor((subsector.bounds.left - minX) / blockSize);
+        let xEnd = Math.floor((subsector.bounds.right - minX) / blockSize) + 1;
+        let yEnd = Math.floor((subsector.bounds.bottom - minY) / blockSize) + 1;
+        for (; bx < dimensions.numCols && bx < xEnd; bx++) {
+            let by = Math.floor((subsector.bounds.top - minY) / blockSize);
+            for (; by < dimensions.numRows && by < yEnd; by++) {
+                const block = blocks[by * dimensions.numCols + bx];
+                subsector.blocks.push(block);
+            }
         }
     }
-    // filter sectors to be unique and not empty
+    // filter sectors and segs to avoid duplicates in a block
+    // TODO: sectors is probably necessary, is segs or are segs unique to subsector?
+    blocks.forEach(b => b.segs = b.segs.filter((seg, i, arr) => seg && arr.indexOf(seg) === i));
     blocks.forEach(b => b.sectors = b.sectors.filter((sec, i, arr) => sec && arr.indexOf(sec) === i));
 
     const blockFromCoords = (x: number, y: number) => {
@@ -409,6 +426,19 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
         }
     }
 
+    const radiusTracer = (params: TraceParams, hitBlock: (block: Block) => boolean) => {
+        let bx = Math.floor((params.start.x - params.radius - minX) / blockSize);
+        let xEnd = Math.floor((params.start.x + params.radius - minX) / blockSize) + 1;
+        let yEnd = Math.floor((params.start.y + params.radius - minY) / blockSize) + 1;
+        let complete = false;
+        for (; !complete && bx < dimensions.numCols && bx < xEnd; bx++) {
+            let by = Math.floor((params.start.y - params.radius - minY) / blockSize);
+            for (; !complete && by < dimensions.numRows && by < yEnd; by++) {
+                complete = hitBlock(blocks[by * dimensions.numCols + bx]);
+            }
+        }
+    }
+
     const blockTrace = () => {
         let moveRev = 0;
         const mTrace = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
@@ -425,6 +455,15 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
 // console.log('block',x,y,block)
                 block.rev = moveRev;
                 return hitBlock(block);
+            }
+
+            if (params.move.lengthSq() < 0.001) {
+                // our AmanatidesWooTrace doesn't handle zero movement well so do a special trace for that
+                radiusTracer(params, block => {
+                    hitBlock(block);
+                    return false; // don't early exit (ever) because radius trace isn't ordered
+                })
+                return;
             }
 
             // if sx or sy is 0 (vertical/horizontal line) we still need to find leading corners so choose a value
@@ -476,19 +515,6 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
         });
     }
 
-    const radiusTracer = (params: TraceParams, hitBlock: (block: Block) => boolean) => {
-        let bx = Math.floor((params.start.x - params.radius - minX) / blockSize);
-        let xEnd = Math.floor((params.start.x + params.radius - minX) / blockSize) + 1;
-        let yEnd = Math.floor((params.start.y + params.radius - minY) / blockSize) + 1;
-        let by = Math.floor((params.start.y - params.radius - minY) / blockSize);
-        let complete = false;
-        for (; !complete && bx < dimensions.numCols && bx < xEnd; bx++) {
-            by = Math.floor((params.start.y - params.radius - minY) / blockSize);
-            for (; !complete && by < dimensions.numRows && by < yEnd; by++) {
-                complete = hitBlock(blocks[by * dimensions.numCols + bx]);
-            }
-        }
-    }
     const radiusTrace = (params: TraceParams) => {
         let hits: TraceHit[] = [];
         let firstScan = true;
@@ -545,7 +571,7 @@ function buildBlockmap(root: TreeNode, segs: Seg[]) {
     }
 
     // console.log('blocks',dimensions, [...blocks].sort((a,b)=>b.linedefs.length -a.linedefs.length))
-    return { dimensions, moveMobj, traceRay, traceMove, radiusTrace };
+    return { dimensions, moveMobj, traceRay, traceMove, radiusTrace, traceBlocks: bTracer };
 }
 
 export interface Seg {
@@ -562,6 +588,7 @@ export interface SubSector {
     bspLines: Line[]; // <-- useful for debugging but maybe we can remove it?
     // for collision detection
     mobjs: Set<MapObject>;
+    blocks: Block[];
     bounds: Bounds;
     hitC: number;
 }
@@ -644,9 +671,7 @@ export class MapData {
         this.nodes = nodes;
         const rootNode = this.nodes[this.nodes.length - 1];
         completeSubSectors(rootNode, subsectors);
-        this.bspTracer = createBspTracer(rootNode);
         this.subsectorTrace = createSubsectorTrace(rootNode);
-        this.blockMap = buildBlockmap(rootNode, segs);
 
         const portalSegsBySector = new Map<Sector, Seg[]>();
         for (const seg of segs) {
@@ -712,7 +737,11 @@ export class MapData {
                 return true; // continue to next subsector
             });
         }
-        console.timeEnd('map-bin')
+
+        // build the blockmap after we've completed the subsector (including the linedefs without segs above)
+        this.blockMap = buildBlockmap(rootNode, subsectors);
+        this.bspTracer = createBspTracer(this.blockMap, rootNode);
+        console.timeEnd('map-bin');
     }
 
     findSubSector(x: number, y: number): SubSector {
@@ -825,9 +854,10 @@ export interface TraceParams {
     hitFlat?: HandleTraceHit<SectorTraceHit>;
     hitObject?: HandleTraceHit<MapObjectTraceHit>;
 }
-function createBspTracer(root: TreeNode) {
+function createBspTracer(blockMap: ReturnType<typeof buildBlockmap>, root: TreeNode) {
     const subsectorTrace = createSubsectorTrace(root);
     const nVec = new Vector3();
+    const hitBlocks = new Set<Block>();
 
     const flatHit = (flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number, params: TraceParams): SectorTraceHit => {
         const u = (zFlat - params.start.z) / params.move.z;
@@ -844,7 +874,7 @@ function createBspTracer(root: TreeNode) {
 
     return (params: TraceParams) => {
         const radius = params.radius ?? 0;
-        const allowZeroDot = params.move.x !== 0 || params.move.y !== 0 || params.move.z !== 0;
+        const zeroMove = params.move.lengthSq() < .001;
         let hits: TraceHit[] = [];
         function notify() {
             // sort hits by distance (or by overlap if distance is too close)
@@ -867,28 +897,41 @@ function createBspTracer(root: TreeNode) {
             return complete;
         }
 
+        hitBlocks.clear();
+        blockMap.traceBlocks(params, block => {
+            hitBlocks.add(block);
+            return false; // keep searching
+        });
+
         // TODO: since we have a height parameter, I wonder if we should check for top/bottom collisions with walls
         // and things and maybe avoid a few redundant checks? Teleportation, for example, does not check z position and
         // maybe that is desired?
         let firstSubsec = true;
         subsectorTrace(params.start, params.move, radius, subsector => {
             const sector = subsector.sector;
-            // collide with things
+
             if (params.hitObject) {
-                for (const mobj of subsector.mobjs) {
-                    // like wall collisions, we allow the collision if the movement is away from the other mobj
-                    nVec.set(params.start.x - mobj.position.x, params.start.y - mobj.position.y, 0);
-                    const moveDot = params.move.dot(nVec);
-                    // skip collision detection if we are moving away from the other object
-                    if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
+                // collide with things
+                for (const block of subsector.blocks) {
+                    if (hitBlocks.size && !hitBlocks.has(block)) {
                         continue;
                     }
 
-                    const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
-                    if (hit) {
-                        const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
-                        const ov = aabbAabbOverlap(point, radius, mobj.position, mobj.info.radius);
-                        hits.push({ sector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
+                    for (const mobj of block.mobjs) {
+                        // like wall collisions, we allow the collision if the movement is away from the other mobj
+                        nVec.set(params.start.x - mobj.position.x, params.start.y - mobj.position.y, 0);
+                        const moveDot = params.move.dot(nVec);
+                        // skip collision detection if we are moving away from the other object
+                        if (moveDot > 0 || (moveDot === 0 && !zeroMove)) {
+                            continue;
+                        }
+
+                        const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
+                        if (hit) {
+                            const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
+                            const ov = aabbAabbOverlap(point, radius, mobj.position, mobj.info.radius);
+                            hits.push({ sector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
+                        }
                     }
                 }
             }
@@ -905,7 +948,7 @@ function createBspTracer(root: TreeNode) {
                     const moveDot = params.move.dot(nVec);
                     // NOTE: dot === 0 is special. We allow this only when we are moving
                     // (if we aren't moving, dot will always be 0 and we skip everything)
-                    if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
+                    if (moveDot > 0 || (moveDot === 0 && !zeroMove)) {
                         continue;
                     }
 
@@ -929,12 +972,12 @@ function createBspTracer(root: TreeNode) {
                 if (ceilHit) {
                     hits.push(ceilHit);
                 }
-            }
-            if (params.hitFlat && firstSubsec) {
-                // already colliding with a ceiling (like a crusher)
-                if (sector.zCeil - sector.zFloor - params.height < 0) {
-                    const point = params.start.clone().addScaledVector(params.move, 0);
-                    hits.push({ flat: 'ceil', sector, point, overlap: 0, fraction: 0 });
+                // check if we're already colliding with a ceiling (like a crusher)
+                if (firstSubsec) {
+                    if (sector.zCeil - sector.zFloor - params.height < 0) {
+                        const point = params.start.clone().addScaledVector(params.move, 0);
+                        hits.push({ flat: 'ceil', sector, point, overlap: 0, fraction: 0 });
+                    }
                 }
             }
 

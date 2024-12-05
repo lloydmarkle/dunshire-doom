@@ -987,47 +987,46 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
                 return false;
             }
 
-            const twoSided = Boolean(hit.line.left);
-            if (twoSided) {
-                const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
-                const front = hit.side <= 0 ? hit.line.right.sector : hit.line.left.sector;
-                const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
-                if (blocking) {
-                    // if it's a blocking wall but the back sector is the same as the start sector, we allow the move
-                    // because it means we are moving away from the wall. For example, many imps in E1M7 are stuck in
-                    // blocking wall/window ledges so this lets them move.
-                    // Make sure front and back sectors are not the same (see grate walls after the zigzag in E1M1)
-                    if (mobj.sector === back && front !== back) {
-                        return false;
-                    }
-                } else {
-                    const stepUpOK =
-                        (back.zFloor < front.zFloor) // not a step up
-                        || (back.zFloor - mobj.position.z <= maxStepSize && maxFloorChangeOK);
-                    const transitionGapOk = (back.zCeil - mobj.position.z >= mobj.info.height);
-                    const newCeilingFloorGapOk = (back.zCeil - back.zFloor >= mobj.info.height);
-                    const stepDownOK =
-                        (back.zFloor > front.zFloor) // not a step down
-                        || (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
-                        || (mobj.position.z - back.zFloor <= maxStepSize);
+            if (!hit.line.left) {
+                return true;
+            }
 
-                    if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
-                        // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
-                        mobj.movedir = MoveDirection.None;
-                        specialLines?.push(hit);
-                    }
+            const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
+            const front = hit.side <= 0 ? hit.line.right.sector : hit.line.left.sector;
+            const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
+            if (blocking) {
+                // if it's a blocking wall but the back sector is the same as the start sector, we allow the move
+                // because it means we are moving away from the wall. For example, many imps in E1M7 are stuck in
+                // blocking wall/window ledges so this lets them move.
+                // Make sure front and back sectors are not the same (see grate walls after the zigzag in E1M1)
+                return !(mobj.sector === back && front !== back);
+            }
 
-                    if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
-                        if (specialLines && hit.line.special) {
-                            const startSide = signedLineDistance(hit.line.v, mobj.position) < 0 ? -1 : 1;
-                            const endSide = signedLineDistance(hit.line.v, _centreMoveEnd) < 0 ? -1 : 1;
-                            if (startSide !== endSide) {
-                                specialLines.push(hit);
-                            }
-                        }
-                        return false; // step/ceiling/drop-off collision is okay so try next line
+            const stepUpOK =
+                (back.zFloor < front.zFloor) // not a step up
+                || (back.zFloor - mobj.position.z <= maxStepSize && maxFloorChangeOK);
+            const transitionGapOk = (back.zCeil - mobj.position.z >= mobj.info.height);
+            const newCeilingFloorGapOk = (back.zCeil - back.zFloor >= mobj.info.height);
+            const stepDownOK =
+                (back.zFloor > front.zFloor) // not a step down
+                || (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
+                || (mobj.position.z - back.zFloor <= maxStepSize);
+
+            if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
+                // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
+                mobj.movedir = MoveDirection.None;
+                specialLines?.push(hit);
+            }
+
+            if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
+                if (specialLines && hit.line.special) {
+                    const startSide = signedLineDistance(hit.line.v, mobj.position) < 0 ? -1 : 1;
+                    const endSide = signedLineDistance(hit.line.v, _centreMoveEnd) < 0 ? -1 : 1;
+                    if (startSide !== endSide) {
+                        specialLines.push(hit);
                     }
                 }
+                return false; // step/ceiling/drop-off collision is okay so try next line
             }
         }
         return true;
