@@ -520,63 +520,8 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         });
     }
 
-    const radiusTrace = (params: TraceParams) => {
-        let hits: TraceHit[] = [];
-        let firstScan = true;
-        radiusTracer(params, block => {
-            if (!block) return;
-            if (params.hitObject) {
-                for (const mobj of block.mobjs) {
-                    const hit = sweepAABBAABB(params.start, params.radius, params.move, mobj.position, mobj.info.radius);
-                    if (hit) {
-                        const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
-                        const sector = findSubSector(root, point.x, point.y).sector;
-                        const ov = aabbAabbOverlap(point, params.radius, mobj.position, mobj.info.radius);
-                        hits.push({ sector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
-                    }
-                }
-            }
-
-            if (params.hitLine) {
-                for (const seg of block.segs) {
-                    const hit = sweepAABBLine(params.start, params.radius, params.move, seg.v);
-                    if (hit) {
-                        const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
-                        const side = seg.direction ? 1 : -1;
-                        const sector = side === -1 ? seg.linedef.right.sector : seg.linedef.left.sector;
-                        const overlap = aabbLineOverlap(point, params.radius, seg.linedef);
-                        hits.push({ sector, seg, overlap, point, side, line: seg.linedef, fraction: hit.u });
-                    }
-                }
-            }
-
-            if (params.hitFlat) {
-                for (const sector of block.sectors) {
-                    // collide with floor or ceiling
-                    const floorHit = params.move.z < 0 && flatHit('floor', sector, sector.zFloor, params);
-                    if (floorHit) {
-                        hits.push(floorHit);
-                    }
-                    const ceilHit = params.move.z > 0 && flatHit('ceil', sector, sector.zCeil - (params.height ?? 0), params);
-                    if (ceilHit) {
-                        hits.push(ceilHit);
-                    }
-                    if (firstScan) {
-                        // already colliding with a ceiling (like a crusher)
-                        if (sector.zCeil - sector.zFloor - params.height < 0) {
-                            const point = params.start.clone().addScaledVector(params.move, 0);
-                            hits.push({ flat: 'ceil', sector, point, overlap: 0, fraction: 0 });
-                        }
-                    }
-                }
-                firstScan = false;
-            }
-            return notify(params, hits);
-        });
-    }
-
     // console.log('blocks',dimensions, [...blocks].sort((a,b)=>b.linedefs.length -a.linedefs.length))
-    return { dimensions, moveMobj, traceRay, traceMove, radiusTrace, traceBlocks: bTracer };
+    return { dimensions, moveMobj, traceRay, traceMove, traceBlocks: bTracer };
 }
 
 export interface Seg {

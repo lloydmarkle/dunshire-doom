@@ -417,7 +417,6 @@ const _precomputedHits = [] as TraceHit[];
 function precomputeCollisions(mobj: MapObject) {
     _precomputedHits.length = 0;
     mobj.map.data.traceMove({
-    // mobj.map.data.blockMap.radiusTrace({
         start: mobj.position,
         move: zeroVec,
         radius: mobj.info.radius + mobj.info.speed,
@@ -966,9 +965,9 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
 
     return _precomputedHits.find(hit => {
         if ('mobj' in hit) {
-            _nVec.set(mobj.position.x - mobj.position.x, mobj.position.y - mobj.position.y, 0);
+            _nVec.set(mobj.position.x - hit.mobj.position.x, mobj.position.y - hit.mobj.position.y, 0);
             const moveDot = move.dot(_nVec);
-            if (moveDot > 0) {
+            if (moveDot >= 0) {
                 return false;
             }
 
@@ -979,7 +978,7 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
         } else if ('line' in hit) {
             _nVec.set(hit.seg.v[1].y - hit.seg.v[0].y, hit.seg.v[0].x - hit.seg.v[1].x, 0);
             const moveDot = move.dot(_nVec);
-            if (moveDot > 0) {
+            if (moveDot >= 0) {
                 return false;
             }
             const point = sweepAABBLine(mobj.position, moveRadius, move, hit.seg.v);
