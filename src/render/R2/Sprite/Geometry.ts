@@ -113,17 +113,16 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         let sector: Sector = null;
         const isPlayer = mo instanceof PlayerMapObject;
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
-        const spriteFlags =
-            ((mo.info.flags & MFFlags.MF_MISSILE || mo.type === MapObjectIndex.MT_EXTRABFG) ? 2 : 0) |
-            ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0);
+        const fixedSpriteFlags = ((mo.info.flags & MFFlags.MF_MISSILE || mo.type === MapObjectIndex.MT_EXTRABFG) ? 2 : 0);
 
         const updateSprite = (sprite: Sprite) => {
             mesh.geometry.attributes.texN.array[n * 2] = sprite.state.spriteIndex;
 
             // // rendering flags
             mesh.geometry.attributes.texN.array[n * 2 + 1] = (
-                spriteFlags
+                fixedSpriteFlags
                 | (sprite.fullbright ? 1 : 0)
+                | ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0)
                 | ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0)
                 | ((mo.info.flags & MFFlags.MF_INFLOAT) ? 16 : 0));
                 mesh.geometry.attributes.texN.needsUpdate = true;
