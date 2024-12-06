@@ -319,17 +319,20 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
             return;
         }
         const radius = params.radius ?? 0;
-        const allowZeroDot = params.move.x !== 0 || params.move.y !== 0 || params.move.z !== 0;
+        // only check xy move because we want to skip dot product checks when moving up or down
+        const xyZeroMove = ((params.move.x * params.move.x) + (params.move.y * params.move.y)) < .001;
 
         // collide with things
         if (params.hitObject) {
             for (const mobj of block.mobjs) {
-                // like wall collisions, we allow the collision if the movement is away from the other mobj
-                nVec.set(params.start.x - mobj.position.x, params.start.y - mobj.position.y, 0);
-                const moveDot = params.move.dot(nVec);
-                // skip collision detection if we are moving away from the other object
-                if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
-                    continue;
+                if (!xyZeroMove) {
+                    // like wall collisions, we allow the collision if the movement is away from the other mobj
+                    nVec.set(params.start.x - mobj.position.x, params.start.y - mobj.position.y, 0);
+                    const moveDot = params.move.dot(nVec);
+                    // skip collision detection if we are moving away from the other object
+                    if (moveDot >= 0) {
+                        continue;
+                    }
                 }
 
                 const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
@@ -345,17 +348,19 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         if (params.hitLine) {
             // collide with walls
             for (const seg of block.segs) {
-                // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
-                // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
-                // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
-                // other traces.
-                // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
-                nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
-                const moveDot = params.move.dot(nVec);
-                // NOTE: dot === 0 is special. We allow this only when we are moving
-                // (if we aren't moving, dot will always be 0 and we skip everything)
-                if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
-                    continue;
+                if (!xyZeroMove) {
+                    // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
+                    // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
+                    // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
+                    // other traces.
+                    // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
+                    nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
+                    const moveDot = params.move.dot(nVec);
+                    // NOTE: dot === 0 is special. We allow this only when we are moving
+                    // (if we aren't moving, dot will always be 0 and we skip everything)
+                    if (moveDot >= 0) {
+                        continue;
+                    }
                 }
 
                 const hit = sweepAABBLine(params.start, radius, params.move, seg.v);
@@ -874,7 +879,8 @@ function createBspTracer(blockMap: ReturnType<typeof buildBlockmap>, root: TreeN
 
     return (params: TraceParams) => {
         const radius = params.radius ?? 0;
-        const zeroMove = params.move.lengthSq() < .001;
+        // only check xy move because we want to skip dot product checks when moving up or down
+        const xyZeroMove = ((params.move.x * params.move.x) + (params.move.y * params.move.y)) < .001;
         let hits: TraceHit[] = [];
         function notify() {
             // sort hits by distance (or by overlap if distance is too close)
@@ -918,12 +924,14 @@ function createBspTracer(blockMap: ReturnType<typeof buildBlockmap>, root: TreeN
                     }
 
                     for (const mobj of block.mobjs) {
-                        // like wall collisions, we allow the collision if the movement is away from the other mobj
-                        nVec.set(params.start.x - mobj.position.x, params.start.y - mobj.position.y, 0);
-                        const moveDot = params.move.dot(nVec);
-                        // skip collision detection if we are moving away from the other object
-                        if (moveDot > 0 || (moveDot === 0 && !zeroMove)) {
-                            continue;
+                        if (!xyZeroMove) {
+                            // like wall collisions, we allow the collision if the movement is away from the other mobj
+                            nVec.set(params.start.x - mobj.position.x, params.start.y - mobj.position.y, 0);
+                            const moveDot = params.move.dot(nVec);
+                            // skip collision detection if we are moving away from the other object
+                            if (moveDot >= 0) {
+                                continue;
+                            }
                         }
 
                         const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
@@ -939,17 +947,19 @@ function createBspTracer(blockMap: ReturnType<typeof buildBlockmap>, root: TreeN
             if (params.hitLine) {
                 // collide with walls
                 for (const seg of subsector.segs) {
-                    // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
-                    // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
-                    // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
-                    // other traces.
-                    // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
-                    nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
-                    const moveDot = params.move.dot(nVec);
-                    // NOTE: dot === 0 is special. We allow this only when we are moving
-                    // (if we aren't moving, dot will always be 0 and we skip everything)
-                    if (moveDot > 0 || (moveDot === 0 && !zeroMove)) {
-                        continue;
+                    if (!xyZeroMove) {
+                        // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
+                        // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
+                        // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
+                        // other traces.
+                        // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
+                        nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
+                        const moveDot = params.move.dot(nVec);
+                        // NOTE: dot === 0 is special. We allow this only when we are moving
+                        // (if we aren't moving, dot will always be 0 and we skip everything)
+                        if (moveDot >= 0) {
+                            continue;
+                        }
                     }
 
                     const hit = sweepAABBLine(params.start, radius, params.move, seg.v);
