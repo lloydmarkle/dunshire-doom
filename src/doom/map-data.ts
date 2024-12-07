@@ -257,33 +257,12 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         }
     }
 
-    const blockFromCoords = (x: number, y: number) => {
-        if (x > maxX || x < minX || y > maxY || y < minY) {
-            return null;
-        }
-        const col = Math.floor((x - minX) / blockSize);
-        const row = Math.floor((y - minY) / blockSize);
-        return blocks[row * dimensions.numCols + col];
-    };
-
     let mobjRev = 0;
-    const updateMobjBlock = (mo: MapObject, x: number, y: number) => {
-        const block = blockFromCoords(x, y);
-        if (block) {
-            mo.blocks.set(block, mobjRev)
-        }
-    }
-
     const moveMobj = (mo: MapObject) => {
         mobjRev += 1;
-        updateMobjBlock(mo, mo.position.x - mo.info.radius, mo.position.y - mo.info.radius);
-        updateMobjBlock(mo, mo.position.x + mo.info.radius, mo.position.y - mo.info.radius);
-        updateMobjBlock(mo, mo.position.x + mo.info.radius, mo.position.y + mo.info.radius);
-        updateMobjBlock(mo, mo.position.x - mo.info.radius, mo.position.y + mo.info.radius);
-        if (mo.info.radius >= blockSize) {
-            updateMobjBlock(mo, mo.position.x, mo.position.y);
-        }
-
+        radiusTracer({ start: mo.position, move: zeroVec, radius: mo.info.radius }, block => {
+            mo.blocks.set(block, mobjRev);
+        });
         mo.blocks.forEach((blockRev, block) => {
             if (mobjRev === blockRev && !(mo.info.flags & MFFlags.MF_NOBLOCKMAP)) {
                 block.mobjs.add(mo);
@@ -427,11 +406,11 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
     }
 
     const radiusTracer = (params: TraceParams, hitBlock: (block: Block) => void) => {
-        let bx = Math.floor((params.start.x - params.radius - minX) / blockSize);
+        let bx = Math.max(0, Math.floor((params.start.x - params.radius - minX) / blockSize));
         let xEnd = Math.floor((params.start.x + params.radius - minX) / blockSize) + 1;
         let yEnd = Math.floor((params.start.y + params.radius - minY) / blockSize) + 1;
         for (; bx < dimensions.numCols && bx < xEnd; bx++) {
-            let by = Math.floor((params.start.y - params.radius - minY) / blockSize);
+            let by = Math.max(0, Math.floor((params.start.y - params.radius - minY) / blockSize));
             for (; by < dimensions.numRows && by < yEnd; by++) {
                 hitBlock(blocks[by * dimensions.numCols + bx]);
             }
@@ -682,6 +661,12 @@ export class MapData {
 
         // build the blockmap after we've completed the subsector (including the linedefs without segs above)
         this.blockMap = buildBlockmap(rootNode, subsectors);
+        this.blockMapBounds = {
+            top: this.blockMap.dimensions.originY + this.blockMap.dimensions.numRows * 128,
+            left: this.blockMap.dimensions.originX,
+            bottom: this.blockMap.dimensions.originY,
+            right: this.blockMap.dimensions.originX + this.blockMap.dimensions.numCols * 128,
+        };
         this.bspTracer = createBspTracer(this.blockMap, rootNode);
         console.timeEnd('map-bin');
     }
