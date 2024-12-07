@@ -138,7 +138,7 @@ const lineLineIntersectionDetails = {
         return !(this.v < 0 || this.v > 1 || this.u < 0 || this.u > 1);
     }
 }
-function lineLineIntersectDetailed(l1: Line, l2: Line): typeof lineLineIntersectionDetails | undefined {
+function lineLineIntersectDetailed(l1: Line, l2: Line): typeof lineLineIntersectionDetails {
     // fantastic article https://observablehq.com/@toja/line-box-intersection
     // wikipidia was helpful too https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line_segment
     const x1x2 = l1[0].x - l1[1].x, y1y2 = l1[0].y - l1[1].y,
@@ -158,7 +158,7 @@ function lineLineIntersectDetailed(l1: Line, l2: Line): typeof lineLineIntersect
     return lineLineIntersectionDetails;
 }
 
-export function lineLineIntersect(l1: Line, l2: Line, bounded = false): IntersectionPoint | undefined {
+export function lineLineIntersect(l1: Line, l2: Line, bounded = false): IntersectionPoint {
     const details = lineLineIntersectDetailed(l1, l2);
     return (!details || (bounded && !details.inBounds()))
         ? undefined : details;

@@ -536,7 +536,6 @@ class ShotTracer {
                 return false;
             },
             hitLine: hit => {
-                const hitZ = this.direction.z * hit.fraction + this.start.z;
                 if (hit.line.special) {
                     shooter.map.triggerSpecial(hit.line, shooter, 'G', hit.side);
                 }
@@ -545,6 +544,7 @@ class ShotTracer {
                     return this.hitWallOrSky(shooter, hit.line.right.sector, null, this.bulletHitLocation(4, range, hit.fraction));
                 }
 
+                const hitZ = this.direction.z * hit.fraction + this.start.z;
                 const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
                 const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
                 if (front.zCeil !== back.zCeil) {
@@ -678,7 +678,6 @@ function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range:
             if (front.sector.zFloor !== back.sector.zFloor) {
                 slopeBottom = Math.max(slopeBottom, (openBottom - start.z) / dist);
             }
-
             if (slopeTop <= slopeBottom) {
                 // we've run out of gap between top and bottom of walls
                 return false;
