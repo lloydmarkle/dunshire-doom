@@ -70,6 +70,7 @@ export class MapObject {
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
     readonly sectorChanged: (sector: Sector) => void;
     readonly positionChanged: () => void;
+    protected applyPositionChanged: () => void;
 
     private _sector: Sector;
     get sector(): Sector { return this._sector; };
@@ -85,6 +86,7 @@ export class MapObject {
     readonly renderData = {};
 
     get isDead() { return this.health.val <= 0; }
+    protected _positionChanged = false;
     protected _isMoving = false;
     protected _onGround = true;
     get onGround() { return this.position.z <= this._zFloor; }
@@ -169,6 +171,10 @@ export class MapObject {
         // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
         const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
         this.positionChanged = () => {
+            this._positionChanged = true;
+            this._onGround = this.position.z <= this._zFloor;
+        }
+        this.applyPositionChanged = () => {
             const p = this.position;
 
             map.data.blockMap.moveMobj(this);
@@ -209,7 +215,7 @@ export class MapObject {
             }
             map.events.emit('mobj-updated-position', this);
         };
-        this.positionChanged();
+        this.applyPositionChanged();
 
         // set state last because it may trigger other actions (like find player or play a sound)
         this._state.setState(this.info.spawnstate);
@@ -223,6 +229,7 @@ export class MapObject {
     get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
 
     tick() {
+        this._positionChanged = false;
         this._isMoving = this.velocity.lengthSq() > stopVelocity;
         this._onGround = this.position.z <= this._zFloor;
 
@@ -232,6 +239,10 @@ export class MapObject {
 
         this._state.tick();
         // TODO: update movecount (+other nightmare-only handling)
+
+        if (this._positionChanged) {
+            this.applyPositionChanged();
+        }
     }
 
     protected applyFriction() {
@@ -404,13 +415,6 @@ export class MapObject {
         }
 
         if (this.info.flags & MFFlags.MF_NOCLIP) {
-            this.position.add(this.velocity);
-            this.positionChanged();
-            return;
-        }
-
-        // TODO: we handle blood this way so it doesn't collide with player but... can't we do better?
-        if (this.info.spawnstate === StateIndex.S_BLOOD1) {
             this.position.add(this.velocity);
             this.positionChanged();
             return;
@@ -791,6 +795,7 @@ export class PlayerMapObject extends MapObject {
 
     xyMove(): void {
         super.updatePosition();
+        this.applyPositionChanged();
     }
 
     protected updatePosition(): void {
@@ -806,7 +811,7 @@ export class PlayerMapObject extends MapObject {
         }
         if (this.onGround) {
             this.hitFlat(this.zFloor);
-            this.positionChanged();
+            this.applyPositionChanged();
         }
     }
 

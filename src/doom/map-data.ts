@@ -318,7 +318,7 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         }
         const radius = params.radius ?? 0;
         // only check xy move because we want to skip dot product checks when moving up or down
-        const moving = ((params.move.x * params.move.x) + (params.move.y * params.move.y)) > .001;
+        const moving = params.move.lengthSq() > .001;
 
         // collide with things
         if (params.hitObject) {
