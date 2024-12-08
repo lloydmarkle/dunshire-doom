@@ -273,18 +273,33 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         });
     }
 
+    const pointInSubsector = (() => {
+        let line: Line = [null, null];
+        return (subsector: SubSector, point: Vertex) => {
+            for (let i = 1; i < subsector.vertexes.length; i++) {
+                line[0] = subsector.vertexes[i - 1];
+                line[1] = subsector.vertexes[i];
+                if (signedLineDistance(line, point) < 0) {
+                    return false;
+                }
+            }
+            line[0] = subsector.vertexes[subsector.vertexes.length - 1];
+            line[1] = subsector.vertexes[0];
+        return signedLineDistance(line, point) > 0;
+        }
+    })();
     const flatHit = (flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number, params: TraceParams): SectorTraceHit => {
         const u = (zFlat - params.start.z) / params.move.z;
         if (u < 0 || u > 1) {
             return null
         }
         const point = params.start.clone().addScaledVector(params.move, u);
-        const inSector = findSubSector(root, point.x, point.y) === subsector;
-        if (!inSector) {
+        if (!pointInSubsector(subsector, point)) {
             return null;
         }
         return { flat, sector: subsector.sector, point, overlap: 0, fraction: u };
     };
+
     let firstScan = true;
     const nVec = new Vector3();
     const scanBlock = (params: TraceParams, block: Block, hits: TraceHit[]) => {
@@ -307,7 +322,6 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
                         continue;
                     }
                 }
-
                 const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
                 if (hit) {
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
@@ -335,7 +349,6 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
                         continue;
                     }
                 }
-
                 const hit = sweepAABBLine(params.start, radius, params.move, seg.v);
                 if (hit) {
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
@@ -367,8 +380,8 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
                     }
                 }
             }
-            firstScan = false;
         }
+        firstScan = false;
     }
 
     function notify(params: TraceParams, hits: TraceHit[]) {
