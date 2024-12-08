@@ -4,9 +4,12 @@
     import { Icon } from '@steeze-ui/svelte-icon'
     import WadDropbox from '../../WadDropbox.svelte';
     import { WadStore } from '../../WadStore';
+    import { useAppContext } from '../../render/DoomContext';
 
     export let error: DoomError;
     export let wadStore: WadStore;
+    const { pointerLock } = useAppContext();
+    pointerLock.releaseLock();
 
     // TODO: if we start handling too many different error.codes here or the logic is
     // becoming too tangled then split this file into components. For now, it doesn't

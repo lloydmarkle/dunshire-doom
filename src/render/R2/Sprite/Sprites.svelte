@@ -164,7 +164,7 @@
         mo.renderData['rinfo']?.updateSprite(sprite);
     }
     const removeMobjs = (mo: MapObject) => {
-        mo.renderData['geo'].remove(mo);
+        mo.renderData['geo']?.remove(mo);
         mo.renderData['geo'] = mo.renderData['rinfo'] = null;
     }
     const updateMobjPosition = (mo: MapObject) => mo.renderData['rinfo']?.updatePosition()
