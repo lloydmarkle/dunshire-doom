@@ -71,7 +71,7 @@
     }
 
     function changeThing(ev) {
-        const mobj = map.objs.find(e => e.id === ev.detail);
+        const mobj = [...map.objs].find(e => e.id === ev.detail);
         if (mobj) {
             $editor.selected = mobj;
         }
