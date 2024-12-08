@@ -308,12 +308,14 @@ export class MapRuntime {
 
         this.objs.forEach(thing => thing.tick());
 
-        let len = this.tracers.length;
-        this.tracers.forEach(tr => tr.ticks.update(v => v - 1));
-        this.tracers = this.tracers.filter(tr => tr.ticks.val > 0);
-        if (len !== this.tracers.length) {
-            this.trev.update(v => v + 1);
-        }
+        // FIXME: this is apparently very expensive with lots of hit scanners
+        // and rarely used. Do we need it?
+        // let len = this.tracers.length;
+        // this.tracers.forEach(tr => tr.ticks.update(v => v - 1));
+        // this.tracers = this.tracers.filter(tr => tr.ticks.val > 0);
+        // if (len !== this.tracers.length) {
+        //     this.trev.update(v => v + 1);
+        // }
     }
 
     initializeFlatTextureAnimation(sector: Sector, prop: 'ceilFlat' | 'floorFlat') {
