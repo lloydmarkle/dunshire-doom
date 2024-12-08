@@ -304,7 +304,7 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         // we may detect a hit that is in the block but not actually hitting the flat (like the overhanging roof at the
         // start of E1M!) and if we don't check the block, we may log the hit too early (for large sectors we detect the
         // far away floor hit and miss earlier wall/mobj hits)
-        if (!pointInBlock(block, point) || !pointInSubsector(subsector, point)) {
+        if (!(params.radius || pointInBlock(block, point)) || !pointInSubsector(subsector, point)) {
             return null;
         }
         return { flat, sector: subsector.sector, point, overlap: 0, fraction: u };
