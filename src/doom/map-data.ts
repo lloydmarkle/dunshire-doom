@@ -201,6 +201,8 @@ function blockmapLump(lump: Lump) {
 
 const BSP_TRACE = false;
 export interface Block {
+    x: number;
+    y: number;
     rev: number;
     segs: Seg[];
     subsectors: SubSector[];
@@ -232,7 +234,9 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
 
     const blocks = Array<Block>(dimensions.numCols * dimensions.numRows);
     for (let i = 0; i < blocks.length; i++) {
-        blocks[i] = { rev: 0, segs: [], subsectors: [], mobjs: new Set() };
+        const x = Math.floor(i % dimensions.numCols) * blockSize + dimensions.originX;
+        const y = Math.floor(i / dimensions.numCols) * blockSize + dimensions.originY;
+        blocks[i] = { rev: 0, segs: [], subsectors: [], mobjs: new Set(), x, y };
     }
 
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
@@ -274,28 +278,33 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         });
     }
 
-    const pointInSubsector = (() => {
-        let line: Line = [null, null];
-        return (subsector: SubSector, point: Vertex) => {
-            for (let i = 1; i < subsector.vertexes.length; i++) {
-                line[0] = subsector.vertexes[i - 1];
-                line[1] = subsector.vertexes[i];
-                if (signedLineDistance(line, point) < 0) {
-                    return false;
-                }
+    const checkLine: Line = [null, null];
+    const pointInSubsector = (subsector: SubSector, point: Vertex) => {
+        for (let i = 1; i < subsector.vertexes.length; i++) {
+            checkLine[0] = subsector.vertexes[i - 1];
+            checkLine[1] = subsector.vertexes[i];
+            if (signedLineDistance(checkLine, point) < 0) {
+                return false;
             }
-            line[0] = subsector.vertexes[subsector.vertexes.length - 1];
-            line[1] = subsector.vertexes[0];
-        return signedLineDistance(line, point) > 0;
         }
-    })();
-    const flatHit = (flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number, params: TraceParams): SectorTraceHit => {
+        checkLine[0] = subsector.vertexes[subsector.vertexes.length - 1];
+        checkLine[1] = subsector.vertexes[0];
+        return signedLineDistance(checkLine, point) > 0;
+    };
+    const pointInBlock = (block: Block, point: Vertex) =>
+        !(block.x > point.x || block.x + blockSize < point.x || block.y > point.y || block.y + blockSize < point.y);
+
+    const flatHit = (flat: SectorTraceHit['flat'], block: Block, subsector: SubSector, zFlat: number, params: TraceParams): SectorTraceHit => {
         const u = (zFlat - params.start.z) / params.move.z;
         if (u < 0 || u > 1) {
             return null
         }
         const point = params.start.clone().addScaledVector(params.move, u);
-        if (!pointInSubsector(subsector, point)) {
+        // we need to check both point in the right block and point in the subsector. If we don't check the subsector,
+        // we may detect a hit that is in the block but not actually hitting the flat (like the overhanging roof at the
+        // start of E1M!) and if we don't check the block, we may log the hit too early (for large sectors we detect the
+        // far away floor hit and miss earlier wall/mobj hits)
+        if (!pointInBlock(block, point) || !pointInSubsector(subsector, point)) {
             return null;
         }
         return { flat, sector: subsector.sector, point, overlap: 0, fraction: u };
@@ -324,7 +333,7 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
                     }
                 }
                 const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
-                if (hit) {
+                if (hit && (params.radius || pointInBlock(block, hit))) {
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
                     const sector = findSubSector(root, point.x, point.y).sector;
                     const ov = aabbAabbOverlap(point, radius, mobj.position, mobj.info.radius);
@@ -351,7 +360,7 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
                     }
                 }
                 const hit = sweepAABBLine(params.start, radius, params.move, seg.v);
-                if (hit) {
+                if (hit && (params.radius || pointInBlock(block, hit))) {
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
                     const side = seg.direction ? 1 : -1;
                     const sector = side === -1 ? seg.linedef.right.sector : seg.linedef.left.sector;
@@ -365,11 +374,11 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
             for (const subsector of block.subsectors) {
                 const sector = subsector.sector;
                 // collide with floor or ceiling
-                const floorHit = params.move.z < 0 && flatHit('floor', subsector, sector.zFloor, params);
+                const floorHit = params.move.z < 0 && flatHit('floor', block, subsector, sector.zFloor, params);
                 if (floorHit) {
                     hits.push(floorHit);
                 }
-                const ceilHit = params.move.z > 0 && flatHit('ceil', subsector, sector.zCeil - (params.height ?? 0), params);
+                const ceilHit = params.move.z > 0 && flatHit('ceil', block, subsector, sector.zCeil - (params.height ?? 0), params);
                 if (ceilHit) {
                     hits.push(ceilHit);
                 }
@@ -444,7 +453,6 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
                 if (!block || block.rev === moveRev) {
                     return;
                 }
-// console.log('block',x,y,block)
                 block.rev = moveRev;
                 return hitBlock(block);
             }
@@ -505,7 +513,6 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         });
     }
 
-    // console.log('blocks',dimensions, [...blocks].sort((a,b)=>b.linedefs.length -a.linedefs.length))
     return { dimensions, moveMobj, traceRay, traceMove, traceBlocks: bTracer };
 }
 

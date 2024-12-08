@@ -30,6 +30,9 @@
     let showTriangle = mobj.class === 'S' || mobj.class === 'M' || mobj.type === MapObjectIndex.MT_PLAYER;
     let showCircle = showTriangle || mobj.class === 'I' || mobj.class === 'A' || mobj.class === 'P' || !mobj.description;
 
+    const blockMapBounds = mobj.map.data.blockMap.dimensions;
+    const showBlocks = false;
+    $: blocks = (showBlocks && $position) ? mobj.blocks : null;
     $: thingOpacity = mobj.info.flags & hittableThing ? 1 : .3;
 </script>
 
@@ -38,6 +41,19 @@
     fill='transparent'
     stroke={thingColor(mobj)}
 >
+
+    {#if showBlocks}
+        {#each blocks as [block, num]}
+            <rect
+                x={block.x + blockMapBounds.originX}
+                y={block.y + blockMapBounds.originY}
+                width={128} height={128}
+                opacity={0.2}
+                fill={'blue'}
+            />
+        {/each}
+    {/if}
+
     {#if showSquare}
         <rect
             x={$position.x - radius} y={$position.y - radius}
