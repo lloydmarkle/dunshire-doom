@@ -442,7 +442,7 @@ export class MapObject {
 
                 if (isMissile) {
                     if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
-                        return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
+                        return Boolean(hit.mobj.info.flags & MFFlags.MF_SOLID);
                     }
                     if (this.chaseTarget === hit.mobj) {
                         return true; // don't hit shooter, continue trace

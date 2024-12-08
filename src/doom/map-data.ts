@@ -199,6 +199,7 @@ function blockmapLump(lump: Lump) {
     return { originX, originY, numCols, numRows };
 }
 
+const BSP_TRACE = false;
 export interface Block {
     rev: number;
     segs: Seg[];
@@ -709,13 +710,19 @@ export class MapData {
     }
 
     traceRay(p: TraceParams) {
-        // this.bspTracer(p);
-        this.blockMap.traceRay(p);
+        if (BSP_TRACE) {
+            this.bspTracer(p);
+        } else {
+            this.blockMap.traceRay(p);
+        }
     }
 
     traceMove(p: TraceParams) {
-        // this.bspTracer(p);
-        this.blockMap.traceMove(p);
+        if (BSP_TRACE) {
+            this.bspTracer(p);
+        } else {
+            this.blockMap.traceMove(p);
+        }
     }
 
     traceSubsectors(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) {
