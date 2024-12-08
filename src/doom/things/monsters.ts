@@ -413,33 +413,6 @@ export const monsterMoveActions: ActionMap = {
     },
 }
 
-const _precomputedHits = [] as TraceHit[];
-function precomputeCollisions(mobj: MapObject) {
-    _precomputedHits.length = 0;
-    mobj.map.data.traceMove({
-        start: mobj.position,
-        move: zeroVec,
-        radius: mobj.info.radius + mobj.info.speed,
-        height: mobj.info.height,
-        hitObject: hit => {
-            const skipHit = false
-                || (hit.mobj === mobj) // don't collide with yourself
-                || !(hit.mobj.info.flags & hittableThing) // not hittable
-                || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
-                || (mobj.position.z + mobj.info.height < hit.mobj.position.z) // passed under target
-                || (mobj.position.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
-            if (!skipHit) {
-                _precomputedHits.push(hit);
-            }
-            return true; // continue search
-        },
-        hitLine: hit => {
-            _precomputedHits.push(hit);
-            return true;
-        },
-    });
-}
-
 function faceTarget(mobj: MapObject, target: MapObject) {
     mobj.info.flags &= ~MFFlags.MF_AMBUSH;
     let angle = angleBetween(mobj, target);
@@ -934,7 +907,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
         return false; // don't allow None movements, monsters should move as much as possible
     }
     _moveVec.copy(_directionTable[dir]).multiplyScalar(mobj.info.speed);
-    const blocker = findMoveBlocker(mobj, _moveVec, specialLines);
+    const blocker = precomputedFindMoveBlocker(mobj, _moveVec, specialLines);
     // if we can float and we're blocked by a two-sided line then float!
     if (blocker && 'line' in blocker && blocker.line.left && mobj.info.flags & MFFlags.MF_FLOAT) {
         const dz = blocker.line.left.sector.zFloor - mobj.position.z;
@@ -952,9 +925,47 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     return !blocker;
 }
 
+const _precomputedHits = [] as TraceHit[];
+function precomputeCollisions(mobj: MapObject) {
+    _precomputedHits.length = 0;
+    mobj.map.data.traceMove({
+        start: mobj.position,
+        move: zeroVec,
+        radius: mobj.info.radius + mobj.info.speed,
+        height: mobj.info.height,
+        hitObject: hit => {
+            const skipHit = false
+                || (hit.mobj === mobj) // don't collide with yourself
+                || !(hit.mobj.info.flags & hittableThing) // not hittable
+                || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
+                || (mobj.position.z + mobj.info.height < hit.mobj.position.z) // passed under target
+                || (mobj.position.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
+            if (!skipHit) {
+                _precomputedHits.push(hit);
+            }
+            return true; // continue search
+        },
+        hitLine: hit => {
+            _precomputedHits.push(hit);
+            return true;
+        },
+        hitFlat: hit => {
+            if (hit.sector === mobj.sector) {
+                _precomputedHits.push(hit);
+            }
+            return true;
+        }
+    });
+}
+
 const _nVec = new Vector3();
 const _centreMoveEnd = new Vector3();
 export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
+    precomputeCollisions(mobj);
+    return precomputedFindMoveBlocker(mobj, move, specialLines);
+}
+
+function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
     // only check centre of object movement for special triggers (not edges like players do)
     _centreMoveEnd.copy(mobj.position).add(move);
     // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
@@ -970,7 +981,6 @@ export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: L
             if (moveDot >= 0) {
                 return false;
             }
-
             const point = sweepAABBAABB(mobj.position, moveRadius, move, hit.mobj.position, hit.mobj.info.radius);
             if (!point) {
                 return false;

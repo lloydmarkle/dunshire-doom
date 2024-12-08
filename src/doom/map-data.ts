@@ -385,8 +385,7 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
                 if (firstScan) {
                     // already colliding with a ceiling (like a crusher)
                     if (sector.zCeil - sector.zFloor - params.height < 0) {
-                        const point = params.start.clone().addScaledVector(params.move, 0);
-                        hits.push({ flat: 'ceil', sector, point, overlap: 0, fraction: 0 });
+                        hits.push({ flat: 'ceil', sector, point: params.start, overlap: 0, fraction: 0 });
                     }
                 }
             }
