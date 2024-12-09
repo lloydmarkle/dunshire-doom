@@ -310,7 +310,7 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
         return { flat, sector: subsector.sector, point, overlap: 0, fraction: u };
     };
 
-    let firstScan = true;
+    let checkRootSector = true;
     const nVec = new Vector3();
     const scanBlock = (params: TraceParams, block: Block, hits: TraceHit[]) => {
         if (!block) {
@@ -382,15 +382,18 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
                 if (ceilHit) {
                     hits.push(ceilHit);
                 }
-                if (firstScan) {
-                    // already colliding with a ceiling (like a crusher)
-                    if (sector.zCeil - sector.zFloor - params.height < 0) {
-                        hits.push({ flat: 'ceil', sector, point: params.start, overlap: 0, fraction: 0 });
-                    }
+                // already colliding with a ceiling (like a crusher)
+                const beingCrushed = checkRootSector
+                    && sector.zCeil - sector.zFloor - params.height < 0
+                    && pointInBlock(block, params.start)
+                    && pointInSubsector(subsector, params.start);
+                if (beingCrushed) {
+                    hits.push({ flat: 'ceil', sector, point: params.start, overlap: 0, fraction: 0 });
+                    // only do this once
+                    checkRootSector = false;
                 }
             }
         }
-        firstScan = false;
     }
 
     function notify(params: TraceParams, hits: TraceHit[]) {
@@ -417,7 +420,7 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
     const traceRay = (params: TraceParams) => {
         let hits: TraceHit[] = [];
 
-        firstScan = true;
+        checkRootSector = true;
         let complete = false;
         let v = tracer.init(params.start.x, params.start.y, params.move);
         while (!complete && v) {
@@ -505,7 +508,7 @@ function buildBlockmap(root: TreeNode, subsectors: SubSector[]) {
     const bTracer = blockTrace();
     const traceMove = (params: TraceParams) => {
         let hits: TraceHit[] = [];
-        firstScan = true;
+        checkRootSector = true;
         bTracer(params, block => {
             scanBlock(params, block, hits);
             return notify(params, hits);
