@@ -77,10 +77,10 @@
         }
     }
 
-    let subsectors = [];
+    let sectors = [];
     onDestroy(monitorMapObject(map, thing, mo => {
-        subsectors.length = 0;
-        thing.subsectors(s => subsectors.push(s));
+        sectors.length = 0;
+        thing.sectorMap.forEach((n, sec) => sectors.push(sec));
     }));
 
     $: types = Object.keys(MapObjectIndex)
@@ -123,9 +123,8 @@
 </div>
 <div>
     <div>Position: {[Math.floor(position.x), Math.floor(position.y), Math.floor(position.z)]}</div>
-    <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
     <div>Sectors: [
-        {#each [...new Set(subsectors.map(e => e.sector))] as sector}
+        {#each sectors as sector}
             <button class="link link-primary" on:click={() => $editor.selected = sector}>{sector.num}</button>
         {/each}
     ]</div>

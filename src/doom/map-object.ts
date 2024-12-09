@@ -3,7 +3,7 @@ import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, signedLineDistance, ToRadians, type Vertex, randInt } from "./math";
-import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block } from "./map-data";
+import { hittableThing, type Sector, type SubSector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block } from "./map-data";
 import { ticksPerSecond, type GameTime, tickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -39,9 +39,7 @@ export class MapObject {
 
     // check for already hit lines/mobjs
     private hitC: number;
-    // set of subsectors we are touching
-    private subsecRev = 0;
-    private subsectorMap = new Map<SubSector, number>();
+    sectorMap = new Map<Sector, number>();
     blocks = new Map<Block, number>();
 
     protected _state = new SpriteStateMachine(
@@ -120,8 +118,8 @@ export class MapObject {
             ? (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor
             : (sector: Sector, zFloor: number) => {
                 const ceil = lowestZCeil(sector, sector.zCeil);
-                this.subsectors(subsector => {
-                    const floor = (sector === subsector.sector) ? zFloor : subsector.sector.zFloor;
+                this.sectorMap.forEach((n, sec) => {
+                    const floor = (sector === sec) ? zFloor : sec.zFloor;
                     const step = floor - this.position.z;
                     // only allow step if it's small and we can fit in the ceiling/floor gap
                     // (see imp near sector 75 in E1M7)
@@ -135,8 +133,8 @@ export class MapObject {
         const lowestZCeil = !moveable
             ? (sector: Sector, zCeil: number) => (this.sector ?? sector).zCeil
             : (sector: Sector, zCeil: number) => {
-                this.subsectors(subsector => {
-                    const ceil = (sector === subsector.sector) ? zCeil : subsector.sector.zCeil;
+                this.sectorMap.forEach((n, sec) => {
+                    const ceil = (sector === sec) ? zCeil : sec.zCeil;
                     zCeil = Math.min(ceil, zCeil);
                 });
                 return zCeil;
@@ -177,27 +175,8 @@ export class MapObject {
         this.applyPositionChanged = () => {
             const p = this.position;
 
-            map.data.blockMap.moveMobj(this);
+            const sector = map.data.blockMap.moveMobj(this, radius);
 
-            this.subsecRev += 1;
-            // add any subsectors we are currently touching
-            this.map.data.traceSubsectors(p, zeroVec, radius,
-                subsector => Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
-            // add mobj to touched sectors or remove from untouched sectors
-            // TODO: do we need both sectorObjs and subsector.mobjs? sectroObjs is mostly used in special.sectorObjects()
-            // but would it be fast enough to have sector ref subsectors and then collect all mobjs?
-            this.subsectorMap.forEach((rev, subsector) => {
-                if (rev === this.subsecRev && !(this.info.flags & MFFlags.MF_NOBLOCKMAP)) {
-                    map.sectorObjs.get(subsector.sector).add(this);
-                    subsector.mobjs.add(this);
-                } else {
-                    map.sectorObjs.get(subsector.sector).delete(this);
-                    subsector.mobjs.delete(this);
-                    this.subsectorMap.delete(subsector);
-                }
-            });
-
-            const sector = this.map.data.findSector(p.x, p.y);
             this._zCeil = lowestZCeil(sector, sector.zCeil);
             const lastZFloor = this._zFloor;
             this._zFloor = fromCeiling && !this.isDead //<-- for keens
@@ -229,7 +208,6 @@ export class MapObject {
     get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
 
     tick() {
-        this._positionChanged = false;
         this._isMoving = this.velocity.lengthSq() > stopVelocity;
         this._onGround = this.position.z <= this._zFloor;
 
@@ -242,6 +220,7 @@ export class MapObject {
 
         if (this._positionChanged) {
             this.applyPositionChanged();
+            this._positionChanged = false;
         }
     }
 
@@ -364,18 +343,7 @@ export class MapObject {
     }
 
     touchingSector(sector: Sector) {
-        // Why won't this work with nodejs 22? It won't work for iOS anyway
-        // return this.subsectorMap.keys().find(ss => ss.sector === sector) !== undefined;
-        for (const ss of this.subsectorMap.keys()) {
-            if (ss.sector === sector) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    subsectors(fn: (subsector: SubSector) => void) {
-        this.subsectorMap.forEach((val, key) => fn(key));
+        return this.sectorMap.has(sector);
     }
 
     protected pickup(mobj: MapObject) {

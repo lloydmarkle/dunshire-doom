@@ -272,7 +272,6 @@ export class MapRuntime {
 
     destroy(mobj: MapObject) {
         mobj.blocks.forEach((rev, block) => block.mobjs.delete(mobj));
-        mobj.subsectors(subsector => subsector.mobjs.delete(mobj));
         this.objs.delete(mobj);
         this.events.emit('mobj-removed', mobj);
     }

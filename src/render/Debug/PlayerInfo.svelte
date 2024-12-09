@@ -14,13 +14,13 @@
     let { position, direction, sector, inventory, viewHeight } = player;
     const tick = player.map.game.time.tick;
 
-    let subsectors = [];
+    let sectors = [];
     onDestroy(monitorMapObject(player.map, player, mo => {
         position = player.position;
         direction = player.direction;
         sector = player.sector;
-        subsectors.length = 0;
-        player.subsectors(s => subsectors.push(s));
+        sectors.length = 0;
+        player.sectorMap.forEach((n, sec) => sectors.push(sec));
     }));
 
     const debugBuild = import.meta.env.DEV;
@@ -60,8 +60,7 @@
         <div>vel: {vec(velocity)} {velocityPerTick(velocity.length()).toFixed(2)}</div>
         <div>dir: [{(direction * ToDegrees).toFixed(3)}]</div>
         <div class:hidden={!debugBuild}>sect: {sector.num}, [floor, ceil]=[{sector.zFloor}, {sector.zCeil}]</div>
-        <div class:hidden={!debugBuild}>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
-        <div class:hidden={!debugBuild}>Subsectors: [{subsectors.map(e => e.num)}]</div>
+        <div class:hidden={!debugBuild}>Sectors: [{sectors.map(e => e.num)}]</div>
         <div class:hidden={!debugBuild}>viewHeight: {$viewHeight.toFixed(2)}</div>
         <div
             class="grid grid-cols-2 justify-items-stretch gap-1 pt-1"
