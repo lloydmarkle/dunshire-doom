@@ -29,7 +29,7 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
         const linedefId = word(lump.data, 10 + i * len);
         const linedef = linedefs[linedefId];
         const direction = int16(word(lump.data, 12 + i * len));
-        segs[i] = { v, linedef, direction };
+        segs[i] = { v, linedef, direction, blockHit: 0 };
     }
     return segs;
 }
@@ -56,7 +56,7 @@ function subSectorLump(lump: Lump, segs: Seg[]) {
             segs: segs.slice(segId, segId + segCount),
             mobjs: new Set(),
             blocks: [],
-            hitC: 0,
+            blockHit: 0,
             // bounds and vertexes will be populated by completeSubSectors()
             bounds: _invalidBounds,
             vertexes: [],

@@ -39,7 +39,7 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
         const linedefId = word(buff, offset); offset += 2;
         const linedef = linedefs[linedefId];
         const direction = buff[offset]; offset += 1;
-        segs[i] = { v, linedef, direction };
+        segs[i] = { v, linedef, direction, blockHit: 0 };
     }
 
     // subsectors (based on segs and subsectorRefs collected above)
@@ -54,7 +54,7 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
             segs: segs.slice(segId, segId + numSubsectorSegs[i]),
             mobjs: new Set(),
             blocks: [],
-            hitC: 0,
+            blockHit: 0,
             // bounds and vertexes will be populated by completeSubSectors()
             bounds: _invalidBounds,
             vertexes: [],

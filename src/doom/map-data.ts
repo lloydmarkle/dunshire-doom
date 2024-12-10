@@ -338,6 +338,9 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         return { flat, sector: subsector.sector, point, overlap: 0, fraction: u };
     };
 
+    // because a mobj/seg/subsector can exist in multiple blocks, we want to avoid checking for collision if we've
+    // already found a hit. scanN (and obj.hitBlock) achieves this
+    let scanN = 0;
     let checkRootSector = true;
     const nVec = new Vector3();
     const scanBlock = (params: TraceParams, block: Block, hits: TraceHit[]) => {
@@ -351,6 +354,9 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         // collide with things
         if (params.hitObject) {
             for (const mobj of block.mobjs) {
+                if (mobj.blockHit === scanN) {
+                    continue;
+                }
                 // TODO: only check xy so we don't drop or fly into mobjs?
                 if (moving) {
                     // like wall collisions, we allow the collision if the movement is away from the other mobj
@@ -363,6 +369,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                 }
                 const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
                 if (hit && (params.radius || pointInBlock(block, hit))) {
+                    mobj.blockHit = scanN;
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
                     const sector = mobj.sector;
                     const ov = aabbAabbOverlap(point, radius, mobj.position, mobj.info.radius);
@@ -374,6 +381,9 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         if (params.hitLine) {
             // collide with walls
             for (const seg of block.segs) {
+                if (seg.blockHit === scanN) {
+                    continue;
+                }
                 if (moving) {
                     // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
                     // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
@@ -390,6 +400,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                 }
                 const hit = sweepAABBLine(params.start, radius, params.move, seg.v);
                 if (hit && (params.radius || pointInBlock(block, hit))) {
+                    seg.blockHit = scanN;
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
                     const side = seg.direction ? 1 : -1;
                     const sector = side === -1 ? seg.linedef.right.sector : seg.linedef.left.sector;
@@ -401,14 +412,20 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
 
         if (params.hitFlat) {
             for (const subsector of block.subsectors) {
+                if (subsector.blockHit === scanN) {
+                    continue;
+                }
+
                 const sector = subsector.sector;
                 // collide with floor or ceiling
                 const floorHit = params.move.z < 0 && flatHit('floor', block, subsector, sector.zFloor, params);
                 if (floorHit) {
+                    subsector.blockHit = scanN;
                     hits.push(floorHit);
                 }
                 const ceilHit = params.move.z > 0 && flatHit('ceil', block, subsector, sector.zCeil - (params.height ?? 0), params);
                 if (ceilHit) {
+                    subsector.blockHit = scanN;
                     hits.push(ceilHit);
                 }
                 // already colliding with a ceiling (like a crusher)
@@ -417,9 +434,10 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                     && pointInBlock(block, params.start)
                     && pointInSubsector(subsector, params.start);
                 if (beingCrushed) {
-                    hits.push({ flat: 'ceil', sector, point: params.start, overlap: 0, fraction: 0 });
-                    // only do this once
+                    subsector.blockHit = scanN;
+                    // only check crushing sector once
                     checkRootSector = false;
+                    hits.push({ flat: 'ceil', sector, point: params.start, overlap: 0, fraction: 0 });
                 }
             }
         }
@@ -449,6 +467,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     const traceRay = (params: TraceParams) => {
         let hits: TraceHit[] = [];
 
+        scanN += 1;
         checkRootSector = true;
         let complete = false;
         let v = tracer.init(params.start.x, params.start.y, params.move);
@@ -536,6 +555,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     })();
     const traceMove = (params: TraceParams) => {
         let hits: TraceHit[] = [];
+        scanN += 1;
         checkRootSector = true;
         blockTrace(params, block => {
             scanBlock(params, block, hits);
@@ -550,6 +570,7 @@ export interface Seg {
     v: Line;
     linedef: LineDef;
     direction: number;
+    blockHit: number;
 }
 
 export interface SubSector {
@@ -562,7 +583,7 @@ export interface SubSector {
     mobjs: Set<MapObject>;
     blocks: Block[];
     bounds: Bounds;
-    hitC: number;
+    blockHit: number;
 }
 
 export interface TreeNode {
@@ -692,9 +713,9 @@ export class MapData {
                 if (intersect) {
                     const v1 = { x: intersect[0].x, y: intersect[0].y };
                     const v2 = { x: intersect[1].x, y: intersect[1].y };
-                    subsec.segs.push({ ...partialSeg, v: [v1, v2], direction: 0 });
+                    subsec.segs.push({ ...partialSeg, v: [v1, v2], direction: 0, blockHit: 0 });
                     if (linedef.left) {
-                        subsec.segs.push({ ...partialSeg, v: [v2, v1], direction: 1 });
+                        subsec.segs.push({ ...partialSeg, v: [v2, v1], direction: 1, blockHit: 0 });
                     }
                 }
                 return true; // continue to next subsector

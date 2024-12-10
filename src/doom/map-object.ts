@@ -39,6 +39,7 @@ export class MapObject {
 
     // check for already hit lines/mobjs
     private hitC: number;
+    blockHit = 0;
     sectorMap = new Map<Sector, number>();
     blocks = new Map<Block, number>();
 
