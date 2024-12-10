@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { T, useThrelte } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import type { SpriteSheet } from "./SpriteAtlas";
     import { createSpriteMaterialTransparent, createSpriteMaterial } from "./Materials";
@@ -71,8 +71,6 @@
             $tranUniforms.camP.value.copy(p);
         }
     })();
-    $: updateCameraUniforms($threlteCam, $position, $angle);
-
     function updateTimeUniforms(time: number) {
         const t2 = time * tickTime
         $uniforms.time.value = t2;
@@ -80,7 +78,11 @@
         $tranUniforms.time.value = t2;
         $tranUniforms.tics.value =  $interpolateMovement ? time : 0;
     }
-    $: updateTimeUniforms($tick + $partialTick);
+    // NOTE: use a task instead of $: to make sure we have the latest value before rendering
+    useTask(() => {
+        updateCameraUniforms($threlteCam, $position, $angle)
+        updateTimeUniforms($tick + $partialTick);
+    });
 
     function updateInspectorUniforms(edit) {
         // map objects have 'health' so only handle those
