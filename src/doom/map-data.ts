@@ -283,7 +283,6 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                 if (hit) {
                     const sector = seg.direction ? seg.linedef.left.sector : seg.linedef.right.sector;
                     mo.sectorMap.set(sector, mobjRev);
-                    map.sectorObjs.get(sector).add(mo);
                 }
             }
             mo.blocks.set(block, mobjRev);
@@ -294,6 +293,8 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             if (rev !== mobjRev || mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
                 map.sectorObjs.get(sector).delete(mo);
                 mo.sectorMap.delete(sector);
+            } else {
+                map.sectorObjs.get(sector).add(mo);
             }
         });
         mo.blocks.forEach((rev, block) => {
