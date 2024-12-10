@@ -778,7 +778,7 @@ export class PlayerMapObject extends MapObject {
         if (this.info.flags & MFFlags.MF_NOGRAVITY) {
             return;
         }
-        if (this.onGround) {
+        if (this._onGround && this.velocity.z <= stopVelocity) {
             this.hitFlat(this.zFloor);
             this.applyPositionChanged();
         }
