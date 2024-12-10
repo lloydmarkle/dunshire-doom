@@ -191,14 +191,6 @@ function vertexesLump(lump: Lump) {
     return vertexes;
 }
 
-function blockmapLump(lump: Lump) {
-    const originX = int16(word(lump.data, 0));
-    const originY = int16(word(lump.data, 2));
-    const numCols = int16(word(lump.data, 4));
-    const numRows = int16(word(lump.data, 6));
-    return { originX, originY, numCols, numRows };
-}
-
 export interface TraceParams {
     start: Vector3;
     move: Vector3;
@@ -217,13 +209,19 @@ export interface Block {
     subsectors: SubSector[];
     mobjs: Set<MapObject>;
 }
-function buildBlockmap(subsectors: SubSector[]) {
+function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     // newer maps (and UDMF) don't have block so skip the lump and just compute it
     const blockSize = 128;
-    let minX = subsectors[0].segs[0].v[0].x;
-    let maxX = subsectors[0].segs[0].v[0].x;
-    let minY = subsectors[0].segs[0].v[0].y;
-    let maxY = subsectors[0].segs[0].v[0].y;
+    let minX = vertexes[0].x;
+    let maxX = vertexes[0].y;
+    let minY = vertexes[0].x;
+    let maxY = vertexes[0].y;
+    for (const vert of vertexes) {
+        minX = Math.min(minX, vert.x);
+        maxX = Math.max(maxX, vert.x);
+        minY = Math.min(minY, vert.y);
+        maxY = Math.max(maxY, vert.y);
+    }
     for (const subsector of subsectors) {
         for (const seg of subsector.segs) {
             // +/- 1 to avoid rounding errors and accidentally querying outside the blockmap
@@ -607,7 +605,6 @@ export const hitSkyWall = (z: number, front: Sector, back: Sector) =>
 export const zeroVec = new Vector3();
 export const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 export class MapData {
-    private subsectorTrace: ReturnType<typeof createSubsectorTrace>;
     readonly things: Thing[];
     readonly linedefs: LineDef[];
     readonly vertexes: Vertex[];
@@ -629,13 +626,6 @@ export class MapData {
         );
 
         this.rejects = lumps[9].data;
-        const blockmapBounds = blockmapLump(lumps[10]);
-        this.blockMapBounds = {
-            top: blockmapBounds.originY + blockmapBounds.numRows * 128,
-            left: blockmapBounds.originX,
-            bottom: blockmapBounds.originY,
-            right: blockmapBounds.originX + blockmapBounds.numCols * 128,
-        }
         const sidedefs = sideDefsLump(lumps[3], this.sectors);
         this.linedefs = lineDefsLump(lumps[2], this.vertexes, sidedefs);
 
@@ -643,7 +633,7 @@ export class MapData {
         this.nodes = nodes;
         const rootNode = this.nodes[this.nodes.length - 1];
         completeSubSectors(rootNode, subsectors);
-        this.subsectorTrace = createSubsectorTrace(rootNode);
+        const subsectorTrace = createSubsectorTrace(rootNode);
 
         const portalSegsBySector = new Map<Sector, Seg[]>();
         for (const seg of segs) {
@@ -696,7 +686,7 @@ export class MapData {
             // note: offset and angle are not used
             const partialSeg = { linedef, offset: 0, angle: 0 };
 
-            this.subsectorTrace(lineStart, lineVec, 0, subsec => {
+            subsectorTrace(lineStart, lineVec, 0, subsec => {
                 const intersect = lineBounds(linedef.v, subsec.bounds);
                 if (intersect) {
                     const v1 = { x: intersect[0].x, y: intersect[0].y };
@@ -711,7 +701,7 @@ export class MapData {
         }
 
         // build the blockmap after we've completed the subsector (including the linedefs without segs above)
-        this.blockMap = buildBlockmap(subsectors);
+        this.blockMap = buildBlockmap(subsectors, this.vertexes);
         this.blockMapBounds = {
             top: this.blockMap.dimensions.originY + this.blockMap.dimensions.numRows * 128,
             left: this.blockMap.dimensions.originX,
@@ -751,10 +741,6 @@ export class MapData {
 
     traceMove(p: TraceParams) {
         this.blockMap.traceMove(p);
-    }
-
-    traceSubsectors(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) {
-        this.subsectorTrace(start, move, radius, onHit);
     }
 }
 

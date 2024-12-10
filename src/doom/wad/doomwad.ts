@@ -18,7 +18,7 @@ export class DoomWad {
     private textureData: WallTexture[] = [];
     private flatLumps: Lump[] = [];
     private spriteLumps: Lump[] = [];
-    private mapLumps = new Map<string, any[]>();
+    private mapLumps = new Map<string, Lump[]>();
 
     private switchWalls: string[][];
     readonly animatedFlats = new Map<string, TextureAnimation>();
@@ -188,6 +188,10 @@ export class DoomWad {
     readMap(name: string) {
         const lumps = this.mapLumps.get(name)
         return lumps ? new MapData(lumps) : null;
+    }
+
+    hasMap(name: string) {
+        return this.mapLumps.has(name);
     }
 
     switchToggle(name: string): string | undefined {

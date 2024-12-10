@@ -5,7 +5,7 @@ import { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
 import { Vector3 } from "three";
 import { SoundIndex } from "./doom-things-info";
-import type { Sector } from "./map-data";
+import type { MapData, Sector } from "./map-data";
 import { type RNG, TableRNG } from "./math";
 import type { GameLogicFailure, InvalidMap, MissingMap } from "./error";
 
@@ -168,8 +168,7 @@ export class Game implements SoundEmitter {
     startMap(mapName: string) {
         this.map.val?.dispose();
 
-        const mapData = this.wad.readMap(mapName);
-        if (!mapData) {
+        if (!this.wad.hasMap(mapName)) {
             const err: MissingMap = {
                 code: 2,
                 details: { mapName, game: this },
@@ -179,11 +178,12 @@ export class Game implements SoundEmitter {
         }
 
         try {
+            const mapData = this.wad.readMap(mapName);
             this.map.set(new MapRuntime(mapName, mapData, this));
         } catch (exception) {
             const err: InvalidMap = {
                 code: 1,
-                details: { mapName, exception, game: this},
+                details: { mapName, exception, game: this },
                 message: `Invalid map: ${mapName}; ${exception.message}`
             }
             throw err;

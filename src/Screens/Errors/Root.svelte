@@ -11,6 +11,7 @@
     const { pointerLock } = useAppContext();
     pointerLock.releaseLock();
 
+    console.error('DOOM ERROR', error)
     // TODO: if we start handling too many different error.codes here or the logic is
     // becoming too tangled then split this file into components. For now, it doesn't
     // seem too unreasonable
