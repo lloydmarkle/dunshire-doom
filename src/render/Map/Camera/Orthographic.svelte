@@ -1,6 +1,6 @@
 <script lang="ts">
     import { HALF_PI } from "../../../doom";
-    import { T, useTask } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     import { useDoomMap } from "../../DoomContext";
     import { onDestroy } from "svelte";
     import { monitorMapObject } from "../SvelteBridge";
@@ -30,7 +30,7 @@
     useTask(() => {
         zoom = Math.max(50, Math.min(1000, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-    });
+    }, { stage: useThrelte().renderStage });
 </script>
 
 <T.OrthographicCamera

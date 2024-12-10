@@ -679,7 +679,7 @@ export class PlayerMapObject extends MapObject {
         if (sector.type && onGround) {
             const haveRadiationSuit = this.inventory.val.items.radiationSuitTicks > 0;
             // only cause pain every 31st tick or about .89s
-            const isPainTick = (this.map.game.time.tick.val & 0x1f) === 0;
+            const isPainTick = (this.map.game.time.tickN.val & 0x1f) === 0;
             const causePain = !haveRadiationSuit && isPainTick;
             // TODO: Boom has some additional pain/secret bits https://doomwiki.org/wiki/Sector#Boom
             if (sector.type === 9) {

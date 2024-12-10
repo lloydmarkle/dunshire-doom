@@ -19,7 +19,7 @@
     const { editor, settings } = useAppContext();
     const { fakeContrast, playerLight, useTextures } = settings;
     const { renderSectors } = useDoomMap();
-    const { tick, partialTick } = map.game.time;
+    const { tickN, tick } = map.game.time;
 
     console.time('map-geo')
     const ta = new MapTextureAtlas(map.game.wad, new TextureAtlas(threlte.renderer.capabilities.maxTextureSize));
@@ -56,7 +56,7 @@
 
     const updateTime = (time: number) =>
         $tranUniforms.time.value = $uniforms.time.value = time;
-    $: updateTime($tick + ($interpolateMovement ? $partialTick : 0));
+    $: updateTime($interpolateMovement ? $tickN : $tick);
 
     const updateExtraLight = (extraLight: number) =>
         $tranUniforms.doomExtraLight.value =

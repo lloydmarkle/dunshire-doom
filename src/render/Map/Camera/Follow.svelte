@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { T, useTask } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
     import { Vector3 } from "three";
@@ -20,7 +20,7 @@
     useTask(() => {
         zoom = Math.max(10, Math.min(100, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-    });
+    }, { stage: useThrelte().renderStage });
 
     const _ppos = new Vector3();
     const _3pDir = new Vector3();

@@ -497,6 +497,12 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         const cwTrace = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
 
         return (params: TraceParams, hitBlock: (block: Block) => boolean) => {
+            // our AmanatidesWooTrace doesn't handle zero movement well so do a special trace for that
+            if (params.move.lengthSq() < 0.001) {
+                radiusTracer(params, hitBlock);
+                return;
+            }
+
             moveRev += 1;
             const tryHit = (x: number, y: number) => {
                 const block = blocks[y * dimensions.numCols + x];
@@ -505,12 +511,6 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                 }
                 block.rev = moveRev;
                 return hitBlock(block);
-            }
-
-            // our AmanatidesWooTrace doesn't handle zero movement well so do a special trace for that
-            if (params.move.lengthSq() < 0.001) {
-                radiusTracer(params, hitBlock);
-                return;
             }
 
             // if sx or sy is 0 (vertical/horizontal line) we still need to find leading corners so choose a value

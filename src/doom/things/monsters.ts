@@ -626,7 +626,7 @@ export const monsterAttackActions: ActionMap = {
     [ActionIndex.A_Tracer]: missile => {
         // I never noticed that some revenant missiles do not emit smoke and do not track the player. Wow!
         // This condition creates a really subtle behaviour. https://zdoom.org/wiki/A_Tracer
-        if (missile.map.game.time.tick.val & 3) {
+        if (missile.map.game.time.tickN.val & 3) {
             return;
         }
 

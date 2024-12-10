@@ -130,7 +130,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             // movement info for interpolation
             mesh.geometry.attributes.motion.array[n * 4 + 0] = sprite.ticks ? mo.info.speed / sprite.ticks : 0;
             mesh.geometry.attributes.motion.array[n * 4 + 1] = mo.movedir;
-            mesh.geometry.attributes.motion.array[n * 4 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
+            mesh.geometry.attributes.motion.array[n * 4 + 2] = mo.map.game.time.tick.val;
             mesh.geometry.attributes.motion.array[n * 4 + 3] = mo.direction;
             mesh.geometry.attributes.motion.needsUpdate = true;
         };

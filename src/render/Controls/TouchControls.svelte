@@ -13,7 +13,7 @@
     export let showDeadZone = false;
 
     $: hasSuperShotgun = Boolean(game.wad.spriteTextureData('SHT2A0'));
-    $: tick = game.time.tick;
+    $: tickN = game.time.tickN;
     $: inventory = player?.inventory;
     $: playerWeapons = $inventory?.weapons;
 
@@ -36,7 +36,7 @@
     let useLock = false;
     let attackButton = false;
     let attackLock = false;
-    $: if ($tick) {
+    $: if ($tickN) {
         game.input.attack = false;
         game.input.use = false;
         if (attackButton || attackLock) {

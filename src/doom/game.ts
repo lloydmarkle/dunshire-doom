@@ -5,17 +5,11 @@ import { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
 import { Vector3 } from "three";
 import { SoundIndex } from "./doom-things-info";
-import type { MapData, Sector } from "./map-data";
+import type { Sector } from "./map-data";
 import { type RNG, TableRNG } from "./math";
 import type { GameLogicFailure, InvalidMap, MissingMap } from "./error";
 
-export interface GameTime {
-    elapsed: number; // seconds
-    delta: number; // seconds
-    tick: Store<number>;
-    partialTick: Store<number>;
-    isTick: boolean; // if we have elapsed a tick (1/35 of a second)
-}
+export type GameTime = Game['time'];
 export interface GameSettings {
     timescale: Store<number>;
     freelook: Store<boolean>;
@@ -94,11 +88,12 @@ export class Game implements SoundEmitter {
     private nextTickTime = 0; // seconds
     time = {
         playTime: 0,
-        elapsed: 0,
-        delta: 0,
-        tick: store(0),
-        partialTick: store(0),
-        isTick: false,
+        elapsed: 0, // seconds
+        delta: 0, // seconds
+        tickN: store(0),
+        tick: store(0), // tick as a real number
+        partialTick: store(0), // TODO: remove when we remove R1
+        isTick: false, // if we have elapsed a tick (1/35 of a second)
     }
 
     readonly input: ControllerInput = {
@@ -138,9 +133,10 @@ export class Game implements SoundEmitter {
             this.time.delta = dt;
             this.time.elapsed += dt;
             this.time.isTick = this.time.elapsed > this.nextTickTime;
+            this.time.tick.set(1 + this.time.elapsed / tickTime);
             if (this.time.isTick) {
                 this.nextTickTime += tickTime;
-                this.time.tick.update(tick => tick += 1);
+                this.time.tickN.update(tick => tick += 1);
                 this.time.partialTick.set(0);
             } else {
                 const partial = 1 - Math.max(0, (this.nextTickTime - this.time.elapsed) / tickTime)

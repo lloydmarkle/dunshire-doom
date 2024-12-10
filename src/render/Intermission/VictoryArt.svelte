@@ -7,24 +7,24 @@
     export let complete: boolean;
 
     const { game } = useDoom();
-    const tick = game.time.tick;
+    const tickN = game.time.tickN;
 
     complete = mapName.startsWith('MAP') || mapName.endsWith('E1');
 
     const waitTime = 50;
-    let startTick = $tick;
-    $: if ($tick) {
-        if ((game.input.use || game.input.attack) && $tick - startTick > waitTime) {
+    let startTick = $tickN;
+    $: if ($tickN) {
+        if ((game.input.use || game.input.attack) && $tickN - startTick > waitTime) {
             startTick = -Infinity;
         }
     }
-    $: transform = -160 + Math.min(320, Math.max(0, ($tick - startTick - 230) / 2));
+    $: transform = -160 + Math.min(320, Math.max(0, ($tickN - startTick - 230) / 2));
 
     let endTick = 0;
     $: if (!endTick && transform === 160) {
-        endTick = $tick;
+        endTick = $tickN;
     }
-    $: endItem = Math.floor(Math.min(6, Math.max(0, ($tick - endTick - waitTime) / 5)));
+    $: endItem = Math.floor(Math.min(6, Math.max(0, ($tickN - endTick - waitTime) / 5)));
     $: if (mapName === 'E3M8' && endTick && endItem > 0) {
         game.playSound(SoundIndex.sfx_pistol);
     }

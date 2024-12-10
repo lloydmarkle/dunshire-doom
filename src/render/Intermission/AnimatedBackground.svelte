@@ -10,7 +10,7 @@
     export let showLocation: boolean;
 
     const { game } = useDoom();
-    const tick = game.time.tick;
+    const tickN = game.time.tickN;
 
     $: nextMapNum = parseInt(details.nextMapName.substring(3, 5)) - 1;
     $: finishedMapNum = parseInt(details.finishedMap.name.substring(3, 5)) - 1;
@@ -107,7 +107,7 @@
         return { ...anim, nextTick, frames, index: 0 };
     }).filter(e => e);
 
-    $: showHere = ($tick % ticksPerSecond) > (ticksPerSecond / 2);
+    $: showHere = ($tickN % ticksPerSecond) > (ticksPerSecond / 2);
     const here1 = game.wad.graphic('WIURH0');
     const here2 = game.wad.graphic('WIURH1');
     $: hereSpot = splatDefs[episode][levelNum];
@@ -117,7 +117,7 @@
         y: hereSpot.y - ((hereImageName === 'WIURH0') ? here1 : here2).yOffset,
     }
 
-    $: if ($tick) {
+    $: if ($tickN) {
         anims.forEach(anim => {
             anim.nextTick -= 1;
             if (anim.nextTick) {

@@ -5,7 +5,7 @@
     import Picture from "../Components/Picture.svelte";
 
     const { wad, game } = useDoom();
-    const tick = game.time.tick;
+    const tickN = game.time.tickN;
 
     const yScale = (16 / 10) / (4 / 3);
 
@@ -38,7 +38,7 @@
     let allowAttack = false;
     const deathPauseTicks = 15;
 
-    $: if ($tick) {
+    $: if ($tickN) {
         mobj.tick();
         frame = frames[$sprite.frame][0];
 

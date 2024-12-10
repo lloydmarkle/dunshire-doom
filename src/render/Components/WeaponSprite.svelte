@@ -14,7 +14,7 @@
 
     const { textures, wad } = useDoom();
     const { map } = useDoomMap();
-    const tick = map.game.time.tick;
+    const tickN = map.game.time.tickN;
     const extraLight = map.player.extraLight;
     const renderShadow = map.player.renderShadow;
 
@@ -26,7 +26,7 @@
         ? new ShaderMaterial({ transparent: true, depthTest: false, depthWrite: false, ...ShadowsShader() })
         : new MeshStandardMaterial({ transparent: true, depthTest: false, depthWrite: false });
 
-    $: if (material instanceof ShaderMaterial && $tick) {
+    $: if (material instanceof ShaderMaterial && $tickN) {
         material.uniforms.time.value = map.game.time.elapsed;
     }
 

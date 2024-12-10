@@ -53,9 +53,9 @@
     let allowSkip = false;
     let textComplete = false;
     let readyPressed = false;
-    const tick = game.time.tick;
-    let startTick = $tick;
-    $: if ($tick) {
+    const tickN = game.time.tickN;
+    let startTick = $tickN;
+    $: if ($tickN) {
         let skipAttempt = false;
         if (!allowSkip) {
             allowSkip = !game.input.attack && !game.input.use;
@@ -67,11 +67,11 @@
         if (textComplete && skipAttempt) {
             readyPressed = true;
         }
-        if ($tick - startTick > 50 && skipAttempt) {
+        if ($tickN - startTick > 50 && skipAttempt) {
             textComplete = true;
         }
     }
-    $: text = textComplete ? victoryText : victoryText.substring(0, ($tick - startTick) / 3);
+    $: text = textComplete ? victoryText : victoryText.substring(0, ($tickN - startTick) / 3);
     $: textLines = text.split('\n');
     $: complete = mapName !== 'E1M8' && (!victoryFlat || (textComplete && readyPressed));
 

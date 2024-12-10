@@ -136,7 +136,7 @@ function crunchMapObject(mobj: MapObject) {
 const crushVelocity = 255 * (1 << 12) / (1 << 16);
 function crunchAndDamageMapObject(mobj: MapObject) {
     let hitSolid = crunchMapObject(mobj);
-    if ((mobj.info.flags & MFFlags.MF_SHOOTABLE) && (mobj.map.game.time.tick.val & 3) === 0) {
+    if ((mobj.info.flags & MFFlags.MF_SHOOTABLE) && (mobj.map.game.time.tickN.val & 3) === 0) {
         hitSolid = true;
         mobj.damage(10, null, null);
         // spray blood

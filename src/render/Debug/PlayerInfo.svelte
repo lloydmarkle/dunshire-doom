@@ -12,7 +12,7 @@
     const { settings, editor } = useAppContext();
     const timescale = settings.timescale;
     let { position, direction, sector, inventory, viewHeight } = player;
-    const tick = player.map.game.time.tick;
+    const tickN = player.map.game.time.tickN;
 
     let sectors = [];
     onDestroy(monitorMapObject(player.map, player, mo => {
@@ -26,7 +26,7 @@
     const debugBuild = import.meta.env.DEV;
 
     let velocity = player.velocity;
-    $: if ($tick & 10) {
+    $: if (!($tickN & 10)) {
         // rx hack because velocity is not a store
         velocity = player.velocity;
     }

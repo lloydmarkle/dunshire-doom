@@ -21,7 +21,7 @@
     export let renderSector: RenderSector;
 
     const { map, camera } = useDoomMap();
-    const { tick, partialTick } = map.game.time;
+    const { tickN, partialTick } = map.game.time;
     const { editor, settings } = useAppContext();
     const interpolateMovement = settings.interpolateMovement;
     const { textures, wad } = useDoom();
@@ -93,7 +93,7 @@
         material.shadowSide = $cameraMode === 'ortho' ? DoubleSide : BackSide;
     }
 
-    $: if (material instanceof ShaderMaterial && $tick) {
+    $: if (material instanceof ShaderMaterial && $tickN) {
         material.uniforms.time.value = map.game.time.elapsed;
     }
 

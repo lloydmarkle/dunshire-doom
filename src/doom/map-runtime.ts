@@ -291,14 +291,14 @@ export class MapRuntime {
 
         // update wall/flat animations
         this.animatedTextures.forEach(anim => {
-            if (this.game.time.tick.val % anim.speed === 0) {
+            if (this.game.time.tickN.val % anim.speed === 0) {
                 anim.index = (anim.index + 1) % anim.frames.length;
                 anim.line[anim.side][anim.prop] = anim.frames[anim.index];
                 this.events.emit('wall-texture', anim.line);
             }
         });
         this.animatedFlats.forEach(anim => {
-            if (this.game.time.tick.val % anim.speed === 0) {
+            if (this.game.time.tickN.val % anim.speed === 0) {
                 anim.index = (anim.index + 1) % anim.frames.length;
                 anim.sector[anim.prop] = anim.frames[anim.index];
                 this.events.emit('sector-flat', anim.sector);

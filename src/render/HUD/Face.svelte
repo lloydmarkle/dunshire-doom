@@ -8,7 +8,7 @@
 
     const { game } = useDoom();
     const invuln = game.settings.invicibility;
-    const { tick } = game.time;
+    const { tickN } = game.time;
     const { health, inventory, damageCount } = player;
 
     const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
@@ -25,7 +25,7 @@
     $: healthIndex = clamp(painFaces - Math.trunc($health * painDivisor), 1, painFaces) - 1; // -1 because index is from 0 to 4
     let state = 'STFST00';
 
-    $: if ($tick) {
+    $: if ($tickN) {
         rampageTime = game.input.attack ? rampageTime + 1 : -0;
         const angle = badGuyAngle();
 

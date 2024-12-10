@@ -15,7 +15,7 @@
         playerStats.map(e => e[key]).reduce((total, val) => total + val, 0)
     const mapNum = (mapName: string) => parseInt(mapName.substring(3, 5)) - 1;
 
-    let tick = game.time.tick;
+    let tickN = game.time.tickN;
     let stats = details.finishedMap.stats;
     let episodeMaps = !details.nextMapName.startsWith('MAP');
     let episode = parseInt(details.nextMapName[1]);
@@ -54,7 +54,7 @@
                     game.playSound(SoundIndex.sfx_barexp);
                     return;
                 }
-                if (!(game.time.tick.val & 3)) {
+                if (!(game.time.tickN.val & 3)) {
                     // only every 4th tick
                     game.playSound(SoundIndex.sfx_pistol);
                 }
@@ -75,7 +75,7 @@
     let allowSkip = false;
     let pauseTime = ticksPerSecond;
     let tickers = [];
-    $: if (tick && $tick) tickUpdate();
+    $: if (tickN && $tickN) tickUpdate();
     function tickUpdate() {
         // TODO: the logic in this function is _very_ complex. I wonder if we could do better with
         // transitions and in/out to trigger next animation or pause?
@@ -109,7 +109,7 @@
         } else if (state === 'next-map') {
             // we've finished our wait for entering state so go to next map
             // NOTE: stop the ticker because it can take time to load the next map and we don't want any more ticks
-            tick = null;
+            tickN = null;
             complete = true;
             return;
         }

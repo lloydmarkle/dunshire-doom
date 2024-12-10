@@ -17,7 +17,7 @@
     useTask(() => {
         zoom = Math.max(100, Math.min(2500, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-    });
+    }, { stage: useThrelte().renderStage });
 
     const { position, angle } = camera;
     $: $angle.x = 0;

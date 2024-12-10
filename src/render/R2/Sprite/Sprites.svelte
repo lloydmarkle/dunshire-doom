@@ -24,7 +24,6 @@
 
     const { camera } = useDoomMap();
     const { extraLight } = map.player;
-    const { tick, partialTick } = map.game.time;
     // TODO: draw tracers?
     // let tracers: typeof map.tracers;
     // $: if ($trev) {
@@ -81,8 +80,8 @@
     // NOTE: use a task instead of $: to make sure we have the latest value before rendering
     useTask(() => {
         updateCameraUniforms($threlteCam, $position, $angle)
-        updateTimeUniforms($tick + $partialTick);
-    });
+        updateTimeUniforms(map.game.time.tick.val);
+    }, { stage: useThrelte().renderStage });
 
     function updateInspectorUniforms(edit) {
         // map objects have 'health' so only handle those
