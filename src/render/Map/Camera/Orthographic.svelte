@@ -2,47 +2,47 @@
     import { HALF_PI } from "../../../doom";
     import { T, useTask, useThrelte } from "@threlte/core";
     import { useDoomMap } from "../../DoomContext";
-    import { onDestroy } from "svelte";
+    import { expoIn } from "svelte/easing";
+    import { Vector3 } from "three";
     import { monitorMapObject } from "../SvelteBridge";
+    import { onDestroy } from "svelte";
 
     export let yScale: number;
 
-    let zoom = 100;
+    const camDistance = 32_000;
+    let zoomVal = 800;
+    let zoom = 2.5;
     const { map, camera } = useDoomMap();
     const { viewHeightNoBob } = map.player;
+    const { camera: tCam, renderStage } = useThrelte();
+    $: $tCam.up.set(0, 0, 1);
 
-    const rotation = camera.angle;
-    $: $rotation.x = HALF_PI * 3 / 4;
+    const pitch = HALF_PI * 2 / 3;
     const position = camera.position;
-
-    const scale = { x: 1, y: 1 };
-    $: scale.x = (zoom / 1000) + .25;
-    $: scale.y = scale.x * yScale;
+    const lookPos = new Vector3();
 
     onDestroy(monitorMapObject(map, map.player, mo => {
-        $rotation.z = mo.direction - HALF_PI;
-        $position.x = -Math.sin(-$rotation.z) * 300 + mo.position.x;
-        $position.y = -Math.cos(-$rotation.z) * 300 + mo.position.y;
-        $position.z = Math.cos($rotation.x) * 400 + mo.position.z + $viewHeightNoBob;
+        lookPos.copy(mo.position);
+        lookPos.z += $viewHeightNoBob;
+
+        const yaw = mo.direction - HALF_PI;
+        $tCam.position.set(
+            -Math.sin(-yaw) * camDistance + mo.position.x,
+            -Math.cos(-yaw) * camDistance + mo.position.y,
+            Math.cos(pitch) * camDistance + mo.position.z + $viewHeightNoBob,
+        );
+        $tCam.lookAt(lookPos);
+        $position = $tCam.position;
     }));
-    $: $position.z = Math.cos($rotation.x) * 400 + map.player.position.z + $viewHeightNoBob;
 
     useTask(() => {
-        zoom = Math.max(50, Math.min(1000, zoom + map.game.input.aim.z));
+        zoomVal = Math.max(1, Math.min(1000, zoomVal + map.game.input.aim.z));
+        zoom = expoIn(zoomVal / 1000) * 10;
         map.game.input.aim.setZ(0);
-    }, { stage: useThrelte().renderStage });
+    }, { stage: renderStage });
 </script>
 
 <T.OrthographicCamera
     makeDefault
-    rotation.x={$rotation.x}
-    rotation.y={$rotation.y}
-    rotation.z={$rotation.z}
-    rotation.order={$rotation.order}
-    position.x={$position.x}
-    position.y={$position.y}
-    position.z={$position.z}
-    scale.x={scale.x}
-    scale.y={scale.y}
-    far={100000}
+    {zoom} scale.y={yScale} far={100_000}
 />

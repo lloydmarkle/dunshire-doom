@@ -24,10 +24,10 @@
 
     const tz = tweened(0, { easing: quadOut });
     onDestroy(monitorMapObject(map, map.player, mo => {
-            $position.x = mo.position.x;
-            $position.y = mo.position.y;
-            $tz = mo.position.z;
-            $angle.z = mo.direction - HALF_PI;
+        $position.x = mo.position.x;
+        $position.y = mo.position.y;
+        $tz = mo.position.z;
+        $angle.z = mo.direction - HALF_PI;
     }));
     $: $position.z = zoom + $tz;
 

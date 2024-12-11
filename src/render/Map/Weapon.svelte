@@ -20,16 +20,15 @@
     $: pos = $weapon.position;
 
     const cameraMode = useDoom().game.settings.cameraMode;
-    $: scale = $cameraMode === '1p' ? Math.max(2.5, screenSize.height / 200) : 1;
+    $: scale = $cameraMode === '1p' ? Math.max(2.5, screenSize.height / 200) : 2;
     const screenPosition = { x: 0, y: 0 };
     $: screenPosition.x = $cameraMode === '1p'
         ? $pos.x - (160 * scale) // center screen
-        : $pos.x - screenSize.width * .5; // right side
-    $: screenPosition.y = scale * ($pos.y + weaponTop) +
-        ($cameraMode === '1p'
-            // Why 135 and 160?? *shrug* it looks about right
-            ? -screenSize.height * .5 + (135 * scale)
-            : -screenSize.height * .5 + (160 * yScale / scale));
+        : $pos.x - screenSize.width * .5; // left side
+    $: screenPosition.y =
+        scale * ($pos.y + weaponTop) +
+        // Why 135?? *shrug* it looks about right
+        -screenSize.height * .5 + (135 * scale);
 </script>
 
 <T.Group
