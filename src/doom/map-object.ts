@@ -174,10 +174,7 @@ export class MapObject {
             this._onGround = this.position.z <= this._zFloor;
         }
         this.applyPositionChanged = () => {
-            const p = this.position;
-
             const sector = map.data.blockMap.moveMobj(this, radius);
-
             this._zCeil = lowestZCeil(sector, sector.zCeil);
             const lastZFloor = this._zFloor;
             this._zFloor = fromCeiling && !this.isDead //<-- for keens
@@ -186,9 +183,9 @@ export class MapObject {
                 : highestZFloor(sector, sector.zFloor);
             if (!this._sector) {
                 // first time setting sector so set zpos based on sector containing the object center
-                p.z = sector.zFloor;
+                this.position.z = sector.zFloor;
             }
-            this._onGround = p.z <= this._zFloor;
+            this._onGround = this.position.z <= this._zFloor;
             this._sector = sector;
             if (lastZFloor !== this._zFloor) {
                 this.applyGravity();
@@ -203,6 +200,11 @@ export class MapObject {
         this._state.randomizeTicks(map.game.rng);
     }
 
+    dispose() {
+        this.blocks.forEach((rev, block) => block.mobjs.delete(this));
+        // don't update position after object destroyed
+        this.applyPositionChanged = () => {};
+    }
 
     get spriteTics() { return states[this._state.index].tics; }
     get spriteTime() { return 1 / states[this._state.index].tics; }
