@@ -11,22 +11,26 @@ import { Vector3 } from "three";
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
 
 // General
+type SpecialAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1) => SpecialDefinition | undefined;
 export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1) {
     if (linedef.special === 9) {
         return donut(mobj, linedef, trigger, side);
     }
-    // TODO: soooo many warnings from doing it this way. It would be better to have a single array rather than one per action type
-    return (
-        createDoorAction(mobj, linedef, trigger, side) ??
-        createLiftAction(mobj, linedef, trigger) ??
-        createFloorAction(mobj, linedef, trigger) ??
-        createCeilingAction(mobj, linedef, trigger) ??
-        createCrusherCeilingAction(mobj, linedef, trigger) ??
-        createLightingAction(mobj, linedef, trigger) ??
-        applyTeleportAction(mobj, linedef, trigger, side) ??
-        createRisingStairAction(mobj, linedef, trigger) ??
-        createLevelExitAction(mobj, linedef, trigger, side)
-    );
+
+    const action =
+        doorDefinitions[linedef.special] ??
+        liftDefinitions[linedef.special] ??
+        floorDefinitions[linedef.special] ??
+        ceilingDefinitions[linedef.special] ??
+        crusherCeilingDefinitions[linedef.special] ??
+        lightingDefinitions[linedef.special] ??
+        teleportDefinitions[linedef.special] ??
+        risingStairs[linedef.special] ??
+        levelExits[linedef.special];
+    if (action) {
+        return action(mobj, linedef, trigger, side);
+    }
+    console.warn('unsupported linedef special:', linedef.special);
 }
 
 // Push, Switch, Walk, Gun (shoot)
@@ -154,72 +158,20 @@ function crunchAndDamageMapObject(mobj: MapObject) {
 const normal = 2;
 const blaze = 4 * normal;
 type DoorFunction = 'openWaitClose' | 'openAndStay' | 'closeAndStay' | 'closeWaitOpen';
-const doorDefinition = (type: number, trigger: string, key: 'R' | 'Y' | 'B' | 'No', speed: number, topWaitS: number, func: DoorFunction) => ({
-    type,
+const doorDefinition = (trigger: string, key: 'R' | 'Y' | 'B' | 'No', speed: number, topWaitS: number, func: DoorFunction) => ({
     function: func,
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     speed,
     key: key === 'No' ? undefined : key,
     topWait: topWaitS * ticksPerSecond,
-    monsterTrigger: type === 1,
+    monsterTrigger: trigger.includes('m'),
 });
 
-// https://doomwiki.org/wiki/Linedef_type#Door_linedef_types
-const doorDefinitions = [
-    doorDefinition(1, 'PR', 'No', normal, 4, 'openWaitClose'),
-    doorDefinition(117, 'PR', 'No', blaze, 4, 'openWaitClose'),
-    doorDefinition(63, 'SR', 'No', normal, 4, 'openWaitClose'),
-    doorDefinition(114, 'SR', 'No', blaze, 4, 'openWaitClose'),
-    doorDefinition(29, 'S1', 'No', normal, 4, 'openWaitClose'),
-    doorDefinition(111, 'S1', 'No', blaze, 4, 'openWaitClose'),
-    doorDefinition(90, 'WR', 'No', normal, 4, 'openWaitClose'),
-    doorDefinition(105, 'WR', 'No', blaze, 4, 'openWaitClose'),
-    doorDefinition(4, 'W1', 'No', normal, 4, 'openWaitClose'),
-    doorDefinition(108, 'W1', 'No', blaze, 4, 'openWaitClose'),
-    doorDefinition(31, 'P1', 'No', normal, -1, 'openAndStay'),
-    doorDefinition(118, 'P1', 'No', blaze, -1, 'openAndStay'),
-    doorDefinition(61, 'SR', 'No', normal, -1, 'openAndStay'),
-    doorDefinition(115, 'SR', 'No', blaze, -1, 'openAndStay'),
-    doorDefinition(103, 'S1', 'No', normal, -1, 'openAndStay'),
-    doorDefinition(112, 'S1', 'No', blaze, -1, 'openAndStay'),
-    doorDefinition(86, 'WR', 'No', normal, -1, 'openAndStay'),
-    doorDefinition(106, 'WR', 'No', blaze, -1, 'openAndStay'),
-    doorDefinition(2, 'W1', 'No', normal, -1, 'openAndStay'),
-    doorDefinition(109, 'W1', 'No', blaze, -1, 'openAndStay'),
-    doorDefinition(46, 'GR', 'No', normal, -1, 'openAndStay'),
-    doorDefinition(42, 'SR', 'No', normal, -1, 'closeAndStay'),
-    doorDefinition(116, 'SR', 'No', blaze, -1, 'closeAndStay'),
-    doorDefinition(50, 'S1', 'No', normal, -1, 'closeAndStay'),
-    doorDefinition(113, 'S1', 'No', blaze, -1, 'closeAndStay'),
-    doorDefinition(75, 'WR', 'No', normal, -1, 'closeAndStay'),
-    doorDefinition(107, 'WR', 'No', blaze, -1, 'closeAndStay'),
-    doorDefinition(3, 'W1', 'No', normal, -1, 'closeAndStay'),
-    doorDefinition(110, 'W1', 'No', blaze, -1, 'closeAndStay'),
-    doorDefinition(76, 'WR', 'No', normal, 30, 'closeWaitOpen'),
-    doorDefinition(16, 'W1', 'No', normal, 30, 'closeWaitOpen'),
-    // Key doors
-    doorDefinition(26, 'PR', 'B', normal, 4, 'openWaitClose'),
-    doorDefinition(28, 'PR', 'R', normal, 4, 'openWaitClose'),
-    doorDefinition(27, 'PR', 'Y', normal, 4, 'openWaitClose'),
-    doorDefinition(32, 'P1', 'B', normal, 1, 'openAndStay'),
-    doorDefinition(33, 'P1', 'R', normal, -1, 'openAndStay'),
-    doorDefinition(34, 'P1', 'Y', normal, -1, 'openAndStay'),
-    doorDefinition(99, 'SR', 'B', blaze, -1, 'openAndStay'),
-    doorDefinition(134, 'SR', 'R', blaze, -1, 'openAndStay'),
-    doorDefinition(136, 'SR', 'Y', blaze, -1, 'openAndStay'),
-    doorDefinition(133, 'S1', 'B', blaze, -1, 'openAndStay'),
-    doorDefinition(135, 'S1', 'R', blaze, -1, 'openAndStay'),
-    doorDefinition(137, 'S1', 'Y', blaze, -1, 'openAndStay'),
-];
-
-export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+const createDoorAction =
+        (def: ReturnType<typeof doorDefinition>) =>
+        (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     const map = mobj.map;
-    const def = doorDefinitions.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid door type', linedef.special);
-        return;
-    }
     const validTrigger = (
         def.trigger === trigger
         // treat P === S because P is a special case (local door) and does not need a sector tag
@@ -279,7 +231,7 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
         sector.specialData = def.function === 'openAndStay' || def.function === 'openWaitClose' ? 1 : -1;
         doorSound(sector);
 
-        const topHeight = def.type === 16 || def.type === 76
+        const topHeight = linedef.special === 16 || linedef.special === 76
             ? sector.zCeil : (findLowestCeiling(map, sector) - 4);
         let ticks = 0;
         const action = () => {
@@ -341,9 +293,56 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
     return triggered ? def : undefined;
 };
 
+// https://doomwiki.org/wiki/Linedef_type#Door_linedef_types
+const doorDefinitions = {
+    1: createDoorAction(doorDefinition('PRm', 'No', normal, 4, 'openWaitClose')),
+    2: createDoorAction(doorDefinition('W1', 'No', normal, -1, 'openAndStay')),
+    3: createDoorAction(doorDefinition('W1', 'No', normal, -1, 'closeAndStay')),
+    4: createDoorAction(doorDefinition('W1', 'No', normal, 4, 'openWaitClose')),
+    16: createDoorAction(doorDefinition('W1', 'No', normal, 30, 'closeWaitOpen')),
+    29: createDoorAction(doorDefinition('S1', 'No', normal, 4, 'openWaitClose')),
+    31: createDoorAction(doorDefinition('P1', 'No', normal, -1, 'openAndStay')),
+    42: createDoorAction(doorDefinition('SR', 'No', normal, -1, 'closeAndStay')),
+    46: createDoorAction(doorDefinition('GR', 'No', normal, -1, 'openAndStay')),
+    50: createDoorAction(doorDefinition('S1', 'No', normal, -1, 'closeAndStay')),
+    61: createDoorAction(doorDefinition('SR', 'No', normal, -1, 'openAndStay')),
+    63: createDoorAction(doorDefinition('SR', 'No', normal, 4, 'openWaitClose')),
+    75: createDoorAction(doorDefinition('WR', 'No', normal, -1, 'closeAndStay')),
+    76: createDoorAction(doorDefinition('WR', 'No', normal, 30, 'closeWaitOpen')),
+    86: createDoorAction(doorDefinition('WR', 'No', normal, -1, 'openAndStay')),
+    90: createDoorAction(doorDefinition('WR', 'No', normal, 4, 'openWaitClose')),
+    103: createDoorAction(doorDefinition('S1', 'No', normal, -1, 'openAndStay')),
+    105: createDoorAction(doorDefinition('WR', 'No', blaze, 4, 'openWaitClose')),
+    106: createDoorAction(doorDefinition('WR', 'No', blaze, -1, 'openAndStay')),
+    107: createDoorAction(doorDefinition('WR', 'No', blaze, -1, 'closeAndStay')),
+    108: createDoorAction(doorDefinition('W1', 'No', blaze, 4, 'openWaitClose')),
+    109: createDoorAction(doorDefinition('W1', 'No', blaze, -1, 'openAndStay')),
+    110: createDoorAction(doorDefinition('W1', 'No', blaze, -1, 'closeAndStay')),
+    111: createDoorAction(doorDefinition('S1', 'No', blaze, 4, 'openWaitClose')),
+    112: createDoorAction(doorDefinition('S1', 'No', blaze, -1, 'openAndStay')),
+    113: createDoorAction(doorDefinition('S1', 'No', blaze, -1, 'closeAndStay')),
+    114: createDoorAction(doorDefinition('SR', 'No', blaze, 4, 'openWaitClose')),
+    115: createDoorAction(doorDefinition('SR', 'No', blaze, -1, 'openAndStay')),
+    116: createDoorAction(doorDefinition('SR', 'No', blaze, -1, 'closeAndStay')),
+    117: createDoorAction(doorDefinition('PR', 'No', blaze, 4, 'openWaitClose')),
+    118: createDoorAction(doorDefinition('P1', 'No', blaze, -1, 'openAndStay')),
+    // Key doors
+    26: createDoorAction(doorDefinition('PR', 'B', normal, 4, 'openWaitClose')),
+    28: createDoorAction(doorDefinition('PR', 'R', normal, 4, 'openWaitClose')),
+    27: createDoorAction(doorDefinition('PR', 'Y', normal, 4, 'openWaitClose')),
+    32: createDoorAction(doorDefinition('P1', 'B', normal, 1, 'openAndStay')),
+    33: createDoorAction(doorDefinition('P1', 'R', normal, -1, 'openAndStay')),
+    34: createDoorAction(doorDefinition('P1', 'Y', normal, -1, 'openAndStay')),
+    99: createDoorAction(doorDefinition('SR', 'B', blaze, -1, 'openAndStay')),
+    134: createDoorAction(doorDefinition('SR', 'R', blaze, -1, 'openAndStay')),
+    136: createDoorAction(doorDefinition('SR', 'Y', blaze, -1, 'openAndStay')),
+    133: createDoorAction(doorDefinition('S1', 'B', blaze, -1, 'openAndStay')),
+    135: createDoorAction(doorDefinition('S1', 'R', blaze, -1, 'openAndStay')),
+    137: createDoorAction(doorDefinition('S1', 'Y', blaze, -1, 'openAndStay')),
+};
+
 // Lifts
-const liftDefinition = (type: number, trigger: string, waitTimeS: number, speed: number, direction: number, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal', effect?: EffectFunction) => ({
-    type,
+const liftDefinition = (trigger: string, waitTimeS: number, speed: number, direction: number, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal', effect?: EffectFunction) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     speed,
@@ -356,40 +355,10 @@ const liftDefinition = (type: number, trigger: string, waitTimeS: number, speed:
     waitTime: waitTimeS * ticksPerSecond,
 });
 
-// Some combination of the unofficial doom spec https://www.gamers.org/dhs/helpdocs/dmsp1666.html
-// and doomwiki https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
-// Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
-const liftDefinitions = [
-    liftDefinition(10, 'W1m', 3, 4, -1, floorValue),
-    liftDefinition(14, 'S1', 0, .5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(15, 'S1', 0, .5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger)),
-    liftDefinition(20, 'S1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(21, 'S1', 3, 4, -1, floorValue),
-    liftDefinition(22, 'W1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(47, 'G1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(53, 'W1', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual'),
-    liftDefinition(54, 'W1', 0, 0, 0, floorValue, 'stop'),
-    liftDefinition(66, 'SR', 0, 0.5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger)),
-    liftDefinition(62, 'SR', 3, 4, -1, floorValue),
-    liftDefinition(67, 'SR', 0, 0.5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(68, 'SR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(87, 'WR', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual'),
-    liftDefinition(88, 'WRm', 3, 4, -1, floorValue),
-    liftDefinition(89, 'WR', 0, 0, 0, floorValue, 'stop'),
-    liftDefinition(95, 'WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
-    liftDefinition(120, 'WR', 3, 8, -1, floorValue),
-    liftDefinition(121, 'W1', 3, 8, -1, floorValue),
-    liftDefinition(122, 'S1', 3, 8, -1, floorValue),
-    liftDefinition(123, 'SR', 3, 8, -1, floorValue),
-];
-
-export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+const createLiftAction =
+        (def: ReturnType<typeof liftDefinition>) =>
+        (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     const map = mobj.map;
-    const def = liftDefinitions.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid lift type', linedef.special);
-        return;
-    }
     if (def.trigger !== trigger) {
         return;
     }
@@ -478,9 +447,35 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
     return triggered ? def : undefined;
 };
 
+// Some combination of the unofficial doom spec https://www.gamers.org/dhs/helpdocs/dmsp1666.html
+// and doomwiki https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
+// Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
+const liftDefinitions = {
+    10: createLiftAction(liftDefinition('W1m', 3, 4, -1, floorValue)),
+    14: createLiftAction(liftDefinition('S1', 0, .5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    15: createLiftAction(liftDefinition('S1', 0, .5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger))),
+    20: createLiftAction(liftDefinition('S1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    21: createLiftAction(liftDefinition('S1', 3, 4, -1, floorValue)),
+    22: createLiftAction(liftDefinition('W1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    47: createLiftAction(liftDefinition('G1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    53: createLiftAction(liftDefinition('W1', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual')),
+    54: createLiftAction(liftDefinition('W1', 0, 0, 0, floorValue, 'stop')),
+    66: createLiftAction(liftDefinition('SR', 0, 0.5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger))),
+    62: createLiftAction(liftDefinition('SR', 3, 4, -1, floorValue)),
+    67: createLiftAction(liftDefinition('SR', 0, 0.5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    68: createLiftAction(liftDefinition('SR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    87: createLiftAction(liftDefinition('WR', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual')),
+    88: createLiftAction(liftDefinition('WRm', 3, 4, -1, floorValue)),
+    89: createLiftAction(liftDefinition('WR', 0, 0, 0, floorValue, 'stop')),
+    95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    120: createLiftAction(liftDefinition('WR', 3, 8, -1, floorValue)),
+    121: createLiftAction(liftDefinition('W1', 3, 8, -1, floorValue)),
+    122: createLiftAction(liftDefinition('S1', 3, 8, -1, floorValue)),
+    123: createLiftAction(liftDefinition('SR', 3, 8, -1, floorValue)),
+};
+
 // Floors
-const floorDefinition = (type: number, trigger: string, direction: number, speed: number, effect: EffectFunction, crush: boolean, targetFn: TargetValueFunction) => ({
-    type,
+const floorDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, crush: boolean, targetFn: TargetValueFunction) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     direction,
@@ -490,54 +485,10 @@ const floorDefinition = (type: number, trigger: string, direction: number, speed
     speed,
 });
 
-const floorDefinitions = [
-    floorDefinition(23, 'S1', -1, 1, null, false, lowestNeighbourFloor),
-    floorDefinition(60, 'SR', -1, 1, null, false, lowestNeighbourFloor),
-    floorDefinition(82, 'WR', -1, 1, null, false, lowestNeighbourFloor),
-    floorDefinition(38, 'W1', -1, 1, null, false, lowestNeighbourFloor),
-    floorDefinition(84, 'WR', -1, 1, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor),
-    floorDefinition(37, 'W1', -1, 1, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor),
-    floorDefinition(69, 'SR', 1, 1, null, false, nextNeighbourFloor),
-    floorDefinition(18, 'S1', 1, 1, null, false, nextNeighbourFloor),
-    floorDefinition(128, 'WR', 1, 1, null, false, nextNeighbourFloor),
-    floorDefinition(119, 'W1', 1, 1, null, false, nextNeighbourFloor),
-    floorDefinition(132, 'SR', 1, 4, null, false, nextNeighbourFloor),
-    floorDefinition(131, 'S1', 1, 4, null, false, nextNeighbourFloor),
-    floorDefinition(129, 'WR', 1, 4, null, false, nextNeighbourFloor),
-    floorDefinition(130, 'W1', 1, 4, null, false, nextNeighbourFloor),
-    floorDefinition(64, 'SR', 1, 1, null, false, lowestNeighbourCeiling),
-    floorDefinition(101, 'S1', 1, 1, null,  false, lowestNeighbourCeiling),
-    floorDefinition(91, 'WR', 1, 1, null, false, lowestNeighbourCeiling),
-    floorDefinition(5, 'W1', 1, 1, null, false, lowestNeighbourCeiling),
-    floorDefinition(24, 'G1', 1, 1, null, false, lowestNeighbourCeiling),
-    floorDefinition(65, 'SR', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8)),
-    floorDefinition(55, 'S1', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8)),
-    floorDefinition(94, 'WR', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8)),
-    floorDefinition(56, 'W1', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8)),
-    floorDefinition(45, 'SR', -1, 1, null,  false, highestNeighbourFloor),
-    floorDefinition(102, 'S1', -1, 1, null, false, highestNeighbourFloor),
-    floorDefinition(83, 'WR', -1, 1, null,  false, highestNeighbourFloor),
-    floorDefinition(19, 'W1', -1, 1, null,  false, highestNeighbourFloor),
-    floorDefinition(70, 'SR', -1, 4, null,  false, adjust(highestNeighbourFloor, 8)),
-    floorDefinition(71, 'S1', -1, 4, null,  false, adjust(highestNeighbourFloor, 8)),
-    floorDefinition(98, 'WR', -1, 4, null,  false, adjust(highestNeighbourFloor, 8)),
-    floorDefinition(36, 'W1', -1, 4, null,  false, adjust(highestNeighbourFloor, 8)),
-    floorDefinition(92, 'WR', 1, 1, null, false, adjust(floorValue, 24)),
-    floorDefinition(58, 'W1', 1, 1, null, false, adjust(floorValue, 24)),
-    floorDefinition(93, 'WR', 1, 1, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24)),
-    floorDefinition(59, 'W1', 1, 1, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24)),
-    floorDefinition(96, 'WR', 1, 1, null, false, shortestLowerTexture),
-    floorDefinition(30, 'W1', 1, 1, null, false, shortestLowerTexture),
-    floorDefinition(140, 'S1', 1, 1, null, false, adjust(floorValue, 512)),
-];
-
-export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: TriggerType): SpecialDefinition | undefined => {
+const createFloorAction =
+        (def: ReturnType<typeof floorDefinition>) =>
+        (mobj: MapObject, linedef: LineDef,  trigger: TriggerType): SpecialDefinition | undefined => {
     const map = mobj.map;
-    const def = floorDefinitions.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid floor special', linedef.special);
-        return;
-    }
     if (def.trigger !== trigger) {
         return;
     }
@@ -603,11 +554,51 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
     return triggered ? def : undefined;
 };
 
+const floorDefinitions = {
+    5: createFloorAction(floorDefinition('W1', 1, 1, null, false, lowestNeighbourCeiling)),
+    18: createFloorAction(floorDefinition('S1', 1, 1, null, false, nextNeighbourFloor)),
+    19: createFloorAction(floorDefinition('W1', -1, 1, null,  false, highestNeighbourFloor)),
+    23: createFloorAction(floorDefinition('S1', -1, 1, null, false, lowestNeighbourFloor)),
+    24: createFloorAction(floorDefinition('G1', 1, 1, null, false, lowestNeighbourCeiling)),
+    30: createFloorAction(floorDefinition('W1', 1, 1, null, false, shortestLowerTexture)),
+    36: createFloorAction(floorDefinition('W1', -1, 4, null,  false, adjust(highestNeighbourFloor, 8))),
+    37: createFloorAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor)),
+    38: createFloorAction(floorDefinition('W1', -1, 1, null, false, lowestNeighbourFloor)),
+    45: createFloorAction(floorDefinition('SR', -1, 1, null,  false, highestNeighbourFloor)),
+    55: createFloorAction(floorDefinition('S1', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8))),
+    56: createFloorAction(floorDefinition('W1', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8))),
+    58: createFloorAction(floorDefinition('W1', 1, 1, null, false, adjust(floorValue, 24))),
+    59: createFloorAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24))),
+    60: createFloorAction(floorDefinition('SR', -1, 1, null, false, lowestNeighbourFloor)),
+    64: createFloorAction(floorDefinition('SR', 1, 1, null, false, lowestNeighbourCeiling)),
+    65: createFloorAction(floorDefinition('SR', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8))),
+    69: createFloorAction(floorDefinition('SR', 1, 1, null, false, nextNeighbourFloor)),
+    70: createFloorAction(floorDefinition('SR', -1, 4, null,  false, adjust(highestNeighbourFloor, 8))),
+    71: createFloorAction(floorDefinition('S1', -1, 4, null,  false, adjust(highestNeighbourFloor, 8))),
+    82: createFloorAction(floorDefinition('WR', -1, 1, null, false, lowestNeighbourFloor)),
+    83: createFloorAction(floorDefinition('WR', -1, 1, null,  false, highestNeighbourFloor)),
+    84: createFloorAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor)),
+    91: createFloorAction(floorDefinition('WR', 1, 1, null, false, lowestNeighbourCeiling)),
+    92: createFloorAction(floorDefinition('WR', 1, 1, null, false, adjust(floorValue, 24))),
+    93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24))),
+    94: createFloorAction(floorDefinition('WR', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8))),
+    96: createFloorAction(floorDefinition('WR', 1, 1, null, false, shortestLowerTexture)),
+    98: createFloorAction(floorDefinition('WR', -1, 4, null,  false, adjust(highestNeighbourFloor, 8))),
+    101: createFloorAction(floorDefinition('S1', 1, 1, null,  false, lowestNeighbourCeiling)),
+    102: createFloorAction(floorDefinition('S1', -1, 1, null, false, highestNeighbourFloor)),
+    119: createFloorAction(floorDefinition('W1', 1, 1, null, false, nextNeighbourFloor)),
+    128: createFloorAction(floorDefinition('WR', 1, 1, null, false, nextNeighbourFloor)),
+    129: createFloorAction(floorDefinition('WR', 1, 4, null, false, nextNeighbourFloor)),
+    130: createFloorAction(floorDefinition('W1', 1, 4, null, false, nextNeighbourFloor)),
+    131: createFloorAction(floorDefinition('S1', 1, 4, null, false, nextNeighbourFloor)),
+    132: createFloorAction(floorDefinition('SR', 1, 4, null, false, nextNeighbourFloor)),
+    140: createFloorAction(floorDefinition('S1', 1, 1, null, false, adjust(floorValue, 512))),
+};
+
 // Ceilings
 const ceilingSlow = 1;
 const ceilingFast = ceilingSlow * 2;
-const ceilingDefinition = (type: number, trigger: string, direction: number, speed: number, targetFn: TargetValueFunction) => ({
-    type,
+const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     direction,
@@ -615,21 +606,10 @@ const ceilingDefinition = (type: number, trigger: string, direction: number, spe
     speed,
 });
 
-const ceilingDefinitions = [
-    ceilingDefinition(40, 'W1', 1, ceilingSlow, highestNeighbourCeiling),
-    ceilingDefinition(41, 'S1', -1, ceilingFast, floorHeight),
-    ceilingDefinition(43, 'SR', -1, ceilingFast, floorHeight),
-    ceilingDefinition(44, 'W1', -1, ceilingSlow, adjust(floorHeight, 8)),
-    ceilingDefinition(72, 'WR', -1, ceilingSlow, adjust(floorHeight, 8)),
-];
-
-export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+const createCeilingAction =
+        (def: ReturnType<typeof ceilingDefinition>) =>
+        (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
     const map = mobj.map;
-    const def = ceilingDefinitions.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid ceiling special', linedef.special);
-        return;
-    }
     if (def.trigger !== trigger) {
         return;
     }
@@ -685,36 +665,28 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
     return triggered ? def : undefined;
 };
 
+const ceilingDefinitions = {
+    40: createCeilingAction(ceilingDefinition('W1', 1, ceilingSlow, highestNeighbourCeiling)),
+    41: createCeilingAction(ceilingDefinition('S1', -1, ceilingFast, floorHeight)),
+    43: createCeilingAction(ceilingDefinition('SR', -1, ceilingFast, floorHeight)),
+    44: createCeilingAction(ceilingDefinition('W1', -1, ceilingSlow, adjust(floorHeight, 8))),
+    72: createCeilingAction(ceilingDefinition('WR', -1, ceilingSlow, adjust(floorHeight, 8))),
+};
+
 // Crusher Ceilings
-const crusherCeilingDefinition = (type: number, trigger: string, speed: number, triggerType: 'start' | 'stop') => ({
-    type,
+const crusherCeilingDefinition = (trigger: string, speed: number, triggerType: 'start' | 'stop') => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     direction: -1,
-    silent: type === 141 ? true : false,
     targetFn: adjust(floorHeight, 8),
     stopper: triggerType === 'stop',
     speed,
 });
 
-const crusherCeilingDefinitions = [
-    crusherCeilingDefinition(49, 'S1', ceilingSlow, 'start'),
-    crusherCeilingDefinition(73, 'WR', ceilingSlow, 'start'),
-    crusherCeilingDefinition(25, 'W1', ceilingSlow, 'start'),
-    crusherCeilingDefinition(77, 'WR', ceilingFast, 'start'),
-    crusherCeilingDefinition(6, 'W1', ceilingFast, 'start'),
-    crusherCeilingDefinition(141, 'W1', ceilingSlow, 'start'),
-    crusherCeilingDefinition(74, 'WR', null, 'stop'),
-    crusherCeilingDefinition(57, 'W1', null, 'stop'),
-];
-
-export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+const createCrusherCeilingAction =
+        (def: ReturnType<typeof crusherCeilingDefinition>) =>
+        (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
     const map = mobj.map;
-    const def = crusherCeilingDefinitions.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid crusher special', linedef.special);
-        return;
-    }
     if (def.trigger !== trigger) {
         return;
     }
@@ -748,6 +720,7 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
         const action = () => {
             let finished = false;
             const mobjs = sectorObjects(map, sector);
+            // TODO: play sound and silent when linedef.special === 141
 
             let original = sector.zCeil;
             sector.zCeil += def.speed * direction;
@@ -786,6 +759,17 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
     return triggered ? def : undefined;
 };
 
+const crusherCeilingDefinitions = {
+    6: createCrusherCeilingAction(crusherCeilingDefinition('W1', ceilingFast, 'start')),
+    25: createCrusherCeilingAction(crusherCeilingDefinition('W1', ceilingSlow, 'start')),
+    49: createCrusherCeilingAction(crusherCeilingDefinition('S1', ceilingSlow, 'start')),
+    57: createCrusherCeilingAction(crusherCeilingDefinition('W1', null, 'stop')),
+    73: createCrusherCeilingAction(crusherCeilingDefinition('WR', ceilingSlow, 'start')),
+    74: createCrusherCeilingAction(crusherCeilingDefinition('WR', null, 'stop')),
+    77: createCrusherCeilingAction(crusherCeilingDefinition('WR', ceilingFast, 'start')),
+    141: createCrusherCeilingAction(crusherCeilingDefinition('W1', ceilingSlow, 'start')),
+};
+
 // Lighting
 const setLightLevel = (val: number) =>
     (map: MapRuntime, sec: Sector) => val;
@@ -796,46 +780,16 @@ const minNeighbourLight = (map: MapRuntime, sector: Sector) =>
 const lowestLight = (sectors: Sector[], max: number) =>
     sectors.reduce((last, sec) => Math.min(last, sec.light), max);
 
-const createLightingDefinition = (type: number, trigger: string, targetValueFn: TargetValueFunction) => ({
-    type,
+const createLightingDefinition = (trigger: string, targetValueFn: TargetValueFunction) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     targetValueFn,
 });
 
-const lightingDefinitions = [
-    createLightingDefinition(12, 'W1', maxNeighbourLight),
-    createLightingDefinition(80, 'WR', maxNeighbourLight),
-    createLightingDefinition(104, 'W1', minNeighbourLight),
-    // As far as I can tell, type 17 is only used in tnt 09. It's extra special
-    createLightingDefinition(17, 'W1', null),
-    createLightingDefinition(35, 'W1', setLightLevel(35)),
-    createLightingDefinition(79, 'WR', setLightLevel(35)),
-    createLightingDefinition(139, 'SR',setLightLevel(35)),
-    createLightingDefinition(13, 'W1', setLightLevel(255)),
-    createLightingDefinition(81, 'WR', setLightLevel(255)),
-    createLightingDefinition(138, 'SR', setLightLevel(255)),
-    // extended
-    createLightingDefinition(157, 'WR', minNeighbourLight),
-    createLightingDefinition(156, 'WR', null),
-    createLightingDefinition(157, 'WR', minNeighbourLight),
-    createLightingDefinition(169, 'S1', maxNeighbourLight),
-    createLightingDefinition(170, 'S1', setLightLevel(35)),
-    createLightingDefinition(171, 'S1', setLightLevel(255)),
-    createLightingDefinition(172, 'S1', null),
-    createLightingDefinition(173, 'S1', minNeighbourLight),
-    createLightingDefinition(192, 'SR', maxNeighbourLight),
-    createLightingDefinition(193, 'SR', null),
-    createLightingDefinition(194, 'SR', minNeighbourLight),
-];
-
-export const createLightingAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+const createLightingAction =
+        (def: ReturnType<typeof createLightingDefinition>) =>
+        (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
     const map = mobj.map;
-    const def = lightingDefinitions.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid light special', linedef.special);
-        return;
-    }
     if (def.trigger !== trigger) {
         return;
     }
@@ -862,6 +816,31 @@ export const createLightingAction = (mobj: MapObject, linedef: LineDef, trigger:
         triggered = true;
     }
     return triggered ? def : undefined;
+};
+
+const lightingDefinitions = {
+    12: createLightingAction(createLightingDefinition('W1', maxNeighbourLight)),
+    80: createLightingAction(createLightingDefinition('WR', maxNeighbourLight)),
+    104: createLightingAction(createLightingDefinition('W1', minNeighbourLight)),
+    // As far as I can tell, type 17 is only used in tnt 09. It's extra special
+    13: createLightingAction(createLightingDefinition('W1', setLightLevel(255))),
+    17: createLightingAction(createLightingDefinition('W1', null)),
+    35: createLightingAction(createLightingDefinition('W1', setLightLevel(35))),
+    79: createLightingAction(createLightingDefinition('WR', setLightLevel(35))),
+    81: createLightingAction(createLightingDefinition('WR', setLightLevel(255))),
+    139: createLightingAction(createLightingDefinition('SR',setLightLevel(35))),
+    138: createLightingAction(createLightingDefinition('SR', setLightLevel(255))),
+    // extended
+    156: createLightingAction(createLightingDefinition('WR', null)),
+    157: createLightingAction(createLightingDefinition('WR', minNeighbourLight)),
+    169: createLightingAction(createLightingDefinition('S1', maxNeighbourLight)),
+    170: createLightingAction(createLightingDefinition('S1', setLightLevel(35))),
+    171: createLightingAction(createLightingDefinition('S1', setLightLevel(255))),
+    172: createLightingAction(createLightingDefinition('S1', null)),
+    173: createLightingAction(createLightingDefinition('S1', minNeighbourLight)),
+    192: createLightingAction(createLightingDefinition('SR', maxNeighbourLight)),
+    193: createLightingAction(createLightingDefinition('SR', null)),
+    194: createLightingAction(createLightingDefinition('SR', minNeighbourLight)),
 };
 
 const strobeFlash =
@@ -948,14 +927,12 @@ export const sectorLightAnimations = {
 
 // Teleports
 const playerTeleportTypes = [39, 97, 174, 195, 207, 208, 209, 210, 243, 244, 262, 263];
-const createTeleportDefinition = (type: number, trigger: string, translateFn: typeof teleportReorientMove, specialEffects: typeof teleportSoundAndFog, targetFn: typeof teleportThingInSectorTarget) => ({
-    type,
+const createTeleportDefinition = (trigger: string, translateFn: typeof teleportReorientMove, specialEffects: typeof teleportSoundAndFog, targetFn: typeof teleportThingInSectorTarget) => ({
     translateFn,
     specialEffects,
     targetFn,
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
-    movePlayer: playerTeleportTypes.includes(type),
     monsterTrigger: true,
 });
 
@@ -1044,38 +1021,11 @@ export const telefragTargets = (mobj: MapObject) => {
     });
 }
 
-const teleportDefinitions = [
-    createTeleportDefinition(39, 'W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
-    createTeleportDefinition(97, 'WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
-    createTeleportDefinition(126, 'WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
-    createTeleportDefinition(125, 'W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
-    // extended
-    createTeleportDefinition(174, 'S1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
-    createTeleportDefinition(195, 'SR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget),
-    createTeleportDefinition(207, 'W1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
-    createTeleportDefinition(208, 'WR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
-    createTeleportDefinition(209, 'S1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
-    createTeleportDefinition(210, 'SR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget),
-    createTeleportDefinition(243, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTag),
-    createTeleportDefinition(244, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTag),
-    createTeleportDefinition(262, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
-    createTeleportDefinition(263, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
-    createTeleportDefinition(264, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
-    createTeleportDefinition(265, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed),
-    createTeleportDefinition(266, 'W1', teleportPreserveMove, noSpecialEffects, lineWithTag),
-    createTeleportDefinition(267, 'WR', teleportPreserveMove, noSpecialEffects, lineWithTag),
-    createTeleportDefinition(268, 'W1', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget),
-    createTeleportDefinition(269, 'WR', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget),
-];
-
-export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+const applyTeleportAction =
+        (def: ReturnType<typeof createTeleportDefinition>) =>
+        (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     if (side === 1) {
         // don't triggering teleports when leaving the teleport space
-        return;
-    }
-    const def = teleportDefinitions.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid teleport special', linedef.special);
         return;
     }
     if (def.trigger !== trigger) {
@@ -1084,7 +1034,8 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     if (mobj.isMonster && !def.monsterTrigger) {
         return;
     }
-    if (mobj.type === MapObjectIndex.MT_PLAYER && !def.movePlayer) {
+    const movePlayer = playerTeleportTypes.includes(linedef.special);
+    if (mobj.type === MapObjectIndex.MT_PLAYER && !movePlayer) {
         return;
     }
     if (!def.repeatable) {
@@ -1120,8 +1071,32 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     return triggered ? def : undefined;
 };
 
+const teleportDefinitions = {
+    39: applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+    97: applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+    126: applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+    125: applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+    // extended
+    174: applyTeleportAction(createTeleportDefinition('S1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+    195: applyTeleportAction(createTeleportDefinition('SR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+    207: applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
+    208: applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
+    209: applyTeleportAction(createTeleportDefinition('S1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
+    210: applyTeleportAction(createTeleportDefinition('SR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
+    243: applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTag)),
+    244: applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTag)),
+    262: applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
+    263: applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
+    264: applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
+    265: applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
+    266: applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTag)),
+    267: applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTag)),
+    268: applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget)),
+    269: applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget)),
+};
+
 // Donut (apparently only in E1M2, E2M2 and MAP21 of tnt (none in Doom2 or plutonia)
-export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     const map = mobj.map;
     const def = { trigger: 'S', repeatable: false };
     if (trigger !== def.trigger) {
@@ -1200,8 +1175,7 @@ export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, s
 };
 
 // Rising Stairs
-const risingStarDefinition = (type: number, trigger: string, speed: number, stepSize: number) => ({
-    type,
+const risingStairDefinition = (trigger: string, speed: number, stepSize: number) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     direction: 1,
@@ -1209,20 +1183,10 @@ const risingStarDefinition = (type: number, trigger: string, speed: number, step
     speed,
 });
 
-const risingStairs = [
-    risingStarDefinition(7, 'S1', .25, 8),
-    risingStarDefinition(8, 'W1', .25, 8),
-    risingStarDefinition(127, 'S1', 4, 16),
-    risingStarDefinition(100, 'W1', 4, 16),
-];
-
-export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+const createRisingStairAction =
+        (def: ReturnType<typeof risingStairDefinition>) =>
+        (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
     const map = mobj.map;
-    const def = risingStairs.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid riser special', linedef.special);
-        return;
-    }
     if (def.trigger !== trigger) {
         return;
     }
@@ -1269,6 +1233,13 @@ export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigg
     return triggered ? def : undefined;
 };
 
+const risingStairs = {
+    7: createRisingStairAction(risingStairDefinition('S1', .25, 8)),
+    8: createRisingStairAction(risingStairDefinition('W1', .25, 8)),
+    127: createRisingStairAction(risingStairDefinition('S1', 4, 16)),
+    100: createRisingStairAction(risingStairDefinition('W1', 4, 16)),
+};
+
 // rising floors needs a more strict implementation of sectorNeighbours(). Thanks Plutonia MAP24...
 function raiseFloorsectors(sector: Sector, mapLinedefs: LineDef[]): Sector[] {
     const sectors = [];
@@ -1312,26 +1283,15 @@ function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number,
 }
 
 // Level exits
-const levelExitDefinitions = (type: number, trigger: string, place: 'normal' | 'secret') => ({
-    type,
+const levelExitDefinitions = (trigger: string, place: 'normal' | 'secret') => ({
     trigger: trigger[0] as TriggerType,
     place,
     repeatable: false,
 });
 
-const levelExits = [
-    levelExitDefinitions(11, 'S1', 'normal'),
-    levelExitDefinitions(52, 'W1', 'normal'),
-    levelExitDefinitions(51, 'S1', 'secret'),
-    levelExitDefinitions(124, 'W1', 'secret'),
-];
-
-export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
-    const def = levelExits.find(e => e.type === linedef.special);
-    if (!def) {
-        console.warn('invalid level exit special', linedef.special);
-        return;
-    }
+const createLevelExitAction =
+        (def: ReturnType<typeof levelExitDefinitions>) =>
+        (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     if (def.trigger !== trigger) {
         return;
     }
@@ -1342,6 +1302,13 @@ export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger
     exitLevel(mobj, def.place);
     // level exists always trigger the switch (but it won't be rendered anyway)
     return def;
+};
+
+const levelExits = {
+    11: createLevelExitAction(levelExitDefinitions('S1', 'normal')),
+    52: createLevelExitAction(levelExitDefinitions('W1', 'normal')),
+    51: createLevelExitAction(levelExitDefinitions('S1', 'secret')),
+    124: createLevelExitAction(levelExitDefinitions('W1', 'secret')),
 };
 
 export function exitLevel(mobj: MapObject, target: 'secret' | 'normal', nextMapOverride?: string) {
