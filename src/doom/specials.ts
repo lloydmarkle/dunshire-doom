@@ -78,7 +78,7 @@ const floorValue = (map: MapRuntime, sector: Sector) => sector.zFloor;
 const adjust = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
 
 type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector;
-const selectNum = (map: MapRuntime, sector: Sector) => {
+const numModel = (map: MapRuntime, sector: Sector) => {
     let line: LineDef = null;
     for (const ld of map.data.linedefs) {
         if (ld.left) {
@@ -90,9 +90,7 @@ const selectNum = (map: MapRuntime, sector: Sector) => {
     return line ? line.right.sector : sector;
 }
 
-const selectTrigger = (map: MapRuntime, sector: Sector, linedef: LineDef) => {
-    return (!linedef.left || sector === linedef.left.sector) ? linedef.right.sector : linedef.left.sector;
-}
+const triggerModel = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector;
 
 // effects
 type EffectFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => void;
@@ -452,22 +450,22 @@ const createLiftAction =
 // Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
 const liftDefinitions = {
     10: createLiftAction(liftDefinition('W1m', 3, 4, -1, floorValue)),
-    14: createLiftAction(liftDefinition('S1', 0, .5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
-    15: createLiftAction(liftDefinition('S1', 0, .5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger))),
-    20: createLiftAction(liftDefinition('S1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    14: createLiftAction(liftDefinition('S1', 0, .5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
+    15: createLiftAction(liftDefinition('S1', 0, .5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], triggerModel))),
+    20: createLiftAction(liftDefinition('S1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
     21: createLiftAction(liftDefinition('S1', 3, 4, -1, floorValue)),
-    22: createLiftAction(liftDefinition('W1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
-    47: createLiftAction(liftDefinition('G1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    22: createLiftAction(liftDefinition('W1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
+    47: createLiftAction(liftDefinition('G1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
     53: createLiftAction(liftDefinition('W1', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual')),
     54: createLiftAction(liftDefinition('W1', 0, 0, 0, floorValue, 'stop')),
-    66: createLiftAction(liftDefinition('SR', 0, 0.5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger))),
+    66: createLiftAction(liftDefinition('SR', 0, 0.5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], triggerModel))),
     62: createLiftAction(liftDefinition('SR', 3, 4, -1, floorValue)),
-    67: createLiftAction(liftDefinition('SR', 0, 0.5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
-    68: createLiftAction(liftDefinition('SR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    67: createLiftAction(liftDefinition('SR', 0, 0.5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
+    68: createLiftAction(liftDefinition('SR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
     87: createLiftAction(liftDefinition('WR', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual')),
     88: createLiftAction(liftDefinition('WRm', 3, 4, -1, floorValue)),
     89: createLiftAction(liftDefinition('WR', 0, 0, 0, floorValue, 'stop')),
-    95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger))),
+    95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
     120: createLiftAction(liftDefinition('WR', 3, 8, -1, floorValue)),
     121: createLiftAction(liftDefinition('W1', 3, 8, -1, floorValue)),
     122: createLiftAction(liftDefinition('S1', 3, 8, -1, floorValue)),
@@ -562,13 +560,13 @@ const floorDefinitions = {
     24: createFloorAction(floorDefinition('G1', 1, 1, null, false, lowestNeighbourCeiling)),
     30: createFloorAction(floorDefinition('W1', 1, 1, null, false, shortestLowerTexture)),
     36: createFloorAction(floorDefinition('W1', -1, 4, null,  false, adjust(highestNeighbourFloor, 8))),
-    37: createFloorAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor)),
+    37: createFloorAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel), false, lowestNeighbourFloor)),
     38: createFloorAction(floorDefinition('W1', -1, 1, null, false, lowestNeighbourFloor)),
     45: createFloorAction(floorDefinition('SR', -1, 1, null,  false, highestNeighbourFloor)),
     55: createFloorAction(floorDefinition('S1', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8))),
     56: createFloorAction(floorDefinition('W1', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8))),
     58: createFloorAction(floorDefinition('W1', 1, 1, null, false, adjust(floorValue, 24))),
-    59: createFloorAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24))),
+    59: createFloorAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  false, adjust(floorValue, 24))),
     60: createFloorAction(floorDefinition('SR', -1, 1, null, false, lowestNeighbourFloor)),
     64: createFloorAction(floorDefinition('SR', 1, 1, null, false, lowestNeighbourCeiling)),
     65: createFloorAction(floorDefinition('SR', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8))),
@@ -577,10 +575,10 @@ const floorDefinitions = {
     71: createFloorAction(floorDefinition('S1', -1, 4, null,  false, adjust(highestNeighbourFloor, 8))),
     82: createFloorAction(floorDefinition('WR', -1, 1, null, false, lowestNeighbourFloor)),
     83: createFloorAction(floorDefinition('WR', -1, 1, null,  false, highestNeighbourFloor)),
-    84: createFloorAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor)),
+    84: createFloorAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel), false, lowestNeighbourFloor)),
     91: createFloorAction(floorDefinition('WR', 1, 1, null, false, lowestNeighbourCeiling)),
     92: createFloorAction(floorDefinition('WR', 1, 1, null, false, adjust(floorValue, 24))),
-    93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24))),
+    93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  false, adjust(floorValue, 24))),
     94: createFloorAction(floorDefinition('WR', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8))),
     96: createFloorAction(floorDefinition('WR', 1, 1, null, false, shortestLowerTexture)),
     98: createFloorAction(floorDefinition('WR', -1, 4, null,  false, adjust(highestNeighbourFloor, 8))),
