@@ -21,7 +21,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         return;
     }
 
-    const action =
+    let action =
         doorDefinitions[linedef.special] ??
         liftDefinitions[linedef.special] ??
         floorDefinitions[linedef.special] ??
@@ -34,7 +34,38 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
     if (action) {
         return action(mobj, linedef, trigger, side);
     }
-    console.warn('unsupported linedef special:', linedef.special, linedef.num);
+
+    if (linedef.special > 24_576 && linedef.special < 32_767) {
+        const fx = (linedef.special & 0x0c00) >> 10;
+        const model = ((linedef.special & 0x0020) >> 5) ? triggerModel : numModel;
+        const direction = ((linedef.special & 0x0040) >> 6) ? 1 : -1;
+        const monsterActivated = ((fx === 0 && (linedef.special & 0x0020) >> 5) ? 'm' : '');
+        const def = floorDefinition(
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterActivated,
+            direction,
+            [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
+            [
+                null,
+                effect([zeroSectorType], model),
+                effect([assignFloorFlat], model),
+                effect([assignFloorFlat, zeroSectorType], model),
+            ][fx],
+            [
+                highestNeighbourFloor,
+                lowestNeighbourFloor,
+                direction > 0 ? nextNeighbourFloor : nextNeighbourFloorAbove,
+                lowestNeighbourCeiling,
+                ceilingHeight, //??
+                shortestLowerTexture,
+                adjust(floorValue, 24),
+                adjust(floorValue, 32),
+            ][(linedef.special & 0x0380) >> 7],
+            Boolean((linedef.special & 0x1000) >> 12),
+        );
+        action = createFloorAction(def);
+        return action(mobj, linedef, trigger, side);
+    }
+    console.warn('unsupported linedef special:', linedef.special);
 }
 
 const ignoreLines = new Set([
@@ -61,11 +92,14 @@ const highestNeighbourFloorInclusive = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), sector.zFloor);
 const nextNeighbourFloor = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor > sector.zFloor ? sec.zFloor : last), sector.zFloor);
+const nextNeighbourFloorAbove = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor < sector.zFloor ? Math.min(last, sec.zFloor) : last, floorMax);
 const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
 const highestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), -floorMax);
 const floorHeight = (map: MapRuntime, sector: Sector) => sector.zFloor;
+const ceilingHeight = (map: MapRuntime, sector: Sector) => sector.zCeil;
 
 const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     let target = floorMax;
@@ -1430,7 +1464,7 @@ export function pusherAction(map: MapRuntime, linedef: LineDef) {
     const action = () => {
         // group mobjs by sector _before_ moving because otherwise the mobj may be put into another sector
         // that also moves. Actually, that can still happen if the mobj moves to a different pusher but from the
-        // little testing I've done (cchest MAP02), it's expect.
+        // little testing I've done (cchest MAP02), it's expected.
         const sectorMobjs = sectors.map(sector => sectorObjects(map, sector).filter(e => e.onGround));
         for (const mobjs of sectorMobjs) {
             for (let i = 0; i < mobjs.length; i++) {
