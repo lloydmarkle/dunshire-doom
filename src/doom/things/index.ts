@@ -34,11 +34,16 @@ export interface ThingSpec extends ThingType {
     moType: MapObjectIndex;
 }
 
-export const things = [monsters, weaponItems, ammunitions, items, powerups, keys, obstacles, decorations, other].flat();
+const specCache: { [key in MapObjectIndex]?: ThingSpec } = {};
+const things = [monsters, weaponItems, ammunitions, items, powerups, keys, obstacles, decorations, other].flat();
 export function thingSpec(moType: MapObjectIndex): ThingSpec {
-    const mo = mapObjectInfo[moType];
-    const t = things.find(e => e.type === mo.doomednum);
-    return { ...t, moType, mo: mapObjectInfo[moType] };
+    let spec = specCache[moType];
+    if (!spec) {
+        const mo = mapObjectInfo[moType];
+        const t = things.find(e => e.type === mo.doomednum);
+        specCache[moType] = spec = { ...t, moType, mo };
+    }
+    return spec;
 }
 
 const noActions = {};

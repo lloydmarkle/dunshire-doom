@@ -8,7 +8,7 @@ const params = {
     wadNames: [
         'doom2',
         'oversaturationrc1',
-        'sunder 2407'
+        'sunder 2407',
         // 'cosmogenesis',
         // 'nuts',
     ],

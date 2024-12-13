@@ -278,7 +278,8 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         const sector = map.data.findSector(mo.position.x, mo.position.y);
         mo.sectorMap.set(sector, mobjRev);
         radiusTracer({ start: mo.position, move: zeroVec, radius }, block => {
-            for (const seg of block.segs) {
+            for (let i = 0; i < block.segs.length; i++) {
+                const seg = block.segs[i];
                 const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
                 if (hit) {
                     const sector = seg.direction ? seg.linedef.left.sector : seg.linedef.right.sector;
@@ -380,7 +381,8 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
 
         if (params.hitLine) {
             // collide with walls
-            for (const seg of block.segs) {
+            for (let i = 0; i < block.segs.length; i++) {
+                const seg = block.segs[i];
                 if (seg.blockHit === scanN) {
                     continue;
                 }
@@ -411,7 +413,8 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         }
 
         if (params.hitFlat) {
-            for (const subsector of block.subsectors) {
+            for (let i = 0; i < block.subsectors.length; i++) {
+                const subsector = block.subsectors[i];
                 if (subsector.blockHit === scanN) {
                     continue;
                 }

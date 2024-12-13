@@ -974,30 +974,31 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
     // (players nad floating monsters can though)
     const maxFloorChangeOK = (mobj.info.flags & MFFlags.MF_FLOAT) || maxFloorChange(mobj, move, moveRadius) <= maxStepSize;
 
-    return _precomputedHits.find(hit => {
+    for (let i = 0; i < _precomputedHits.length; i++) {
+        const hit = _precomputedHits[i];
         if ('mobj' in hit) {
             _nVec.set(mobj.position.x - hit.mobj.position.x, mobj.position.y - hit.mobj.position.y, 0);
             const moveDot = move.dot(_nVec);
             if (moveDot >= 0) {
-                return false;
+                continue;
             }
             const point = sweepAABBAABB(mobj.position, moveRadius, move, hit.mobj.position, hit.mobj.info.radius);
             if (!point) {
-                return false;
+                continue;
             }
         } else if ('line' in hit) {
             _nVec.set(hit.seg.v[1].y - hit.seg.v[0].y, hit.seg.v[0].x - hit.seg.v[1].x, 0);
             const moveDot = move.dot(_nVec);
             if (moveDot >= 0) {
-                return false;
+                continue;
             }
             const point = sweepAABBLine(mobj.position, moveRadius, move, hit.seg.v);
             if (!point) {
-                return false;
+                continue;
             }
 
             if (!hit.line.left) {
-                return true;
+                return hit;
             }
 
             const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
@@ -1008,7 +1009,10 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
                 // because it means we are moving away from the wall. For example, many imps in E1M7 are stuck in
                 // blocking wall/window ledges so this lets them move.
                 // Make sure front and back sectors are not the same (see grate walls after the zigzag in E1M1)
-                return !(mobj.sector === back && front !== back);
+                if (mobj.sector === back && front !== back) {
+                    continue;
+                }
+                return hit;
             }
 
             const stepUpOK =
@@ -1035,26 +1039,28 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
                         specialLines.push(hit);
                     }
                 }
-                return false; // step/ceiling/drop-off collision is okay so try next line
+                continue; // step/ceiling/drop-off collision is okay so try next line
             }
         }
-        return true;
-    });
+        return hit;
+    }
+    return null;
 }
 
 function maxFloorChange(mobj: MapObject, move: Vector3, radius: number) {
     let highestZFloor = mobj.sector.zFloor;
     let lowestZFloor = mobj.sector.zFloor;
-    _precomputedHits.forEach(hit => {
+    for (let i = 0; i < _precomputedHits.length; i++) {
+        const hit = _precomputedHits[i];
         if ('line' in hit) {
             const point = sweepAABBLine(mobj.position, radius, move, hit.seg.v);
             if (!point) {
-                return;
+                continue;
             }
             highestZFloor = Math.max(highestZFloor, hit.sector.zFloor);
             lowestZFloor = Math.min(lowestZFloor, hit.sector.zFloor);
         }
-    });
+    }
     return (highestZFloor - lowestZFloor);
 }
 
