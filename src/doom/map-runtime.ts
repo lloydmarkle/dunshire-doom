@@ -226,10 +226,11 @@ export class MapRuntime {
         if (thing.flags & 0x0010 && this.game.mode === 'solo') {
             return; // multiplayer only
         }
-        const skillMatch = (
-            (thing.flags & 0x0001 && (this.game.skill === 1 || this.game.skill === 2)) ||
-            (thing.flags & 0x0002 && (this.game.skill === 3)) ||
-            (thing.flags & 0x0004 && (this.game.skill === 4 || this.game.skill === 5))
+        const skillMatch = (false
+            || (thing.flags & 0x0001 && (this.game.skill === 1 || this.game.skill === 2))
+            || (thing.flags & 0x0002 && (this.game.skill === 3))
+            || (thing.flags & 0x0004 && (this.game.skill === 4 || this.game.skill === 5))
+            || (thing.type === 1 && thing.flags === 0)
         );
         if (!skillMatch) {
             return;
