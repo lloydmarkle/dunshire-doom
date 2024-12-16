@@ -974,7 +974,7 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
     // (players nad floating monsters can though)
     const maxFloorChangeOK = (mobj.info.flags & MFFlags.MF_FLOAT) || maxFloorChange(mobj, move, moveRadius) <= maxStepSize;
 
-    for (let i = 0; i < _precomputedHits.length; i++) {
+    for (let i = 0, n = _precomputedHits.length; i < n; i++) {
         const hit = _precomputedHits[i];
         if ('mobj' in hit) {
             _nVec.set(mobj.position.x - hit.mobj.position.x, mobj.position.y - hit.mobj.position.y, 0);
@@ -1050,7 +1050,7 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
 function maxFloorChange(mobj: MapObject, move: Vector3, radius: number) {
     let highestZFloor = mobj.sector.zFloor;
     let lowestZFloor = mobj.sector.zFloor;
-    for (let i = 0; i < _precomputedHits.length; i++) {
+    for (let i = 0, n = _precomputedHits.length; i < n; i++) {
         const hit = _precomputedHits[i];
         if ('line' in hit) {
             const point = sweepAABBLine(mobj.position, radius, move, hit.seg.v);

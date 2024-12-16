@@ -212,6 +212,7 @@ export interface Block {
 function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     // newer maps (and UDMF) don't have block so skip the lump and just compute it
     const blockSize = 128;
+    const invBlockSize = 1 / blockSize;
     let minX = vertexes[0].x;
     let maxX = vertexes[0].y;
     let minY = vertexes[0].x;
@@ -235,8 +236,8 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     const dimensions = {
         originX: minX,
         originY: minY,
-        numCols: Math.ceil((maxX - minX) / blockSize),
-        numRows: Math.ceil((maxY - minY) / blockSize),
+        numCols: Math.ceil((maxX - minX) * invBlockSize),
+        numRows: Math.ceil((maxY - minY) * invBlockSize),
     }
 
     const blocks = Array<Block>(dimensions.numCols * dimensions.numRows);
@@ -256,11 +257,11 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             }
         }
 
-        let bx = Math.floor((subsector.bounds.left - minX) / blockSize);
-        let xEnd = Math.floor((subsector.bounds.right - minX) / blockSize) + 1;
-        let yEnd = Math.floor((subsector.bounds.bottom - minY) / blockSize) + 1;
+        let bx = Math.floor((subsector.bounds.left - minX) * invBlockSize);
+        let xEnd = Math.floor((subsector.bounds.right - minX) * invBlockSize) + 1;
+        let yEnd = Math.floor((subsector.bounds.bottom - minY) * invBlockSize) + 1;
         for (; bx < dimensions.numCols && bx < xEnd; bx++) {
-            let by = Math.floor((subsector.bounds.top - minY) / blockSize);
+            let by = Math.floor((subsector.bounds.top - minY) * invBlockSize);
             for (; by < dimensions.numRows && by < yEnd; by++) {
                 const block = blocks[by * dimensions.numCols + bx];
                 subsector.blocks.push(block);
@@ -277,8 +278,8 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         // collect the sectors we're currently in and any other sectors we are touching
         const sector = map.data.findSector(mo.position.x, mo.position.y);
         mo.sectorMap.set(sector, mobjRev);
-        radiusTracer({ start: mo.position, move: zeroVec, radius }, block => {
-            for (let i = 0; i < block.segs.length; i++) {
+        radiusTracer(mo.position, radius, block => {
+            for (let i = 0, n = block.segs.length; i < n; i++) {
                 const seg = block.segs[i];
                 const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
                 if (hit) {
@@ -291,7 +292,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         });
 
         mo.sectorMap.forEach((rev, sector) => {
-            if (rev !== mobjRev || mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
+            if (mobjRev !== rev || mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
                 map.sectorObjs.get(sector).delete(mo);
                 mo.sectorMap.delete(sector);
             } else {
@@ -381,7 +382,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
 
         if (params.hitLine) {
             // collide with walls
-            for (let i = 0; i < block.segs.length; i++) {
+            for (let i = 0, n = block.segs.length; i < n; i++) {
                 const seg = block.segs[i];
                 if (seg.blockHit === scanN) {
                     continue;
@@ -413,7 +414,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         }
 
         if (params.hitFlat) {
-            for (let i = 0; i < block.subsectors.length; i++) {
+            for (let i = 0, n = block.subsectors.length; i < n; i++) {
                 const subsector = block.subsectors[i];
                 if (subsector.blockHit === scanN) {
                     continue;
@@ -481,12 +482,12 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         }
     }
 
-    const radiusTracer = (params: TraceParams, hitBlock: (block: Block) => void) => {
-        let bx = Math.max(0, Math.floor((params.start.x - params.radius - minX) / blockSize));
-        let xEnd = Math.floor((params.start.x + params.radius - minX) / blockSize) + 1;
-        let yEnd = Math.floor((params.start.y + params.radius - minY) / blockSize) + 1;
+    const radiusTracer = (pos: Vertex, radius: number, hitBlock: (block: Block) => void) => {
+        let bx = Math.max(0, Math.floor((pos.x - radius - minX) * invBlockSize));
+        let xEnd = Math.floor((pos.x + radius - minX) * invBlockSize) + 1;
+        let yEnd = Math.floor((pos.y + radius - minY) * invBlockSize) + 1;
         for (; bx < dimensions.numCols && bx < xEnd; bx++) {
-            let by = Math.max(0, Math.floor((params.start.y - params.radius - minY) / blockSize));
+            let by = Math.max(0, Math.floor((pos.y - radius - minY) * invBlockSize));
             for (; by < dimensions.numRows && by < yEnd; by++) {
                 hitBlock(blocks[by * dimensions.numCols + bx]);
             }
@@ -502,7 +503,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         return (params: TraceParams, hitBlock: (block: Block) => boolean) => {
             // our AmanatidesWooTrace doesn't handle zero movement well so do a special trace for that
             if (params.move.lengthSq() < 0.001) {
-                radiusTracer(params, hitBlock);
+                radiusTracer(params.start, params.radius, hitBlock);
                 return;
             }
 

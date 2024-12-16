@@ -318,9 +318,9 @@ export class MapObject {
 
         this.info.height *= .25;
         if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate !== StateIndex.S_NULL) {
-            this._state.setState(this.info.xdeathstate, -this.rng.int(0, 2));
+            this.setState(this.info.xdeathstate, -this.rng.int(0, 2));
         } else {
-            this._state.setState(this.info.deathstate, -this.rng.int(0, 2));
+            this.setState(this.info.deathstate, -this.rng.int(0, 2));
         }
 
         // Some enemies drop things (guns or ammo) when they die

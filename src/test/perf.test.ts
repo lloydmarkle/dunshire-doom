@@ -44,16 +44,11 @@ const stats = (arr: number[], usePopulation = false) => {
 
 describe('perf', () => {
     it('benchmark', async () => {
-        // const wadStore = new WadStore();
-        // const wadResolvers = wadNames.map(name => wadStore.fetchWad(name).then(buff => new WadFile(name, buff)));
-        // const wads = await Promise.all(wadResolvers);
         const wads = params.wadNames.map(wad => {
             const buff = fs.readFileSync(path.join(process.env.WADROOT, wad + '.wad'))
             return new WadFile(wad, buff);
         })
         const wad = new DoomWad(params.wadNames.join('+'), wads);
-        // TODO: we use some browser APIs here but if we can separate those a little better, we can save some code here
-        // const settings = createAppContext().settings;
         const settings = createDefaultSettings();
         const game = new Game(wad, 4, settings);
         game.startMap(params.mapName);
@@ -75,14 +70,14 @@ describe('perf', () => {
         // simulate several ticks of the game several times to calculate some averages
         for (let i = 0; i < params.testReps; i++) {
             runInNewContext('gc')();
-            const mstart = memoryUsage.rss();
-            const tstart = performance.now();
-            const endTime = tstart + params.testDurationSeconds * 1000;
+            const tStart = Math.trunc(game.time.tick.val);
+            const mStart = memoryUsage.rss();
+            const endTime = performance.now() + params.testDurationSeconds * 1000;
             while (performance.now() < endTime) {
                 game.tick(params.timeIntervalMS);
-                ticks[i] += 1;
             }
-            memory.push((memoryUsage.rss() - mstart) / megabyte);
+            ticks[i] = Math.trunc(game.time.tick.val) - tStart;
+            memory.push((memoryUsage.rss() - mStart) / megabyte);
             process.stdout.write('.')
         }
         obs.disconnect();
