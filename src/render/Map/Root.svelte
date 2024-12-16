@@ -24,7 +24,7 @@
     const interact = interactivity({ enabled: $editor.active });
     $: interact.enabled.set($editor.active);
 
-    const bridge = bridgeEventsToReadables(map);
+    const bridge = bridgeEventsToReadables(map, renderSectors);
     onDestroy(bridge.dispose);
 
     // Another similar hack

@@ -12,7 +12,8 @@
     export let size: Size;
     export let map: MapRuntime;
 
-    const bridge = bridgeEventsToReadables(map);
+    const { renderSectors } = useDoomMap();
+    const bridge = bridgeEventsToReadables(map, renderSectors);
     onDestroy(bridge.dispose);
 
     let mobjs: MObj[] = map.objs as any;
@@ -68,7 +69,6 @@
     }
 
     const debugShowSubsectors = false;
-    const { renderSectors } = useDoomMap();
     const namedColor = (n: number) =>
         '#' + Object.values(Color.NAMES)[n % Object.keys(Color.NAMES).length].toString(16).padStart(6, '0');
 </script>

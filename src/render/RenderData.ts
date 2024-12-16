@@ -11,12 +11,9 @@ import {
     type MapObject,
     type MapRuntime,
     store,
-    MFFlags,
     type Line,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
-import { derived, readable, type Readable } from "svelte/store";
-import { Trash } from "@steeze-ui/heroicons";
 
 // all flats (floors/ceilings) are 64px
 const flatRepeat = 1 / 64;
@@ -106,7 +103,7 @@ export interface RenderSector {
     geometry: BufferGeometry;
     extraFlats: ExtraFlat[];
     flatLighting: Sector;
-    mobjs: Store<Set<MapObject>>;
+    mobjs: Store<Set<MapObject>>; // R1 only
 }
 
 // Hmm... if we get rid of R1, perhaps we could merge this logic into GeometryBuilder? It seems related.
@@ -298,37 +295,8 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             });
         }
     }
-
-    // keep render sector mobjs lists in sync with mobjs. The assumption here is that most objects won't change sectors
-    // very often therefore it is cheaper to maintain the list this way rather than filtering the mobj list when
-    // rendering the sector. On the other hand, we are updating lists when most sectors aren't even visible so...
-    // TODO: Need some profiler input here,
-    let mobjMap = new Map<MapObject, RenderSector>();
-    const monitor = (mobj: MapObject) => {
-        let sector: Sector = null;
-        if (mobj.info.flags & MFFlags.MF_NOSECTOR) {
-            return;
-        }
-        if (mobj.sector !== sector) {
-            sector = mobj.sector;
-            const lastRS = mobjMap.get(mobj);
-            lastRS?.mobjs.update(s => { s.delete(mobj); return s });
-            const nextRS = secMap.get(sector);
-            mobjMap.set(mobj, nextRS)
-            nextRS.mobjs.update(s => s.add(mobj));
-        }
-    }
-    const unmonitor = (mobj: MapObject) => {
-        const lastRS = mobjMap.get(mobj);
-        lastRS?.mobjs.update(s => { s.delete(mobj); return s });
-        mobjMap.delete(mobj);
-    }
     // for HMR, this seems like a good place to do this
     mapRuntime.events.removeAllListeners();
-    mapRuntime.objs.forEach(monitor);
-    mapRuntime.events.on('mobj-added', monitor);
-    mapRuntime.events.on('mobj-removed', unmonitor);
-    mapRuntime.events.on('mobj-updated-position', monitor);
 
     console.timeEnd('b-rs')
     return rSectors;

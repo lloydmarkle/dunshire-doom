@@ -1,5 +1,6 @@
 import type { Vector3 } from 'three';
-import { MapRuntime, PlayerMapObject as PMO, store, type LineDef, type MapObject as MO, type Sector, type Sprite, type Store } from '../../doom';
+import { MapRuntime, MFFlags, PlayerMapObject as PMO, store, type LineDef, type MapObject as MO, type Sector, type Sprite, type Store } from '../../doom';
+import type { RenderSector } from '../RenderData';
 
 interface RenderData {
     position: Store<Vector3>
@@ -16,7 +17,7 @@ export interface PlayerMapObject extends PMO {
 }
 export type MapObject = MapObject1 | PlayerMapObject;
 
-export function bridgeEventsToReadables(map: MapRuntime) {
+export function bridgeEventsToReadables(map: MapRuntime, renderSectors: RenderSector[]) {
     // This is a hack to re-enable the $sprite readable for R1.
     const updateSprite = (mo: MapObject, sprite: Sprite) => {
         mo.renderData['direction']?.set(mo.direction);
@@ -85,10 +86,44 @@ export function bridgeEventsToReadables(map: MapRuntime) {
     map.events.on('sector-z', updateSectorZ);
     map.events.on('wall-texture', updateTexture);
 
+    // keep render sector mobjs lists in sync with mobjs. The assumption here is that most objects won't change sectors
+    // very often therefore it is cheaper to maintain the list this way rather than filtering the mobj list when
+    // rendering the sector. On the other hand, we are updating lists when most sectors aren't even visible so...
+    // TODO: Need some profiler input here,
+    let secMap = new Map<Sector, RenderSector>();
+    renderSectors.forEach(rs => secMap.set(rs.sector, rs));
+    let mobjMap = new Map<MapObject, RenderSector>();
+    const monitor = (mobj: MapObject) => {
+        let sector: Sector = null;
+        if (mobj.info.flags & MFFlags.MF_NOSECTOR) {
+            return;
+        }
+        if (mobj.sector !== sector) {
+            sector = mobj.sector;
+            const lastRS = mobjMap.get(mobj);
+            lastRS?.mobjs.update(s => { s.delete(mobj); return s });
+            const nextRS = secMap.get(sector);
+            mobjMap.set(mobj, nextRS)
+            nextRS.mobjs.update(s => s.add(mobj));
+        }
+    }
+    const unmonitor = (mobj: MapObject) => {
+        const lastRS = mobjMap.get(mobj);
+        lastRS?.mobjs.update(s => { s.delete(mobj); return s });
+        mobjMap.delete(mobj);
+    }
+    map.objs.forEach(monitor);
+    map.events.on('mobj-added', monitor);
+    map.events.on('mobj-removed', unmonitor);
+    map.events.on('mobj-updated-position', monitor);
+
     const dispose = () => {
         map.events.off('mobj-added', addMobj);
         map.events.off('mobj-updated-position', updateMobjPosition);
         map.events.off('mobj-updated-sprite', updateSprite);
+        map.events.off('mobj-added', monitor);
+        map.events.off('mobj-removed', unmonitor);
+        map.events.off('mobj-updated-position', monitor);
         map.events.off('sector-flat', updateSectorFlat);
         map.events.off('sector-light', updateSectorLight);
         map.events.off('sector-z', updateSectorZ);
