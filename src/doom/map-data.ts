@@ -278,6 +278,11 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         // collect the sectors we're currently in and any other sectors we are touching
         const sector = map.data.findSector(mo.position.x, mo.position.y);
         mo.sectorMap.set(sector, mobjRev);
+        if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
+            map.sectorObjs.get(sector).add(mo);
+            return sector;
+        }
+
         radiusTracer(mo.position, radius, block => {
             for (let i = 0, n = block.segs.length; i < n; i++) {
                 const seg = block.segs[i];
@@ -292,7 +297,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         });
 
         mo.sectorMap.forEach((rev, sector) => {
-            if (mobjRev !== rev || mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
+            if (mobjRev !== rev) {
                 map.sectorObjs.get(sector).delete(mo);
                 mo.sectorMap.delete(sector);
             } else {
@@ -300,7 +305,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             }
         });
         mo.blocks.forEach((rev, block) => {
-            if (mobjRev !== rev || mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
+            if (mobjRev !== rev) {
                 block.mobjs.delete(mo);
                 mo.blocks.delete(block);
             }
