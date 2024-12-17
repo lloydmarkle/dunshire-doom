@@ -71,13 +71,13 @@ describe('perf', () => {
         for (let i = 0; i < params.testReps; i++) {
             runInNewContext('gc')();
             const tStart = Math.trunc(game.time.tick.val);
-            const mStart = memoryUsage.rss();
+            const mStart = memoryUsage().heapUsed;
             const endTime = performance.now() + params.testDurationSeconds * 1000;
             while (performance.now() < endTime) {
                 game.tick(params.timeIntervalMS);
             }
             ticks[i] = Math.trunc(game.time.tick.val) - tStart;
-            memory.push((memoryUsage.rss() - mStart) / megabyte);
+            memory.push((memoryUsage().heapUsed - mStart) / megabyte);
             process.stdout.write('.')
         }
         obs.disconnect();
