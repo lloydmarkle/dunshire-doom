@@ -11,6 +11,8 @@
     import WipeContainer from './render/Components/WipeContainer.svelte';
     import ErrorScreen from './Screens/Errors/Root.svelte';
     import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
+    import ENDOOM from './Screens/ENDOOM.svelte';
+    import { fly } from 'svelte/transition';
 
     const wadStore = new WadStore();
     const availableWads = wadStore.wads;
@@ -40,6 +42,7 @@
     let game: Game;
     let difficulty: Skill = null;
     let urlMapName: string;
+    let showEndoom = false;
 
     async function parseUrlParams() {
         try {
@@ -88,6 +91,8 @@
             }
         }
 
+        showEndoom = params.has('endoom');
+
         const urlSkill = parseInt(params.get('skill'));
         const clippedSkill = Math.min(5, Math.max(1, isFinite(urlSkill) ? urlSkill : difficulty)) as Skill;
         const validUrlSkill = isFinite(urlSkill) && urlSkill === clippedSkill;
@@ -99,6 +104,7 @@
         urlMapName = params.get('map');
         if (urlMapName && validUrlSkill && (!game || game.map.val?.name !== urlMapName)) {
             game = new Game(wad, difficulty, context.settings);
+            showEndoom = true;
             game.startMap(urlMapName);
             loadOptionalUrlParams(game, params);
         }
@@ -119,13 +125,18 @@
         }
     }
 
+
     // keep url in sync with game
     $: map = game?.map;
     $: if ($map && urlMapName !== $map.name) {
         history.pushState(null, null, `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`);
     }
 
-    $: screenName = $error ? 'error' : game ? 'game' : 'start';
+    $: screenName =
+        game ? 'game' :
+        wad && showEndoom ? 'endoom':
+        $error ? 'error' :
+        'root';
 </script>
 
 <svelte:window on:popstate={parseUrlParams} />
@@ -136,14 +147,25 @@
     on:click|once={enableSoundOnce}
     use:context.pointerLock.pointerLockControls
     use:context.fullscreen.fullscreenControls
+    class="full"
 >
     <!-- <AABBSweepDebug /> -->
     <!-- <TextureMapScene /> -->
 
     <WipeContainer key={screenName}>
-        {#if $error}
+        {#if screenName === 'error'}
             <ErrorScreen error={$error} {wadStore} />
-        {:else if game}
+        {:else if screenName === 'endoom'}
+            <div class="absolute inset-0">
+                <ENDOOM {wad} />
+                <div
+                    transition:fly={{ y: '-100%', delay: 200 }}
+                    class="absolute top-0 bg-base-100 rounded-box shadow-xl"
+                >
+                    <a href="/#" class="btn btn-lg">Close</a>
+                </div>
+            </div>
+        {:else if screenName === 'game'}
             {#key game}
                 <Doom {game} {musicGain} {soundGain} />
             {/key}
@@ -173,5 +195,10 @@
                 padding-top: 60px;
             }
         }
+    }
+
+    .full {
+        width: 100vw;
+        height: 100vh;
     }
 </style>

@@ -117,7 +117,7 @@
     "
     class:hidden={showTouchControls}
     >
-        <div class="self-center pt-2"><a href="#{game.wad.name}"><Picture name="M_DOOM" /></a></div>
+        <div class="self-center pt-2"><a href="#{game.wad.name}&endoom"><Picture name="M_DOOM" /></a></div>
         <div class="px-2">
             <div class="flex gap-4 items-center pb-2">
                 {#if $intermission}
