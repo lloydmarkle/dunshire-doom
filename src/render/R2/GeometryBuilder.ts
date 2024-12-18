@@ -474,10 +474,25 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
         map.set(sector.num, list);
     }
 
+    const cacheTextures = (side: SideDef) => {
+        if (!side) return;
+        if (side.lower) textureAtlas.wallTexture(side.lower);
+        if (side.middle) textureAtlas.wallTexture(side.middle);
+        if (side.upper) textureAtlas.wallTexture(side.upper);
+    }
+
     for (const rs of renderSectors) {
         rs.linedefs.forEach(ld => {
             const updater = mapBuilder.addLinedef(ld);
             linedefUpdaters.set(ld.num, updater);
+
+            // In general, the necessary textures are cached as part of running the linedef updater however
+            // if a two-sided linedef has a left and right texture then it will only use one at startup and later
+            // (like, when a platform lowers) it may need the other but it may not be cached. So we explicitly cache
+            // textures to make sure we've loaded everything into the atlas
+            cacheTextures(ld.right);
+            cacheTextures(ld.left);
+
             appendUpdater(sectorZChanges, rs.sector, updater);
             appendUpdater(sectorZChanges, ld.right.sector.transfer?.right?.sector, updater);
             appendUpdater(sectorZChanges, ld.left?.sector, updater);
