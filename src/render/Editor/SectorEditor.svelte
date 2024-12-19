@@ -26,6 +26,10 @@
         sector.zFloor = $zFloor;
         sector.light = $light;
         // it's simpler to just notify that everything changed (even if it didn't)
+        map.sectorObjs.get(sector).forEach(mo => {
+            mo.sectorChanged(sector);
+            map.events.emit('mobj-updated-position', mo);
+        });
         map.events.emit('sector-flat', sector);
         map.events.emit('sector-light', sector);
         map.events.emit('sector-z', sector);
