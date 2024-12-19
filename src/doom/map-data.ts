@@ -53,7 +53,7 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
     if (num * len !== lump.data.length) {
         throw new Error('invalid lump: LINEDEFS');
     }
-    let lindefs = new Array<LineDef>(num);
+    let linedefs = new Array<LineDef>(num);
     for (let i = 0; i < num; i++) {
         const v0 = word(lump.data, 0 + i * len);
         const v1 = word(lump.data, 2 + i * len);
@@ -63,7 +63,7 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
         const rightSidedef = word(lump.data, 10 + i * len);
         const leftSidedef = word(lump.data, 12 + i * len);
 
-        lindefs[i] = {
+        linedefs[i] = {
             tag, special, flags,
             num: i,
             v: [vertexes[v0], vertexes[v1]],
@@ -73,8 +73,12 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
             hitC: 0,
             transparentWindowHack: false,
         };
+        if (!linedefs[i].right) {
+            console.warn('linedef missing front side', linedefs[i].num);
+            linedefs[i].right = linedefs[i].left ?? sidedefs[0];
+        }
     }
-    return lindefs;
+    return linedefs;
 }
 
 export const linedefSlope = (() => {
@@ -257,11 +261,11 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             }
         }
 
-        let bx = Math.floor((subsector.bounds.left - minX) * invBlockSize);
+        let bx = Math.max(0, Math.floor((subsector.bounds.left - minX) * invBlockSize));
         let xEnd = Math.floor((subsector.bounds.right - minX) * invBlockSize) + 1;
         let yEnd = Math.floor((subsector.bounds.bottom - minY) * invBlockSize) + 1;
         for (; bx < dimensions.numCols && bx < xEnd; bx++) {
-            let by = Math.floor((subsector.bounds.top - minY) * invBlockSize);
+            let by = Math.max(0, Math.floor((subsector.bounds.top - minY) * invBlockSize));
             for (; by < dimensions.numRows && by < yEnd; by++) {
                 const block = blocks[by * dimensions.numCols + bx];
                 subsector.blocks.push(block);
@@ -275,14 +279,14 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         mobjRev += 1;
         const map = mo.map;
 
-        // collect the sectors we're currently in and any other sectors we are touching
+        // collect the sectors we're currently in
         const sector = map.data.findSector(mo.position.x, mo.position.y);
         mo.sectorMap.set(sector, mobjRev);
         if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
             map.sectorObjs.get(sector).add(mo);
             return sector;
         }
-
+        // ...and any other sectors we are touching
         radiusTracer(mo.position, radius, block => {
             for (let i = 0, n = block.segs.length; i < n; i++) {
                 const seg = block.segs[i];
