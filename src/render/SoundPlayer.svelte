@@ -13,19 +13,17 @@
     export let player: PlayerMapObject = null;
 
     const { audio, settings } = useAppContext();
-    const { experimentalSoundHacks } = settings;
+    const { experimentalSoundHacks, maxSoundChannels } = settings;
 
     const speedOfSound = 343; // m/s
     // https://web.archive.org/web/20211127055143/http://www.trilobite.org/doom/doom_metrics.html
     const verticalMeters = 0.03048;
-    const maxSounds = 16;
-    const soundGain = (1 / (maxSounds + 1));
 
     // we want these as small as possible so long as the audio doesn't pop or click on start and stop
     // FIXME: I still hears lots of pops and clicks though so something isn't right
     const fadeInTime = 0.035;
     const fadeOutTime = 0.035;
-    const interruptFadeOut = .1;
+    const interruptFadeOut = .05;
     const minGain = 0.0000001;
     function gainNode(t: number, value: number, buffer: AudioBuffer) {
         // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
@@ -90,6 +88,15 @@
         return soundBuffers.get(name);
     }
 
+    const isSingletonSound = (snd: SoundIndex) => (
+        snd === SoundIndex.sfx_pistol
+        || snd === SoundIndex.sfx_sawup
+        || snd === SoundIndex.sfx_sawidl
+        || snd === SoundIndex.sfx_sawful
+        || snd === SoundIndex.sfx_sawhit
+        || snd === SoundIndex.sfx_stnmov
+    );
+
     class SoundChannel {
         public location: MapObject | Sector;
         public sound: SoundIndex;
@@ -123,7 +130,7 @@
             }
 
             const now = audio.currentTime;
-            this.gainNode = gainNode(now, soundGain, this.soundNode.buffer);
+            this.gainNode = gainNode(now, channelGain, this.soundNode.buffer);
             this.gainNode.connect(audioRoot);
             this.soundNode.start(now);
 
@@ -141,7 +148,7 @@
             pan.maxDistance = 1200;
             pan.rolloffFactor = 1;
             // set position based on current mobj position (we could subscribe but objects don't move fast and sounds
-            // aren't long so it didn't seem worth it)
+            // aren't long so it doesn't seem worth it)
             const t = audio.currentTime + .05; // if we do this immediately, we get crackling as the sound position changes
             pan.positionX.linearRampToValueAtTime(position.x, t);
             pan.positionY.linearRampToValueAtTime(position.y, t);
@@ -163,7 +170,7 @@
                 // add a filter to play low freqency when outside but delay it based on xy distance
                 if (location.sector.ceilFlat === 'F_SKY1') {
                     // can't be 0 otherwise gainNode will error because we use exponential ramps
-                    const gain = soundGain * .4 * (1 - Math.min(.99999999, this.dist / 1_000_000));
+                    const gain = channelGain * .4 * (1 - Math.min(.99999999, this.dist / 1_000_000));
                     const fGain = gainNode(now, gain, this.soundNode.buffer);
                     fGain.connect(audioRoot);
                     const filter = audio.createBiquadFilter();
@@ -178,7 +185,7 @@
                     // calculate echo based on height of the room. It's not accurate but interesting to play with.
                     const heightM = (location.sector.zCeil - location.sector.zFloor) * verticalMeters;
                     const delay = heightM * 2 / speedOfSound;
-                    const eGain = gainNode(now + delay, soundGain * .4, this.soundNode.buffer);
+                    const eGain = gainNode(now + delay, channelGain * .4, this.soundNode.buffer);
                     eGain.connect(audioRoot);
                     const echo = audio.createDelay();
                     echo.delayTime.value = delay;
@@ -189,24 +196,20 @@
         }
 
         stop() {
-            // HACK: chaingunners use the shotgun sound and it sounds _terrible_ if we interrupt the sound. I'm not sure
-            // how this sound works in DOOM because it seems from reading the code that we stop sounds for a given origin
-            // before playing the next sound but the chainguner only has 4 tics between frames (so about .11s) and the
-            // shotgun sound is .84s so make the fade a little longer to play more of the sound.
-            const fadeOut = (this.sound === SoundIndex.sfx_shotgn) ? .4 : interruptFadeOut;
             // fade and stop the sound
             const now = audio.currentTime;
             const v = this.gainNode.gain.value;
             this.gainNode.gain.cancelScheduledValues(now);
             this.gainNode.gain.setValueAtTime(v, now);
-            this.gainNode.gain.linearRampToValueAtTime(minGain, now + fadeOut);
+            this.gainNode.gain.linearRampToValueAtTime(minGain, now + interruptFadeOut);
 
             this.soundNode.removeEventListener('ended', this.deactivate)
-            this.soundNode.stop(now + fadeOut);
+            this.soundNode.stop(now + interruptFadeOut);
         }
     }
 
-    let soundChannels: SoundChannel[] = Array.from({ length: maxSounds }, () => new SoundChannel());
+    $: channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
+    $: soundChannels = Array.from({ length: $maxSoundChannels }, () => new SoundChannel());
     // Adjust sound playback speed as timescale changes.
     // In practice, this probably doesn't matter but it's cool we can do it.
     $: soundChannels.forEach(sc => sc.soundNode?.playbackRate?.exponentialRampToValueAtTime(timescale, audio.currentTime + .1));
@@ -217,10 +220,13 @@
             ('soundTarget' in location) ? location.center
             : location.position;
 
-        const dist = xyDistSqr(position ?? defaultPosition, playerPosition ?? defaultPosition);
-        let channel =
+        const dist = !isPositional ? 0 :
+            xyDistSqr(position ?? defaultPosition, playerPosition ?? defaultPosition);
+        const channel =
+            // Singleton sound are only only allowed to play on one channel
+            ((isSingletonSound(snd) && soundChannels.find(e => e.isActive && e.sound === snd)) || undefined)
             // only one sound channel per sound origin (if there is an origin)
-            soundChannels.find(e => e.isActive && e.location && e.location === location)
+            ?? soundChannels.find(e => e.isActive && e.location && e.location === location)
             // new sound origin (or no origin) so find an inactive channel
             ?? soundChannels.find(e => !e.isActive)
             // all channels are busy? See if we are closer than one of the active channels and replace it
@@ -230,16 +236,8 @@
             return;
         }
 
-        // Sometimes, we interrupt the sound
-        const isSingletonSound = (
-            snd === SoundIndex.sfx_pistol
-            || snd === SoundIndex.sfx_sawup
-            || snd === SoundIndex.sfx_sawidl
-            || snd === SoundIndex.sfx_sawful
-            || snd === SoundIndex.sfx_sawhit
-            || snd === SoundIndex.sfx_stnmov
-        );
-        if (channel.isActive && (isSingletonSound || channel.location === location || snd === channel.sound)) {
+        // interrupt active sound and play the new one
+        if (channel.isActive) {
             channel.stop();
         }
         channel.play(snd, location, position, dist);

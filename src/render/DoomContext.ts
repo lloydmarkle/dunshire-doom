@@ -16,11 +16,11 @@ interface RangeSetting extends BaseSetting<number> {
 }
 const range = (cat: MenuSettingCategory, val: Writable<number>, text: string, min: number, max: number, step: number): RangeSetting => ({ type: 'range', cat, min, max, step, val, text });
 
-interface OptionSetting extends BaseSetting<string> {
+interface OptionSetting<T> extends BaseSetting<T> {
     type: 'option';
-    options: string[];
+    options: T[];
 }
-const option = (cat: MenuSettingCategory, val: Writable<string>, text: string, options: string[]): OptionSetting => ({ type: 'option', cat, options, val, text });
+const option = <T>(cat: MenuSettingCategory, val: Writable<T>, text: string, options: T[]): OptionSetting<T> => ({ type: 'option', cat, options, val, text });
 
 interface ColorSetting extends BaseSetting<string> {
     type: 'color';
@@ -38,7 +38,7 @@ interface BaseSetting<T> {
     cat: MenuSettingCategory;
     val: Writable<T>;
 }
-export type MenuSetting = RangeSetting | OptionSetting | ToggleSetting | ColorSetting;
+export type MenuSetting = RangeSetting | OptionSetting<any> | ToggleSetting | ColorSetting;
 
 export const createDefaultSettings = () => {
     const gameSettings: GameSettings = {
@@ -92,11 +92,12 @@ export const createDefaultSettings = () => {
         touchTargetVPadding: writable(4),
     };
     const soundSettings = {
-        musicPlayback: writable<'synth' | 'soundfont' | 'off'>('synth'),
+        musicPlayback: writable<'synth' | 'soundfont' | 'off'>('soundfont'),
         musicVolume: writable(.4),
-        soundVolume: writable(.8),
-        mainVolume: writable(.8),
+        soundVolume: writable(.5),
+        mainVolume: writable(.5),
         muted: writable(false),
+        maxSoundChannels: writable(32),
         experimentalSoundHacks: writable(false),
     }
     return {
@@ -158,6 +159,7 @@ export const createAppContext = () => {
         range('normal', settings.mainVolume, 'Main volume', 0, 1, .1),
         range('normal', settings.soundVolume, 'Sound volume', 0, 1, .1),
         range('normal', settings.musicVolume, 'Music volume', 0, 1, .1),
+        option('normal', settings.maxSoundChannels, 'Sound channels', [4, 8, 16, 32, 64]),
         option('normal', settings.musicPlayback, 'Music voice', ['synth', 'soundfont', 'off']),
         option('advanced', settings.cameraMode, 'Camera', ['bird', 'ortho', '1p', '3p', '3p-noclip', 'svg']),
         toggle('advanced', settings.xyAimAssist, 'Aim assist'),
