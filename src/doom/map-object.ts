@@ -114,7 +114,7 @@ export class MapObject {
         }
 
         // only players, monsters, and missiles are moveable which affects how we choose zFloor and zCeil
-        const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_MISSILE) || spec.moType === MapObjectIndex.MT_PLAYER;
+        const moveable = spec.class === 'M' || spec.moType === MapObjectIndex.MT_PLAYER;
         const highestZFloor = !moveable
             ? (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor
             : (sector: Sector, zFloor: number) => {
@@ -355,6 +355,10 @@ export class MapObject {
 
     // kind of P_ZMovement
     protected applyGravity() {
+        if (this.info.flags & MFFlags.MF_MISSILE) {
+            return;
+        }
+
         if (this.info.flags & MFFlags.MF_FLOAT && this.chaseTarget) {
             if (!(this.info.flags & (MFFlags.MF_SKULLFLY | MFFlags.MF_INFLOAT))) {
                 const dist = xyDistanceBetween(this, this.chaseTarget);
@@ -368,6 +372,7 @@ export class MapObject {
                 }
             }
         }
+
         if (this._onGround) {
             this.velocity.z = 0;
             this.position.z = this._zFloor;
