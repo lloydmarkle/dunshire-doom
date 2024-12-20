@@ -264,14 +264,16 @@ function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sect
         if (sector.soundC === count) {
             continue;
         }
-        sector.soundC = count;
 
-        const gap = Math.min(seg.linedef.left.sector.zCeil, seg.linedef.right.sector.zCeil)
-            - Math.max(seg.linedef.left.sector.zFloor, seg.linedef.right.sector.zFloor);
+        const front = seg.linedef.right.sector;
+        const back = seg.linedef.left.sector;
+        const gap = Math.min(front.skyHeight ?? front.zCeil, back.skyHeight ?? back.zCeil)
+            - Math.max(front.zFloor, back.zFloor);
         if (gap <= 0) {
             continue;
         }
         sector.soundTarget = emitter;
+        sector.soundC = count;
 
         // Sound block doesn't work as I'd expect. See Doom2 MAP01:
         // https://doomwiki.org/wiki/Sound_propagation and https://www.doomworld.com/forum/topic/109773-block-sound-not-working/
