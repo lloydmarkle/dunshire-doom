@@ -113,8 +113,8 @@ export class MapObject {
             this.info.flags = spec.mo.flags;
         }
 
-        // only players, monsters, and missiles are moveable which affects how we choose zFloor and zCeil
-        const moveable = spec.class === 'M' || spec.moType === MapObjectIndex.MT_PLAYER;
+        // only players, monsters, and dropped things are moveable which affects how we choose zFloor and zCeil
+        const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_DROPPED) || spec.moType === MapObjectIndex.MT_PLAYER;
         const highestZFloor = !moveable
             ? (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor
             : (sector: Sector, zFloor: number) => {
@@ -201,6 +201,7 @@ export class MapObject {
     }
 
     dispose() {
+        this.sectorMap.forEach((rev, sec) => this.map.sectorObjs.get(sec).delete(this));
         this.blocks.forEach((rev, block) => block.mobjs.delete(this));
         // don't update position after object destroyed
         this.applyPositionChanged = () => {};
@@ -343,10 +344,6 @@ export class MapObject {
 
     setState(stateIndex: number, tickOffset: number = 0) {
         this._state.setState(stateIndex, tickOffset);
-    }
-
-    touchingSector(sector: Sector) {
-        return this.sectorMap.has(sector);
     }
 
     protected pickup(mobj: MapObject) {

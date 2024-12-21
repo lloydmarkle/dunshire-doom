@@ -254,7 +254,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
     for (const subsector of subsectors) {
         for (const seg of subsector.segs) {
-           let p = tracer.initFromLine(seg.v);
+            let p = tracer.initFromLine(seg.v);
             while (p) {
                 blocks[p.y * dimensions.numCols + p.x].segs.push(seg);
                 p = tracer.step();
@@ -281,11 +281,10 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
 
         // collect the sectors we're currently in
         const sector = map.data.findSector(mo.position.x, mo.position.y);
-        mo.sectorMap.set(sector, mobjRev);
         if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
-            map.sectorObjs.get(sector).add(mo);
             return sector;
         }
+        mo.sectorMap.set(sector, mobjRev);
         // ...and any other sectors we are touching
         radiusTracer(mo.position, radius, block => {
             for (let i = 0, n = block.segs.length; i < n; i++) {

@@ -125,7 +125,7 @@
     <div>Position: {[Math.floor(position.x), Math.floor(position.y), Math.floor(position.z)]}</div>
     <div>Sectors: [
         {#each sectors as sector}
-            <button class="link link-primary" on:click={() => $editor.selected = sector}>{sector.num}</button>
+            <button class="link link-primary ps-1" on:click={() => $editor.selected = sector}>{sector.num}</button>
         {/each}
     ]</div>
 </div>
