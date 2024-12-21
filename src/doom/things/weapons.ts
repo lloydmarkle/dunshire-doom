@@ -432,20 +432,19 @@ export const weaponActions: { [key: number]: WeaponAction } = {
                 Math.cos(angle) * scanRange,
                 Math.sin(angle) * scanRange,
                 0);
-            aim.target = null; // must clear before running the trace otherwise we could get stale data
-            mobj.map.data.traceRay(aim);
-            if (!aim.target) {
+            const target = aim();
+            if (!target.mobj) {
                 continue;
             }
 
-            const pos = aim.target.position;
-            mobj.map.spawn(MapObjectIndex.MT_EXTRABFG, pos.x, pos.y, pos.z + aim.target.info.height * .5);
+            const pos = target.mobj.position;
+            mobj.map.spawn(MapObjectIndex.MT_EXTRABFG, pos.x, pos.y, pos.z + target.mobj.info.height * .5);
 
             let damage = 0;
             for (let j = 0; j < 15; j++) {
                 damage += mobj.rng.int(1, 8);
             }
-            aim.target.damage(damage, shooter, shooter);
+            target.mobj.damage(damage, shooter, shooter);
         }
     },
 };
@@ -471,30 +470,30 @@ class ShotTracer {
             0);
 
         let aim = aimTrace(shooter, this.start, this.direction, range);
-        shooter.map.data.traceRay(aim);
-        if (!aim.target) {
+        let target = aim();
+        if (!target.mobj) {
             // try aiming slightly left to see if we hit a target
             dir = shooter.direction + Math.PI / 40;
             this.direction.x = Math.cos(dir) * range;
             this.direction.y = Math.sin(dir) * range;
-            shooter.map.data.traceRay(aim);
+            target = aim();
         }
-        if (!aim.target) {
+        if (!target.mobj) {
             // try aiming slightly right to see if we hit a target
             dir = shooter.direction - Math.PI / 40;
             this.direction.x = Math.cos(dir) * range;
             this.direction.y = Math.sin(dir) * range;
-            shooter.map.data.traceRay(aim);
+            target = aim();
         }
 
-        this._lastAngle = aim.target ? dir : shooter.direction;
-        this._lastTarget = aim.target;
+        this._lastAngle = target.mobj ? dir : shooter.direction;
+        this._lastTarget = target.mobj;
         if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
             // ignore all the tracing we did (except set last target for puch/saw) and simply use the camera angle
             return Math.sin(shooter.pitch);
         }
         // TODO: we convert angle to slope (and later undo this), why not just use angles?
-        return aim.target ? aim.slope : 0;
+        return target.mobj ? target.slope : 0;
     }
 
     // kind of like PTR_ShootTraverse from p_map.c
@@ -613,24 +612,22 @@ class ShotTracer {
 }
 export const shotTracer = new ShotTracer();
 
-interface AimTrace extends TraceParams {
-    target: MapObject;
+interface AimResult {
+    mobj: MapObject;
     slope: number;
-    hitLine: HandleTraceHit<LineTraceHit>;
-    hitObject: HandleTraceHit<MapObjectTraceHit>;
 }
 
 // kind of like PTR_AimTraverse from p_map.c
-function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range: number): AimTrace {
-    // TODO: should these depend on FOV or aspect ratio?
-    let slopeTop = 100 / 160;
-    let slopeBottom = -100 / 160;
-    // TODO: avoid object allocation?
-    let result: AimTrace = {
-        target: null,
-        slope: 0,
-        start,
-        move: direction,
+const aimTrace = (() => {
+    let slopeTop = 0;
+    let slopeBottom = 0;
+    const traceResult: AimResult = { mobj: null, slope: 0 };
+
+    let shooter: MapObject = null;
+    let range = 0;
+    const traceParams: TraceParams = {
+        start: null,
+        move: null,
         hitObject: hit => {
             if (hit.mobj === shooter) {
                 return true; // can't shoot ourselves
@@ -640,20 +637,20 @@ function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range:
             }
 
             const dist = range * hit.fraction;
-            let thingSlopeTop = (hit.mobj.position.z + hit.mobj.info.height - start.z) / dist;
+            let thingSlopeTop = (hit.mobj.position.z + hit.mobj.info.height - traceParams.start.z) / dist;
             if (thingSlopeTop < slopeBottom) {
                 return true; // shoot over
             }
 
-            let thingSlopeBottom = (hit.mobj.position.z - start.z) / dist;
+            let thingSlopeBottom = (hit.mobj.position.z - traceParams.start.z) / dist;
             if (thingSlopeBottom > slopeTop) {
                 return true; // shoot under
             }
 
             thingSlopeTop = Math.min(thingSlopeTop, slopeTop);
             thingSlopeBottom = Math.max(thingSlopeBottom, slopeBottom);
-            result.slope = (thingSlopeTop + thingSlopeBottom) * .5;
-            result.target = hit.mobj;
+            traceResult.slope = (thingSlopeTop + thingSlopeBottom) * .5;
+            traceResult.mobj = hit.mobj;
             return false;
         },
         hitLine: hit => {
@@ -673,10 +670,10 @@ function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range:
 
             const dist = range * hit.fraction;
             if (front.sector.zCeil !== back.sector.zCeil) {
-                slopeTop = Math.min(slopeTop, (openTop - start.z) / dist);
+                slopeTop = Math.min(slopeTop, (openTop - traceParams.start.z) / dist);
             }
             if (front.sector.zFloor !== back.sector.zFloor) {
-                slopeBottom = Math.max(slopeBottom, (openBottom - start.z) / dist);
+                slopeBottom = Math.max(slopeBottom, (openBottom - traceParams.start.z) / dist);
             }
             if (slopeTop <= slopeBottom) {
                 // we've run out of gap between top and bottom of walls
@@ -685,8 +682,26 @@ function aimTrace(shooter: MapObject, start: Vector3, direction: Vector3, range:
             return true;
         },
     };
-    return result;
-}
+
+    const tracer = () => {
+        // reset trace
+        traceResult.mobj = null;
+        traceResult.slope = 0;
+        slopeTop = 100 / 160
+        slopeBottom = -100 / 160;
+
+        shooter.map.data.traceRay(traceParams);
+        return traceResult;
+    };
+
+    return (_shooter: MapObject, start: Vector3, direction: Vector3, _range: number) => {
+        range = _range;
+        shooter = _shooter;
+        traceParams.start = start;
+        traceParams.move = direction;
+        return tracer;
+    }
+})();
 
 type PlayerMissileType = MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | MapObjectIndex.MT_BFG;
 function shootMissile(shooter: MapObject, type: PlayerMissileType) {
