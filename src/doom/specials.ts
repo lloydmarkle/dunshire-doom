@@ -273,7 +273,8 @@ const createDoorAction =
                     if (hitSolid) {
                         // force door to open
                         sector.specialData = 1;
-                        return original;
+                        sector.zCeil = original;
+                        return;
                     }
                 }
             }
@@ -424,7 +425,8 @@ const createLiftAction =
                         // switch direction
                         direction = -1;
                         ticks = 0;
-                        return original;
+                        sector.zFloor = original;
+                        return;
                     }
                 }
             }
@@ -532,7 +534,8 @@ const createFloorAction =
                 if (crushing.length) {
                     let hitSolid = crushing.reduce((res, mo) => crunch(mo) || res, false);
                     if (hitSolid) {
-                        return original;
+                        sector.zFloor = original;
+                        return;
                     }
                 }
             }
@@ -646,7 +649,8 @@ const createCeilingAction =
                 if (crushing.length) {
                     let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
                     if (hitSolid) {
-                        return original;
+                        sector.zCeil = original;
+                        return;
                     }
                 }
             }
@@ -1154,7 +1158,8 @@ const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1
                 const crushing = mobjs.filter(mobj => !mobj.canSectorChange(pillar, donut.zFloor, pillar.zCeil));
                 if (crushing.length) {
                     // stop movement if we hit something
-                    return original;
+                    donut.zFloor= original;
+                    return;
                 }
             }
 
@@ -1266,7 +1271,8 @@ function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number,
             const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
             if (crushing.length) {
                 // stop movement if we hit something
-                return original;
+                sector.zFloor = original;
+                return;
             }
         }
 
