@@ -6,6 +6,7 @@ import { zeroVec, type LineDef, type Sector, hittableThing, linedefSlope, type L
 import { _T } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
+import type { Store } from "./store";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -78,6 +79,7 @@ const floorValue = (map: MapRuntime, sector: Sector) => sector.zFloor;
 const adjust = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
 
 type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector;
+const triggerModel = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector;
 const numModel = (map: MapRuntime, sector: Sector) => {
     let line: LineDef = null;
     for (const ld of map.data.linedefs) {
@@ -90,7 +92,11 @@ const numModel = (map: MapRuntime, sector: Sector) => {
     return line ? line.right.sector : sector;
 }
 
-const triggerModel = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector;
+const playMoveSound = (map: MapRuntime, sector: Sector) => {
+    if ((Math.trunc(map.game.time.tick.val) & 7) === 0) {
+        map.game.playSound(SoundIndex.sfx_stnmov, sector);
+    }
+}
 
 // effects
 type EffectFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => void;
@@ -161,6 +167,7 @@ const doorDefinition = (trigger: string, key: 'R' | 'Y' | 'B' | 'No', speed: num
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     speed,
+    sounds: speed < 8 ? [SoundIndex.sfx_doropn, SoundIndex.sfx_dorcls] : [SoundIndex.sfx_bdopn, SoundIndex.sfx_bdcls],
     key: key === 'No' ? undefined : key,
     topWait: topWaitS * ticksPerSecond,
     monsterTrigger: trigger.includes('m'),
@@ -202,7 +209,7 @@ const createDoorAction =
     }
 
     const doorSound = (sector: Sector) =>
-        sector.specialData && mobj.map.game.playSound(sector.specialData > 0 ? SoundIndex.sfx_doropn : SoundIndex.sfx_dorcls, sector);
+        sector.specialData && mobj.map.game.playSound(sector.specialData > 0 ? def.sounds[0] : def.sounds[1], sector);
 
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
@@ -390,12 +397,17 @@ const createLiftAction =
             def.effect?.(map, sector, linedef);
         }
 
+        let nextSound = SoundIndex.sfx_pstart;
         let ticks = 0;
         let direction = def.direction;
         const action = () => {
             if (ticks) {
                 ticks--;
                 return;
+            }
+            if (nextSound) {
+                map.game.playSound(nextSound, sector);
+                nextSound = null;
             }
 
             const mobjs = sectorObjects(map, sector);
@@ -406,11 +418,15 @@ const createLiftAction =
 
             if (sector.zFloor < low) {
                 // hit bottom
+                nextSound = SoundIndex.sfx_pstart;
+                map.game.playSound(SoundIndex.sfx_pstop, sector);
                 ticks = def.waitTime;
                 sector.zFloor = low;
                 direction = 1;
             } else if (sector.zFloor > high) {
                 // hit top
+                nextSound = SoundIndex.sfx_pstart;
+                map.game.playSound(SoundIndex.sfx_pstop, sector);
                 finished = !def.perpetual;
                 ticks = def.waitTime;
                 sector.zFloor = high;
@@ -423,6 +439,7 @@ const createLiftAction =
                     let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
                     if (hitSolid) {
                         // switch direction
+                        nextSound = SoundIndex.sfx_pstart;
                         direction = -1;
                         ticks = 0;
                         sector.zFloor = original;
@@ -515,14 +532,13 @@ const createFloorAction =
         const target = def.targetFn(map, sector);
         const action = () => {
             const mobjs = sectorObjects(map, sector);
-            // SND: sfx_stnmov (leveltime&7)
+            playMoveSound(map, sector);
 
             let finished = false;
             let original = sector.zFloor;
             sector.zFloor += def.direction * def.speed;
 
             if ((def.direction > 0 && sector.zFloor > target) || (def.direction < 0 && sector.zFloor < target)) {
-                // SND: sfx_pstop
                 finished = true;
                 sector.zFloor = target;
             }
@@ -541,6 +557,7 @@ const createFloorAction =
             }
 
             if (finished) {
+                map.game.playSound(SoundIndex.sfx_pstop, sector);
                 sector.specialData = null;
                 map.removeAction(action);
                 if (def.direction < 0) {
@@ -637,6 +654,7 @@ const createCeilingAction =
             let finished = false;
             let original = sector.zCeil;
             sector.zCeil += def.speed * def.direction;
+            playMoveSound(map, sector);
 
             if ((def.direction > 0 && sector.zCeil > target) || (def.direction < 0 && sector.zCeil < target)) {
                 finished = true;
@@ -656,6 +674,7 @@ const createCeilingAction =
             }
 
             if (finished) {
+                map.game.playSound(SoundIndex.sfx_pstop, sector);
                 sector.specialData = null;
                 map.removeAction(action);
             }
@@ -722,7 +741,9 @@ const createCrusherCeilingAction =
         const action = () => {
             let finished = false;
             const mobjs = sectorObjects(map, sector);
-            // TODO: play sound and silent when linedef.special === 141
+            if (linedef.special !== 141) {
+                playMoveSound(map, sector);
+            }
 
             let original = sector.zCeil;
             sector.zCeil += def.speed * direction;
@@ -748,6 +769,7 @@ const createCrusherCeilingAction =
             }
 
             if (finished) {
+                map.game.playSound(SoundIndex.sfx_pstop, sector);
                 // crushers keep going
                 direction = -direction;
             }
@@ -1126,6 +1148,7 @@ const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1
         pillar.specialData = def;
         const pillarAction = () => {
             let finished = false;
+            playMoveSound(map, pillar);
 
             pillar.zFloor += -speed;
             if (pillar.zFloor < target) {
@@ -1133,6 +1156,7 @@ const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1
                 pillar.zFloor = target;
             }
             if (finished) {
+                map.game.playSound(SoundIndex.sfx_pstop, pillar);
                 pillar.specialData = null;
                 map.removeAction(pillarAction);
             }
@@ -1144,6 +1168,7 @@ const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1
         donut.specialData = def;
         const donutAction = () => {
             let finished = false;
+            playMoveSound(map, donut);
 
             const mobjs = sectorObjects(map, pillar);
             let original = donut.zFloor;
@@ -1163,12 +1188,13 @@ const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1
             }
 
             if (finished) {
+                map.game.playSound(SoundIndex.sfx_pstop, donut);
                 assignFloorFlat(map, model, donut);
                 assignSectorType(map, model, donut);
                 donut.specialData = null;
                 map.removeAction(donutAction);
             }
-            mobjs.forEach(mobj => mobj.sectorChanged(pillar));
+            mobjs.forEach(mobj => mobj.sectorChanged(donut));
             map.events.emit('sector-z', donut);
         };
         map.addAction(donutAction);
@@ -1259,6 +1285,7 @@ function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number,
     sector.specialData = def;
     const action = () => {
         let finished = false;
+        playMoveSound(map, sector);
 
         const mobjs = sectorObjects(map, sector);
         let original = sector.zFloor;
@@ -1276,6 +1303,7 @@ function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number,
         }
 
         if (finished) {
+            map.game.playSound(SoundIndex.sfx_pstop, sector);
             sector.specialData = null;
             map.removeAction(action);
         }

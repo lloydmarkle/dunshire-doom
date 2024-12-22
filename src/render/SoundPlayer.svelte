@@ -20,7 +20,9 @@
     const verticalMeters = 0.03048;
 
     // we want these as small as possible so long as the audio doesn't pop or click on start and stop
-    // FIXME: I still hears lots of pops and clicks though so something isn't right
+    // FIXME: I still hears lots of pops and clicks but they are subtle. Something isn't quite right yet.
+    //    I think it may be from the channel.stop() method
+    // TODO: should these simply be audio.outputLatency?
     const fadeInTime = 0.035;
     const fadeOutTime = 0.035;
     const interruptFadeOut = .05;
@@ -140,20 +142,19 @@
             }
 
             const pan = audio.createPanner();
+            // https://www.doomworld.com/forum/topic/96950-how-far-can-the-player-hear/
             pan.connect(this.gainNode);
             this.soundNode.connect(pan);
-            // https://www.doomworld.com/forum/topic/96950-how-far-can-the-player-hear/
             pan.distanceModel = 'linear';
             pan.refDistance = 200;
             pan.maxDistance = 1200;
             pan.rolloffFactor = 1;
             // set position based on current mobj position (we could subscribe but objects don't move fast and sounds
             // aren't long so it doesn't seem worth it)
-            const t = audio.currentTime + .05; // if we do this immediately, we get crackling as the sound position changes
-            pan.positionX.linearRampToValueAtTime(position.x, t);
-            pan.positionY.linearRampToValueAtTime(position.y, t);
+            pan.positionX.value = position.x;
+            pan.positionY.value = position.y;
             // use player position for sector sound sources otherwise we use the middle-z and that may be above or below the player
-            pan.positionZ.linearRampToValueAtTime(isSectorLocation ? playerPosition.z + 41 : position.z, t);
+            pan.positionZ.value = isSectorLocation ? playerPosition.z + 41 : position.z;
 
             if ($experimentalSoundHacks) {
                 this.experimentalSoundHack(pan);
@@ -161,15 +162,16 @@
         }
 
         private experimentalSoundHack(pan: PannerNode) {
+            const location = this.location;
             const now = audio.currentTime;
-            // Some half baked experiments with echo/filter to for room acoustics. I'll probably not keep
+            // Some half baked experiments with echo/filter for room acoustics. I'll probably not keep
             // this but it's fun to play with. Ideally we have some reverb based on sound location and room size and maybe
             // textures (wood vs marble vs metal vs stone). Maybe use filters high sounds for hidden objects? (because bass
             // sounds pass through walls)
             if (location instanceof MapObject) {
-                // add a filter to play low freqency when outside but delay it based on xy distance
+                // add a filter to play low frequency when outside but delay it based on xy distance
                 if (location.sector.ceilFlat === 'F_SKY1') {
-                    // can't be 0 otherwise gainNode will error because we use exponential ramps
+                    // can't be 0 otherwise gainNode will error if we use exponential ramps
                     const gain = channelGain * .4 * (1 - Math.min(.99999999, this.dist / 1_000_000));
                     const fGain = gainNode(now, gain, this.soundNode.buffer);
                     fGain.connect(audioRoot);
@@ -199,7 +201,7 @@
             // fade and stop the sound
             const now = audio.currentTime;
             const v = this.gainNode.gain.value;
-            this.gainNode.gain.cancelScheduledValues(now);
+            this.gainNode.gain.cancelScheduledValues(0);
             this.gainNode.gain.setValueAtTime(v, now);
             this.gainNode.gain.linearRampToValueAtTime(minGain, now + interruptFadeOut);
 
