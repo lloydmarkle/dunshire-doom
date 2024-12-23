@@ -66,6 +66,7 @@ type SoundHandler = (snd: SoundIndex, position?: MapObject | Sector) => void;
 export interface SoundEmitter {
     onSound(handler: SoundHandler): void;
     playSound(snd: SoundIndex, location?: MapObject | Sector): void;
+    time: { tickN: Store<number> };
 }
 
 const defaultInventory = (): PlayerInfo => ({

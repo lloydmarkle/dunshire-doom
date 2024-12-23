@@ -65,18 +65,15 @@
     }
 
     // Our friends at EDGE-classic already have a nice soundfont in their repo so download that rather than putting one
-    // in our own repo https://raw.githubusercontent.com/edge-classic/EDGE-classic/5fa1e0867e1ef71e260f45204888df85ada4be1b/soundfont/Default.sf2
-    // Honestly, it wouldn't be a big deal to just have our own. Long term, I think I'd like users to be able to supply their own if they want
-    // but that can be added later.
+    // in our own repo. Honestly, it wouldn't be a big deal to just have our own. Long term, I think I'd like users to
+    // be able to supply their own if they want but that can be added later.
     const defaultSF2Url = 'https://raw.githubusercontent.com/edge-classic/EDGE-classic/5fa1e0867e1ef71e260f45204888df85ada4be1b/soundfont/Default.sf2'
     const sampleStore = new MidiSampleStore();
     async function spessaSynthPlayer(midi: ArrayBufferLike) {
         stopTheMusic();
 
         await audio.audioWorklet.addModule(new URL('/' + WORKLET_URL_ABSOLUTE, import.meta.url)); // add the worklet
-        // const soundFontArrayBuffer = await fetch("/synthetizer/GeneralUser-GS.sf2").then(response => response.arrayBuffer());
         const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
-        // const soundFontArrayBuffer = await fetch("/synthetizer/OPL-3_FM_128M.sf2").then(response => response.arrayBuffer());
         const synth = new Synthetizer(audioRoot, soundFontArrayBuffer);
         const seq = new Sequencer([{ binary: midi }], synth);
         seq.loop = true;

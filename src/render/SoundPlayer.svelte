@@ -20,21 +20,18 @@
     const verticalMeters = 0.03048;
 
     // we want these as small as possible so long as the audio doesn't pop or click on start and stop
-    // FIXME: I still hears lots of pops and clicks but they are subtle. Something isn't quite right yet.
-    //    I think it may be from the channel.stop() method
     // TODO: should these simply be audio.outputLatency?
-    const fadeInTime = 0.035;
-    const fadeOutTime = 0.035;
-    const interruptFadeOut = .05;
-    const minGain = 0.0000001;
+    const fadeInTime = 0.005;
+    const fadeOutTime = 0.005;
+    const interruptFadeOut = .01;
+    const minGain = 0.000000001;
     function gainNode(t: number, value: number, buffer: AudioBuffer) {
         // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
-        // NB: linearRamp sounds cleaner to me than exponential. Not sure why
         const node = audio.createGain();
         node.gain.setValueAtTime(minGain, t);
-        node.gain.linearRampToValueAtTime(value, t + fadeInTime);
+        node.gain.exponentialRampToValueAtTime(value, t + fadeInTime);
         node.gain.setValueAtTime(value, t + buffer.duration - fadeOutTime);
-        node.gain.linearRampToValueAtTime(minGain, t + buffer.duration);
+        node.gain.exponentialRampToValueAtTime(minGain, t + buffer.duration);
         return node;
     }
 
@@ -84,7 +81,10 @@
             const sampleRate = word(buff, 0x2);
             const numSamples = dword(buff, 0x4) - 32;
             const buffer = audio.createBuffer(1, numSamples, sampleRate);
-            buffer.getChannelData(0).set(buff.slice(0x18, 0x18 + numSamples));
+            // NB: Convert from unsigned int to float in range [-1,1] is CRITICAL to avoid popping/crackling sounds
+            // It took me _way_ too long to figure this out
+            const pcmData = Float32Array.from(buff.slice(0x18, 0x18 + numSamples), v => (v - 128) / 128);
+            buffer.getChannelData(0).set(pcmData);
             soundBuffers.set(name, buffer);
         }
         return soundBuffers.get(name);
@@ -104,14 +104,21 @@
         public sound: SoundIndex;
         public soundNode: AudioBufferSourceNode;
         public gainNode: GainNode;
+        public position: Vector3;
         public dist: number;
 
+        private startTime: number;
         private deactivate = () => this.gainNode = this.soundNode = undefined;
         get isActive() { return this.gainNode || this.soundNode; }
 
-        play(snd: SoundIndex, location: MapObject | Sector, position: typeof defaultPosition, dist: number) {
+        setDistanceTo(point: Vector3) {
+            this.dist = !this.position ? Infinity : xyDistSqr(point, this.position);
+        }
+
+        play(snd: SoundIndex, location: MapObject | Sector, position: Vector3, dist: number) {
             this.location = location;
             this.sound = snd;
+            this.position = position;
             this.dist = dist;
 
             const isSectorLocation = location && 'soundTarget' in location;
@@ -132,6 +139,7 @@
             }
 
             const now = audio.currentTime;
+            this.startTime = now;
             this.gainNode = gainNode(now, channelGain, this.soundNode.buffer);
             this.gainNode.connect(audioRoot);
             this.soundNode.start(now);
@@ -200,13 +208,17 @@
         stop() {
             // fade and stop the sound
             const now = audio.currentTime;
+            this.soundNode.removeEventListener('ended', this.deactivate)
+            if(now - this.startTime + interruptFadeOut > this.soundNode.buffer.duration) {
+                // already near the end of the sound so just finish it
+                return;
+            }
+            this.soundNode.stop(now + interruptFadeOut);
+
             const v = this.gainNode.gain.value;
             this.gainNode.gain.cancelScheduledValues(0);
             this.gainNode.gain.setValueAtTime(v, now);
-            this.gainNode.gain.linearRampToValueAtTime(minGain, now + interruptFadeOut);
-
-            this.soundNode.removeEventListener('ended', this.deactivate)
-            this.soundNode.stop(now + interruptFadeOut);
+            this.gainNode.gain.exponentialRampToValueAtTime(minGain, now + interruptFadeOut);
         }
     }
 
@@ -216,28 +228,38 @@
     // In practice, this probably doesn't matter but it's cool we can do it.
     $: soundChannels.forEach(sc => sc.soundNode?.playbackRate?.exponentialRampToValueAtTime(timescale, audio.currentTime + .1));
 
+    let lastSetDistanceTick = -1;
     soundEmitter.onSound((snd, location) => {
         const isPositional = player && location && location !== player;
-        const position = !isPositional ? defaultPosition :
+        const position = !isPositional ? playerPosition :
             ('soundTarget' in location) ? location.center
             : location.position;
 
-        const dist = !isPositional ? 0 :
-            xyDistSqr(position ?? defaultPosition, playerPosition ?? defaultPosition);
+        if (lastSetDistanceTick !== soundEmitter.time.tickN.val) {
+            lastSetDistanceTick = soundEmitter.time.tickN.val;
+            soundChannels.forEach(ch => ch.setDistanceTo(playerPosition));
+        }
+
+        const dist = xyDistSqr(position ?? defaultPosition, playerPosition);
+        const singletonSound = isSingletonSound(snd);
         const channel =
             // Singleton sound are only only allowed to play on one channel
-            ((isSingletonSound(snd) && soundChannels.find(e => e.isActive && e.sound === snd)) || undefined)
+            ((singletonSound && soundChannels.find(e => e.isActive && e.sound === snd)) || undefined)
             // only one sound channel per sound origin (if there is an origin)
             ?? soundChannels.find(e => e.isActive && e.location && e.location === location)
             // new sound origin (or no origin) so find an inactive channel
             ?? soundChannels.find(e => !e.isActive)
             // all channels are busy? See if we are closer than one of the active channels and replace it
-            ?? soundChannels.filter(e => e.dist > dist).sort((a, b) => b.dist - a.dist)[0];
+            ?? soundChannels.filter(e => dist < e.dist).sort((a, b) => b.dist - a.dist)[0];
         if (!channel) {
             // this sound is farther than all the currently active sounds so ignore it
             return;
         }
 
+        // if the sound is singleton but farther than the current one, don't interrupt it
+        if (channel.isActive && singletonSound && dist > channel.dist) {
+            return;
+        }
         // interrupt active sound and play the new one
         if (channel.isActive) {
             channel.stop();
