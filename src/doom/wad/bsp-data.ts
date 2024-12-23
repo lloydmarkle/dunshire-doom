@@ -62,7 +62,6 @@ function subSectorLump(lump: Lump, segs: Seg[]) {
                 : segs[segId].linedef.right.sector,
             segs: segs.slice(segId, segId + segCount),
             mobjs: new Set(),
-            blocks: [],
             blockHit: 0,
             // bounds and vertexes will be populated by completeSubSectors()
             bounds: _invalidBounds,

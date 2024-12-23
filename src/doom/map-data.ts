@@ -268,7 +268,6 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             let by = Math.max(0, Math.floor((subsector.bounds.top - minY) * invBlockSize));
             for (; by < dimensions.numRows && by < yEnd; by++) {
                 const block = blocks[by * dimensions.numCols + bx];
-                subsector.blocks.push(block);
                 block.subsectors.push(subsector);
             }
         }
@@ -593,7 +592,6 @@ export interface SubSector {
     bspLines: Line[]; // <-- useful for debugging but maybe we can remove it?
     // for collision detection
     mobjs: Set<MapObject>;
-    blocks: Block[];
     bounds: Bounds;
     blockHit: number;
 }

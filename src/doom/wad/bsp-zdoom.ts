@@ -53,7 +53,6 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
                 : segs[segId].linedef.right.sector,
             segs: segs.slice(segId, segId + numSubsectorSegs[i]),
             mobjs: new Set(),
-            blocks: [],
             blockHit: 0,
             // bounds and vertexes will be populated by completeSubSectors()
             bounds: _invalidBounds,
