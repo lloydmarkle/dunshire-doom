@@ -131,8 +131,8 @@ function crunchMapObject(mobj: MapObject) {
         mobj.info.height = 0;
         return false;
     }
-    // we must have hit something solid
-    return true;
+    // check if we hit something solid
+    return Boolean(mobj.info.flags & MFFlags.MF_SOLID);
 }
 
 const crushVelocity = 255 * (1 << 12) / (1 << 16);
@@ -739,9 +739,8 @@ const createCrusherCeilingAction =
             if (direction === -1) {
                 const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
                 if (crushing.length) {
-                    crushing.forEach(crunchAndDamageMapObject);
-                    // TODO: check if object is damaged before slowing speed?
-                    if (def.speed === ceilingSlow) {
+                    const hitSolid = crushing.reduce((res, mo) => crunchAndDamageMapObject(mo) || res, false);
+                    if (hitSolid && def.speed === ceilingSlow) {
                         // slow crushers go even slowing when they crush something
                         sector.zCeil = original + (def.speed / 8) * direction
                     }
