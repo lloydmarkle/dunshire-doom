@@ -469,7 +469,7 @@ class ShotTracer {
             Math.sin(dir) * range,
             0);
 
-        let aim = aimTrace(shooter, this.start, this.direction, range);
+        const aim = aimTrace(shooter, this.start, this.direction, range);
         let target = aim();
         if (!target.mobj) {
             // try aiming slightly left to see if we hit a target
@@ -489,10 +489,9 @@ class ShotTracer {
         this._lastAngle = target.mobj ? dir : shooter.direction;
         this._lastTarget = target.mobj;
         if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
-            // ignore all the tracing we did (except set last target for puch/saw) and simply use the camera angle
-            return Math.sin(shooter.pitch);
+            // ignore all the tracing we did (except set last target for punch/saw) and simply use the camera angle
+            return shooter.pitch;
         }
-        // TODO: we convert angle to slope (and later undo this), why not just use angles?
         return target.mobj ? target.slope : 0;
     }
 
@@ -505,21 +504,27 @@ class ShotTracer {
         // 4) it does not impact aimSlope (it relies on it being set)
         // it's useful to have a separate aim and fire function because some weapons (notably the shotgun)
         // aim once and fire several bullets
-        _shotEuler.set(0, Math.acos(aimSlope) - HALF_PI, angle);
-        this.direction.set(range, 0, 0).applyEuler(_shotEuler);
-
+        if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
+            _shotEuler.set(0, -aimSlope, angle);
+            this.direction.set(range, 0, 0).applyEuler(_shotEuler);
+        } else {
+            this.direction.set(
+                Math.cos(angle) * range,
+                Math.sin(angle) * range,
+                aimSlope * range,
+            );
+        }
         this.map = shooter.map;
 
         shooter.map.data.traceRay({
             start: this.start,
             move: this.direction,
             hitObject: hit => {
-                const hitZ = this.direction.z * hit.fraction + this.start.z;
                 const ignoreHit = (false
                     || (hit.mobj === shooter) // can't shoot ourselves
                     || !(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) // not shootable
-                    || (hit.mobj.position.z + hit.mobj.info.height < hitZ) // shoot over thing
-                    || (hit.mobj.position.z > hitZ) // shoot over thing
+                    || (hit.mobj.position.z + hit.mobj.info.height < hit.point.z) // shoot over thing
+                    || (hit.mobj.position.z > hit.point.z) // shoot under thing
                 )
                 if (ignoreHit) {
                     return true; // keep searching
@@ -543,18 +548,17 @@ class ShotTracer {
                     return this.hitWallOrSky(shooter, hit.line.right.sector, null, this.bulletHitLocation(4, range, hit.fraction));
                 }
 
-                const hitZ = this.direction.z * hit.fraction + this.start.z;
                 const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
                 const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
                 if (front.zCeil !== back.zCeil) {
                     const wallBottom = Math.min(front.zCeil, back.zCeil);
-                    if (wallBottom < hitZ) {
+                    if (wallBottom < hit.point.z) {
                         return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, range, hit.fraction));
                     }
                 }
                 if (front.zFloor !== back.zFloor) {
                     const wallTop = Math.max(front.zFloor, back.zFloor);
-                    if (wallTop > hitZ) {
+                    if (wallTop > hit.point.z) {
                         return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, range, hit.fraction));
                     }
                 }
@@ -707,10 +711,20 @@ type PlayerMissileType = MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | M
 function shootMissile(shooter: MapObject, type: PlayerMissileType) {
     const pos = shooter.position;
     const slope = shotTracer.zAim(shooter, scanRange);
-    _shotEuler.set(0, Math.acos(slope) - HALF_PI, shotTracer.lastAngle);
 
     const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + 32, shotTracer.lastAngle);
-    missile.velocity.set(missile.info.speed, 0, 0).applyEuler(_shotEuler);
+    // DOOM's physics are a little messed up here. XY-speed is independent of Z-speed which means missiles actually travel faster
+    // when they are on a steeper up or down slope. Same for monster missiles too!
+    missile.velocity.set(
+        Math.cos(shotTracer.lastAngle) * missile.info.speed,
+        Math.sin(shotTracer.lastAngle) * missile.info.speed,
+        slope * missile.info.speed,
+    );
+    if (!shooter.map.game.settings.zAimAssist.val) {
+        const vel = missile.velocity.length();
+        _shotEuler.set(0, -slope, shotTracer.lastAngle);
+        missile.velocity.set(vel, 0, 0).applyEuler(_shotEuler);
+    }
     missile.map.game.playSound(missile.info.seesound, missile);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
