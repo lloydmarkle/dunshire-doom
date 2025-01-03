@@ -54,7 +54,7 @@ export const actions: { [key: number]: StateChangeAction } = {
 
 export function radiusDamage(damage: number, mobj: MapObject, source: MapObject) {
     // use a map so we don't hit the same object multiple times
-    let hits = new Map<MapObject, number>();
+    const hits = new Map<MapObject, number>();
     const height = Infinity; // explosions don't check z in doom
     mobj.map.data.traceMove({
         start: mobj.position,

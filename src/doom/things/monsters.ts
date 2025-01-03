@@ -1,11 +1,11 @@
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
-import { angleBetween, MapObject, xyDistanceBetween, maxStepSize, maxFloatSpeed } from '../map-object';
+import { angleBetween, MapObject, xyDistanceBetween, maxStepSize, maxFloatSpeed, missileMover } from '../map-object';
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, sweepAABBAABB, sweepAABBLine, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, type LineDef, type MapObjectTraceHit, type SectorTraceHit } from '../map-data';
-import { attackRange, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
+import { attackRange, checkMissileSpawn, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
 import { exitLevel, telefragTargets, teleportReorientMove } from '../specials';
 
 export const monsters: ThingType[] = [
@@ -1126,7 +1126,6 @@ type MissileType =
     MapObjectIndex.MT_TROOPSHOT | MapObjectIndex.MT_HEADSHOT | MapObjectIndex.MT_BRUISERSHOT | MapObjectIndex.MT_ROCKET |
     // doom 2
     MapObjectIndex.MT_ARACHPLAZ | MapObjectIndex.MT_FATSHOT | MapObjectIndex.MT_TRACER | MapObjectIndex.MT_SPAWNSHOT;
-// TODO: similar (but also different) from player shootMissile in weapon.ts. Maybe we can combine these?
 function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, angle?: number) {
     let direction = angle ?? angleBetween(shooter, target);
     if (target.info.flags & MFFlags.MF_SHADOW) {
@@ -1141,6 +1140,7 @@ function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, 
     missile.chaseTarget = shooter;
 
     launchMapObject(missile, target, shotZOffset, missile.info.speed);
+    checkMissileSpawn(missile);
     return missile;
 }
 

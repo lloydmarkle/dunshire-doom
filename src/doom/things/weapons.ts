@@ -3,11 +3,11 @@ import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
 import { HALF_PI, QUARTER_PI } from '../math';
-import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '../map-object';
+import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween, missileMover } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond } from "../game";
-import { hitSkyFlat, type HandleTraceHit, type Sector, hitSkyWall, type LineTraceHit, type MapObjectTraceHit, type TraceParams } from "../map-data";
+import { hitSkyFlat, type HandleTraceHit, type Sector, hitSkyWall, type LineTraceHit, type MapObjectTraceHit, type TraceParams, zeroVec } from "../map-data";
 import { itemPickedUp, noPickUp } from "./pickup";
 import type { MessageId } from "../text";
 import { propagateSound } from "./monsters";
@@ -729,6 +729,14 @@ function shootMissile(shooter: MapObject, type: PlayerMissileType) {
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
     missile.chaseTarget = shooter;
+    checkMissileSpawn(missile);
+}
+
+export function checkMissileSpawn(missile: MapObject) {
+    // move missile just a little bit after spawning otherwise the missile explosion
+    // won't always be visible (similar to DOOM's P_CheckMissileSpawn)
+    missile.position.addScaledVector(missile.velocity, .5);
+    missileMover(missile, zeroVec);
 }
 
 function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {

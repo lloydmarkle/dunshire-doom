@@ -152,7 +152,7 @@ const bodyMover: Mover = (() => {
     };
 })();
 
-const missileMover: Mover = (() => {
+export const missileMover: Mover = (() => {
     const explode = (self: MapObject) => {
         // self.info.flags &= ~MFFlags.MF_MISSILE;
         self.velocity.set(0, 0, 0);
@@ -449,8 +449,8 @@ export class MapObject {
     }
 
     // kind of like P_DamageMobj
-    // inflictor is the thing doing damage (thing or missle) or null for slime/crushing
-    // source is the thing that shot the missle (or null)
+    // inflictor is the thing doing damage (thing or missile) or null for slime/crushing
+    // source is the thing that shot the missile (or null)
     damage(amount: number, inflictor?: MapObject, source?: MapObject) {
         // make sure we are dealing integer damage
         amount = Math.round(amount);
@@ -460,27 +460,7 @@ export class MapObject {
             this.velocity.set(0, 0, 0);
         }
 
-        const shouldApplyThrust = (inflictor
-            && !(this.info.flags & MFFlags.MF_NOCLIP)
-            && (!source
-                || !(source instanceof PlayerMapObject)
-                || source.weapon.val.name !== 'chainsaw'));
-        if (shouldApplyThrust) {
-            let angle = angleBetween(inflictor, this);
-            // 12.5 is (100 * (1 << 16 >> 3)) / (1<<16) (see P_DamageMobj)
-            let thrust = amount * 12.5 / this.info.mass;
-            // as a nifty effect, fall forwards sometimes on kill shots (when player is below thing they are shooting at)
-            const shouldFallForward = (amount < 40
-                && amount > this.health.val
-                && this.position.z - inflictor.position.z > 64
-                && (this.rng.real() < .5));
-            if (shouldFallForward) {
-                angle += Math.PI;
-                thrust *= 4;
-            }
-            this.thrust(thrust * Math.cos(angle), thrust * Math.sin(angle), 0);
-        }
-
+        this.damageThrust(amount, inflictor, source);
         this.health.update(h => h - amount);
         if (this.health.val <= 0) {
             this.kill(source);
@@ -502,6 +482,29 @@ export class MapObject {
             if (this._state.index === this.info.spawnstate && this.info.seestate !== StateIndex.S_NULL) {
                 this.setState(this.info.seestate);
             }
+        }
+    }
+
+    protected damageThrust(amount: number, inflictor?: MapObject, source?: MapObject) {
+        const shouldApplyThrust = (inflictor
+            && !(this.info.flags & MFFlags.MF_NOCLIP)
+            && (!source
+                || !(source instanceof PlayerMapObject)
+                || source.weapon.val.name !== 'chainsaw'));
+        if (shouldApplyThrust) {
+            let angle = angleBetween(inflictor, this);
+            // 12.5 is (100 * (1 << 16 >> 3)) / (1<<16) (see P_DamageMobj)
+            let thrust = amount * 12.5 / this.info.mass;
+            // as a nifty effect, fall forwards sometimes on kill shots (when player is below thing they are shooting at)
+            const shouldFallForward = (amount < 40
+                && amount > this.health.val
+                && this.position.z - inflictor.position.z > 64
+                && (this.rng.real() < .5));
+            if (shouldFallForward) {
+                angle += Math.PI;
+                thrust *= 4;
+            }
+            this.thrust(thrust * Math.cos(angle), thrust * Math.sin(angle), 0);
         }
     }
 
@@ -690,6 +693,10 @@ export class PlayerMapObject extends MapObject {
             if (this.attacker && this.attacker !== this) {
                 this.direction = angleBetween(this, this.attacker);
             }
+            if (this._positionChanged) {
+                this.applyPositionChanged();
+                this._positionChanged = false;
+            }
             return;
         }
 
@@ -745,14 +752,17 @@ export class PlayerMapObject extends MapObject {
     }
 
     damage(amount: number, inflictor?: MapObject, source?: MapObject) {
+        if (this.map.game.skill === 1) {
+            amount *= .5; // half damage in easy skill
+        }
+        this.damageThrust(amount, inflictor, source);
+
         let inv = this.inventory.val;
         if (inv.items.invincibilityTicks || this.map.game.settings.invicibility.val) {
             // TODO: doom does damage to invincible players if damage is above 1000 but... why?
             return;
         }
-        if (this.map.game.skill === 1) {
-            amount *= .5; // half damage in easy skill
-        }
+
         if (inv.armor) {
             let saved = amount / (inv.armorType == 1 ? 3 : 2);
             if (inv.armor <= saved) {
@@ -770,10 +780,10 @@ export class PlayerMapObject extends MapObject {
         if (this.sector.type == 11 && amount >= this.health.val) {
             amount = this.health.val - 1;
         }
-
-        super.damage(amount, inflictor, source);
-
         this.damageCount.update(val => Math.min(val + amount, 100));
+
+        // NOTE: no inflictor to avoid damageThrust (it's already applied above)
+        super.damage(amount, null, source);
         // TODO: haptic feedback for controllers?
     }
 
