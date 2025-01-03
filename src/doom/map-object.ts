@@ -2,8 +2,8 @@ import { store, type Store } from "./store";
 import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
-import { HALF_PI, signedLineDistance, ToRadians, type Vertex, randInt } from "./math";
-import { hittableThing, type Sector, type SubSector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block } from "./map-data";
+import { HALF_PI, signedLineDistance, type Vertex, randInt } from "./math";
+import { hittableThing, type Sector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block } from "./map-data";
 import { ticksPerSecond, type GameTime, tickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -27,7 +27,217 @@ export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
 const velocityPerSecond = (time: number, vel: number) => vel * time / tickTime;
 const velocityPerTick = (time: number, vel: number) => vel * tickTime / time;
 
-const vec = new Vector3();
+type Mover = (mobj: MapObject, move: Vector3) => void;
+const bodyMover: Mover = (() => {
+    const vec = new Vector3();
+    const slideMove = (vel: Vector3, x: number, y: number) => {
+        // slide along wall instead of moving through it
+        vec.set(x, y, 0);
+        // we are only interested in cancelling xy movement so preserve z
+        const z = vel.z;
+        vel.projectOnVector(vec);
+        vel.z = z;
+    };
+
+    return (self, move) => {
+        if (self.info.flags & MFFlags.MF_NOCLIP) {
+            self.position.add(move);
+            self.positionChanged();
+            return;
+        }
+
+        const start = self.position;
+        let blocker: TraceHit = 1 as any;
+        hitCount += 1;
+        const traceParams: TraceParams = {
+            start, move,
+            radius: self.info.radius,
+            height: self.info.height,
+            hitObject: hit => {
+                // kind of like PIT_CheckThing
+                const ignoreHit = (false
+                    || (hit.mobj === self) // don't collide with yourself
+                    || (!(hit.mobj.info.flags & hittableThing)) // not hittable
+                    || (start.z + self.info.height < hit.mobj.position.z) // passed under target
+                    || (start.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
+                    || (hit.mobj.hitC === hitCount) // already hit this mobj
+                );
+                if (ignoreHit) {
+                    return true;
+                }
+                hit.mobj.hitC = hitCount;
+
+                if (hit.mobj.info.flags & MFFlags.MF_SPECIAL) {
+                    self.pickup(hit.mobj);
+                    return true;
+                }
+                blocker = hit;
+                if (hit.axis === 'y') {
+                    slideMove(move, 1, 0);
+                } else {
+                    slideMove(move, 0, 1);
+                }
+                return !blocker;
+            },
+            hitLine: hit => {
+                const twoSided = Boolean(hit.line.left);
+                const blocking = (hit.line.flags & 0x0001) !== 0;
+                if (twoSided && !blocking) {
+                    const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
+
+                    const floorChangeOk = (back.zFloor - start.z <= maxStepSize);
+                    const transitionGapOk = (back.zCeil - start.z >= self.info.height);
+                    const newCeilingFloorGapOk = (back.zCeil - back.zFloor >= self.info.height);
+                    const dropOffOk =
+                        (self.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
+                        (start.z - back.zFloor <= maxStepSize);
+
+                    // console.log('[sz,ez], [f,t,cf,do]',self.id,[start.z, back.zFloor], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
+                    if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
+                        if (hit.line.special) {
+                            const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
+                            const endSide = signedLineDistance(hit.line.v, vec) < 0 ? -1 : 1
+                            if (startSide !== endSide) {
+                                self.map.triggerSpecial(hit.line, self, 'W', hit.side);
+                            }
+                        }
+
+                        return true; // step/ceiling/drop-off collision is okay so try next line
+                    }
+                }
+
+                // TODO: hmmm.. if we check for double hits here (after hitting specials), we risk triggering specials multiple times.
+                // maybe we should trigger specials after this? (that is how doom actually does it)
+                if (hit.line.hitC === hitCount) {
+                    // we've already hit this wall? stop moving because we're in a concave corner (e1m1 imp platform or e1m3 near blue key door)
+                    move.set(0, 0, 0);
+                    return true;
+                }
+                hit.line.hitC = hitCount;
+
+                blocker = hit;
+                slideMove(move, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
+                return !blocker;
+            },
+            hitFlat: hit => {
+                // hit a floor or ceiling
+                self.hitFlat(hit.point.z);
+                if (self.info.flags & MFFlags.MF_SKULLFLY) {
+                    blocker = hit;
+                }
+                return !blocker;
+            }
+        };
+
+        while (blocker) {
+            blocker = null;
+            vec.copy(start).add(move);
+            self.map.data.traceMove(traceParams);
+
+            if (blocker && self.info.flags & MFFlags.MF_SKULLFLY) {
+                // skull hit something so stop flying
+                self.info.flags &= ~MFFlags.MF_SKULLFLY;
+                self.setState(self.info.spawnstate);
+                // if hit is a mobj, then damage it
+                if ('mobj' in blocker) {
+                    const damage = self.info.damage * self.rng.int(1, 8);
+                    blocker.mobj.damage(damage, self, self);
+                    move.set(0, 0, 0);
+                }
+            }
+        }
+
+        self.position.add(move);
+        self.positionChanged();
+    };
+})();
+
+const missileMover: Mover = (() => {
+    const explode = (self: MapObject) => {
+        // self.info.flags &= ~MFFlags.MF_MISSILE;
+        self.velocity.set(0, 0, 0);
+        self.setState(self.info.deathstate, -self.rng.int(0, 2));
+        self.map.game.playSound(self.info.deathsound, self);
+    };
+
+    return (self, move) => {
+        const map = self.map;
+        const start = self.position;
+        const traceParams: TraceParams = {
+            start, move,
+            radius: self.info.radius,
+            height: self.info.height,
+            hitObject: hit => {
+                // kind of like PIT_CheckThing
+                const ignoreHit = (false
+                    || (hit.mobj === self) // don't collide with yourself
+                    || (self.chaseTarget === hit.mobj) // don't hit shooter
+                    || !(hit.mobj.info.flags & hittableThing) // not hittable
+                    || (start.z + self.info.height < hit.mobj.position.z) // passed under target
+                    || (start.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
+                );
+                if (ignoreHit) {
+                    return true;
+                }
+
+                if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                    return Boolean(hit.mobj.info.flags & MFFlags.MF_SOLID);
+                }
+                // same species does not damage hit.mobj but still explodes missile
+                // this is quite clever because bullets shooters (chaingun guys, shotgun guys, etc.) don't shoot
+                // missiles and therefore will still attack each other
+                const sameSpecies = self.chaseTarget && (
+                    self.chaseTarget.type === hit.mobj.type ||
+                    (self.chaseTarget.type === MapObjectIndex.MT_KNIGHT && hit.mobj.type === MapObjectIndex.MT_BRUISER)||
+                    (self.chaseTarget.type === MapObjectIndex.MT_BRUISER && hit.mobj.type === MapObjectIndex.MT_KNIGHT)
+                );
+                if (!sameSpecies) {
+                    const damage = self.info.damage * self.rng.int(1, 8);
+                    hit.mobj.damage(damage, self, self.chaseTarget);
+                }
+                explode(self);
+                return false;
+            },
+            hitLine: hit => {
+                const twoSided = Boolean(hit.line.left);
+                let exploded = false;
+                if (twoSided) {
+                    const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
+                    const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
+                    if (hitSkyWall(start.z, front, back)) {
+                        map.destroy(self);
+                        return false;
+                    }
+
+                    exploded = exploded || (start.z < back.zFloor);
+                    exploded = exploded || (start.z + self.info.height > back.zCeil);
+                }
+
+                if (!twoSided || exploded) {
+                    if (hit.line.special) {
+                        map.triggerSpecial(hit.line, self, 'G', hit.side);
+                    }
+                    explode(self);
+                    return false;
+                }
+                return true;
+            },
+            hitFlat: hit => {
+                if (hitSkyFlat(hit)) {
+                    map.destroy(self);
+                } else {
+                    explode(self);
+                }
+                return false;
+            }
+        };
+        map.data.traceMove(traceParams);
+
+        self.position.add(move);
+        self.positionChanged();
+    };
+})();
+
 export const maxFloatSpeed = 4;
 export const maxStepSize = 24;
 const stopVelocity = 0.001;
@@ -38,8 +248,9 @@ export class MapObject {
     readonly id = MapObject.objectCounter++;
 
     // check for already hit lines/mobjs
-    private hitC: number;
+    hitC: number;
     blockHit = 0;
+    private readonly mover: Mover;
     sectorMap = new Map<Sector, number>();
     blocks = new Map<Block, number>();
 
@@ -114,6 +325,7 @@ export class MapObject {
         }
 
         // only players, monsters, and dropped things are moveable which affects how we choose zFloor and zCeil
+        this.mover = (this.info.flags & MFFlags.MF_MISSILE) ? missileMover : bodyMover;
         const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_DROPPED) || spec.moType === MapObjectIndex.MT_PLAYER;
         const highestZFloor = !moveable
             ? (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor
@@ -346,7 +558,7 @@ export class MapObject {
         this._state.setState(stateIndex, tickOffset);
     }
 
-    protected pickup(mobj: MapObject) {
+    pickup(mobj: MapObject) {
         // this is only imlemented by PlayerMapObject (for now)
     }
 
@@ -386,199 +598,14 @@ export class MapObject {
         if (!this._isMoving) {
             return;
         }
-
-        if (this.info.flags & MFFlags.MF_NOCLIP) {
-            this.position.add(this.velocity);
-            this.positionChanged();
-            return;
-        }
-
-        // cyclomatic complexity of the code below: about 1 bazillion.
-        const isMissile = this.info.flags & MFFlags.MF_MISSILE;
-        const start = this.position;
-        let blocker: TraceHit = 1 as any;
-        hitCount += 1;
-        const traceParams: TraceParams = {
-            start,
-            move: this.velocity,
-            radius: this.info.radius,
-            height: this.info.height,
-            hitObject: hit => {
-                // kind of like PIT_CheckThing
-                const ignoreHit = (false
-                    || (hit.mobj === this) // don't collide with yourself
-                    || (!(hit.mobj.info.flags & hittableThing)) // not hittable
-                    || (start.z + this.info.height < hit.mobj.position.z) // passed under target
-                    || (start.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
-                    || (hit.mobj.hitC === hitCount) // already hit this mobj
-                );
-                if (ignoreHit) {
-                    return true;
-                }
-                hit.mobj.hitC = hitCount;
-
-                if (isMissile) {
-                    if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
-                        return Boolean(hit.mobj.info.flags & MFFlags.MF_SOLID);
-                    }
-                    if (this.chaseTarget === hit.mobj) {
-                        return true; // don't hit shooter, continue trace
-                    }
-                    // same species does not damage hit.mobj but still explodes missile
-                    // this is quite clever because bullets shooters (chaingun guys, shotgun guys, etc.) don't shoot
-                    // missiles and therefore will still attack each other
-                    const sameSpecies = this.chaseTarget && (
-                        this.chaseTarget.type === hit.mobj.type ||
-                        (this.chaseTarget.type === MapObjectIndex.MT_KNIGHT && hit.mobj.type === MapObjectIndex.MT_BRUISER)||
-                        (this.chaseTarget.type === MapObjectIndex.MT_BRUISER && hit.mobj.type === MapObjectIndex.MT_KNIGHT)
-                    );
-                    if (!sameSpecies) {
-                        const damage = this.info.damage * this.rng.int(1, 8);
-                        hit.mobj.damage(damage, this, this.chaseTarget);
-                    }
-                    this.explode();
-                    return false;
-                }
-                if (hit.mobj.info.flags & MFFlags.MF_SPECIAL) {
-                    this.pickup(hit.mobj);
-                    return true;
-                }
-                blocker = hit;
-                if (hit.axis === 'y') {
-                    slideMove(this.velocity, 1, 0);
-                } else {
-                    slideMove(this.velocity, 0, 1);
-                }
-                return !blocker;
-            },
-            hitLine: hit => {
-                const isMissile = this.info.flags & MFFlags.MF_MISSILE;
-                const twoSided = Boolean(hit.line.left);
-                if (isMissile) {
-                    let explode = false;
-                    if (twoSided) {
-                        const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
-                        const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
-                        if (hitSkyWall(start.z, front, back)) {
-                            this.map.destroy(this);
-                            return false;
-                        }
-
-                        explode = explode || (start.z < back.zFloor);
-                        explode = explode || (start.z + this.info.height > back.zCeil);
-                    }
-
-                    if (!twoSided || explode) {
-                        if (hit.line.special) {
-                            this.map.triggerSpecial(hit.line, this, 'G', hit.side);
-                        }
-                        this.explode();
-                        return false;
-                    }
-                    return true;
-                }
-
-                const blocking = (hit.line.flags & 0x0001) !== 0;
-                if (twoSided && !blocking) {
-                    const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
-
-                    const floorChangeOk = (back.zFloor - start.z <= maxStepSize);
-                    const transitionGapOk = (back.zCeil - start.z >= this.info.height);
-                    const newCeilingFloorGapOk = (back.zCeil - back.zFloor >= this.info.height);
-                    const dropOffOk =
-                        (this.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
-                        (start.z - back.zFloor <= maxStepSize);
-
-                    // console.log('[sz,ez], [f,t,cf,do]',this.id,[start.z, back.zFloor], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
-                    if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
-                        if (hit.line.special) {
-                            const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
-                            const endSide = signedLineDistance(hit.line.v, vec) < 0 ? -1 : 1
-                            if (startSide !== endSide) {
-                                this.map.triggerSpecial(hit.line, this, 'W', hit.side);
-                            }
-                        }
-
-                        return true; // step/ceiling/drop-off collision is okay so try next line
-                    }
-                }
-
-                // TODO: hmmm.. if we check for double hits here (after hitting specials), we risk triggering specials multiple times.
-                // maybe we should trigger specials after this? (that is how doom actually does it)
-                if (hit.line.hitC === hitCount) {
-                    // we've already hit this wall? stop moving because we're in a concave corner (e1m1 imp platform or e1m3 near blue key door)
-                    this.velocity.set(0, 0, 0);
-                    return true;
-                }
-                hit.line.hitC = hitCount;
-
-                blocker = hit;
-                slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
-                return !blocker;
-            },
-            hitFlat: hit => {
-                // hit a floor or ceiling
-                this.hitFlat(hit.point.z);
-
-                if (this.info.flags & MFFlags.MF_SKULLFLY) {
-                    blocker = hit;
-                }
-
-                if (isMissile) {
-                    if (hitSkyFlat(hit)) {
-                        this.map.destroy(this);
-                    } else {
-                        this.explode();
-                    }
-                    return false;
-                }
-                return !blocker;
-            }
-        };
-
-        while (blocker) {
-            blocker = null;
-            vec.copy(start).add(this.velocity);
-            this.map.data.traceMove(traceParams);
-
-            if (blocker && this.info.flags & MFFlags.MF_SKULLFLY) {
-                // skull hit something so stop flying
-                this.info.flags &= ~MFFlags.MF_SKULLFLY;
-                this.setState(this.info.spawnstate);
-                // if hit is a mobj, then damage it
-                if ('mobj' in blocker) {
-                    const damage = this.info.damage * this.rng.int(1, 8);
-                    blocker.mobj.damage(damage, this, this);
-                    this.velocity.set(0, 0, 0);
-                }
-            }
-        }
-
-        this.position.add(this.velocity);
-        this.positionChanged();
+        this.mover(this, this.velocity);
     }
 
-    protected hitFlat(zVal: number) {
+    hitFlat(zVal: number) {
         this.velocity.z = 0;
         this.position.z = zVal;
     }
-
-    protected explode() {
-        this.info.flags &= ~MFFlags.MF_MISSILE;
-        this.velocity.set(0, 0, 0);
-        this._state.setState(this.info.deathstate, -this.rng.int(0, 2));
-        this.map.game.playSound(this.info.deathsound, this);
-    }
 }
-
-const slideMove = (vel: Vector3, x: number, y: number) => {
-    // slide along wall instead of moving through it
-    vec.set(x, y, 0);
-    // we are only interested in cancelling xy movement so preserve z
-    const z = vel.z;
-    vel.projectOnVector(vec);
-    vel.z = z;
-};
 
 const tickingItems: (Exclude<keyof PlayerInventory['items'], 'computerMap' | 'berserk'>)[] =
     ['berserkTicks', 'invincibilityTicks', 'invisibilityTicks', 'nightVisionTicks', 'radiationSuitTicks'];
@@ -788,7 +815,7 @@ export class PlayerMapObject extends MapObject {
         }
     }
 
-    protected hitFlat(zVal: number): void {
+    hitFlat(zVal: number): void {
         // smooth step up
         if (this.position.z < zVal) {
             this.viewHeightOffset -= zVal - this.position.z;
@@ -853,7 +880,7 @@ export class PlayerMapObject extends MapObject {
     }
 
     // kind of P_TouchSpecialThing in p_inter.c
-    protected pickup(mobj: MapObject) {
+    pickup(mobj: MapObject) {
         const pickedUp = mobj.onPickup?.(this, mobj);
         if (pickedUp) {
             // TODO: only play sound for local player, not remote players
