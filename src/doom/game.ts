@@ -193,7 +193,7 @@ export class Game implements SoundEmitter {
         this.soundHandler = handler;
     }
     playSound(snd: SoundIndex, location?: MapObject | Sector) {
-        if (snd === SoundIndex.sfx_None) {
+        if (snd === undefined || snd === SoundIndex.sfx_None) {
             return;
         }
         this.soundHandler?.(snd, location ?? this.map.val?.player);

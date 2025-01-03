@@ -124,7 +124,6 @@
             const isSectorLocation = location && 'soundTarget' in location;
             const isPositional = player && location && location !== player;
 
-            // FIXME: SoundIndex[snd] can be undefined?
             const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
             this.soundNode = audio.createBufferSource()
             this.soundNode.buffer = soundBuffer(name);

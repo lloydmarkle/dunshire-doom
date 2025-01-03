@@ -3,9 +3,10 @@
 
     export let time: number;
 
-    $: hours = Math.floor(time / 3600) % 24;
-    $: minutes = Math.floor(time / 60) % 60;
-    $: seconds = Math.floor(time % 60);
+    $: dt = Math.max(0, time);
+    $: hours = Math.floor(dt / 3600) % 24;
+    $: minutes = Math.floor(dt / 60) % 60;
+    $: seconds = Math.floor(dt % 60);
 </script>
 
 <div class="inline-flex gap-[1.2px]">

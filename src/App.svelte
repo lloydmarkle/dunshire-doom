@@ -102,6 +102,21 @@
             game.startMap(urlMapName);
             loadOptionalUrlParams(game, params);
         }
+
+        // mostly here for testing intermission screens
+        const urlIntermission = params.get('intermission');
+        if (urlIntermission && game.map.val) {
+            const parts = urlIntermission.split(',').map(e => parseInt(e));
+            if (parts.length < 4) {
+                return;
+            }
+            const map = game.map.val;
+            map.triggerSpecial({ special: 52 } as any, map.player, 'W')
+            game.intermission.val.playerStats[0].kills = parts[0];
+            game.intermission.val.playerStats[0].items = parts[1];
+            game.intermission.val.playerStats[0].secrets = parts[2];
+            game.time.playTime = parts[3];
+        }
     }
 
     // keep url in sync with game

@@ -4,7 +4,7 @@
     import AnimatedBackground from "./AnimatedBackground.svelte";
     import STNumber from "../Components/STNumber.svelte";
     import Time from "./Time.svelte";
-    import { writable } from "svelte/store";
+    import { get, writable } from "svelte/store";
     import MapNamePic from "../Components/MapNamePic.svelte";
 
     export let details: IntermissionScreen;
@@ -35,116 +35,114 @@
         120,30					// 31-32
     ];
 
-    let state: 'count' | 'wait' | 'next-map' = 'count';
     const ticker = (tickRate: number, count: number, total?: number) => {
-        let n = -1;
-        let value = writable(0);
-        const update = () => value.set(total ? (n * 100 / total) : n);
+        const target = total ? (count * 100) / total : count;
+        const value = writable(-1);
         return {
-            set: value.set,
-            update: value.update,
             subscribe: value.subscribe,
-            isComplete: () => n === count,
-            complete: () => {
-                n = count;
-                update();
-            },
-            tick: () => {
-                if (n === count) {
-                    game.playSound(SoundIndex.sfx_barexp);
-                    return;
-                }
-                if (!(game.time.tickN.val & 3)) {
-                    // only every 4th tick
-                    game.playSound(SoundIndex.sfx_pistol);
-                }
-                n = Math.min(count, n + tickRate);
-                update();
-            },
+            isComplete: () => get(value) === target,
+            complete: () => value.set(target),
+            tick: () => value.update(v => Math.min(target, v + tickRate)),
         };
     };
-    let killPercent = ticker(2, sum(details.playerStats, 'kills'), stats.totalKills);
-    let itemPercent = ticker(2, sum(details.playerStats, 'items'), stats.totalItems);
-    let secretPercent = ticker(2, sum(details.playerStats, 'secrets'), stats.totalSecrets);
-    let parTime = ticker(3, episodeMaps
+
+    type StateFn = (buttonPressed: boolean) => StateFn;
+    const nextMapState: StateFn = (() => {
+        const initialWaitTime = 4 * ticksPerSecond;
+        let waitTime = initialWaitTime;
+        return button => {
+            if (waitTime === initialWaitTime) {
+                game.playSound(SoundIndex.sfx_sgcock);
+            }
+            waitTime = button ? 0 : waitTime - 1;
+            if (waitTime > 0) {
+                return nextMapState;
+            }
+            complete = true;
+            return nextMapState;
+        };
+    })();
+
+    const waitState: StateFn = button => button ? nextMapState : waitState;
+
+    let tickers = [];
+    const killPercent = ticker(2, sum(details.playerStats, 'kills'), stats.totalKills);
+    const itemPercent = ticker(2, sum(details.playerStats, 'items'), stats.totalItems);
+    const secretPercent = ticker(2, sum(details.playerStats, 'secrets'), stats.totalSecrets);
+    const parTime = ticker(3, episodeMaps
         ? parTimes1[episode - 1][mapNum(details.finishedMap.name)]
         : parTimes2[mapNum(details.finishedMap.name)]);
-    let mapTime = ticker(3, stats.elapsedTime);
-    let gameTime = ticker(3, details.finishedMap.game.time.playTime);
+    const mapTime = ticker(3, stats.elapsedTime);
+    const gameTime = ticker(3, details.finishedMap.game.time.playTime);
+    const countState: StateFn = (() => {
+        let waitTime = ticksPerSecond;
+        return button => {
+            if (button) {
+                tickers = [killPercent, itemPercent, secretPercent, parTime, mapTime, gameTime];
+                const alreadyComplete = tickers.every(e => e.isComplete());
+                if (!alreadyComplete) {
+                    game.playSound(SoundIndex.sfx_barexp);
+                }
+                tickers.forEach(e => e.complete());
+                return alreadyComplete ? nextMapState : waitState;
+            }
 
-    let allowSkip = false;
-    let pauseTime = ticksPerSecond;
-    let tickers = [];
+            if (waitTime > 0) {
+                waitTime -= 1;
+                return countState;
+            }
+
+            if (tickers.every(e => e.isComplete())) {
+                const next =
+                    secretPercent.isComplete() ? [parTime, mapTime, gameTime] :
+                    itemPercent.isComplete() ? [secretPercent] :
+                    killPercent.isComplete() ? [itemPercent] :
+                    [killPercent];
+                tickers = [...tickers, ...next];
+                return countState;
+            }
+
+            if (!($tickN & 3)) {
+                // only every 4th tick
+                game.playSound(SoundIndex.sfx_pistol);
+            }
+            tickers.forEach(e => e.tick());
+            // if we just finished a ticker, add pause time
+            if (tickers.every(e => e.isComplete())) {
+                game.playSound(SoundIndex.sfx_barexp);
+                waitTime = ticksPerSecond;
+            }
+            return countState;
+        };
+    })();
+
+    let stateFn: StateFn = countState;
+    let allowButton = false;
     $: if (tickN && $tickN) tickUpdate();
     function tickUpdate() {
-        // TODO: the logic in this function is _very_ complex. I wonder if we could do better with
-        // transitions and in/out to trigger next animation or pause?
-
-        // check for button presses to skip animations
-        if (!allowSkip) {
-            // prevent fast skip (like a left-over use-press from flipping the switch at the end of the level)
-            allowSkip = !game.input.attack && !game.input.use;
+        // prevent fast skip (like a left-over use-press from flipping the switch at the end of the level)
+        let buttonPressed = false;
+        if (!allowButton) {
+            allowButton = !game.input.attack && !game.input.use;
         } else if (game.input.attack || game.input.use) {
-            allowSkip = false;
-            if (state === 'count') {
-                game.input.attack = false;
-                game.input.use = false;
-                tickers = [killPercent, itemPercent, secretPercent, parTime, mapTime, gameTime];
-                tickers.forEach(e => e.complete());
-            } else {
-                pauseTime = 0;
-            }
+            buttonPressed = true;
+            allowButton = false;
+            game.input.attack = false;
+            game.input.use = false;
         }
 
-        pauseTime -= 1;
-        if (pauseTime >= 0) {
-            return;
-        }
-
-        if (state === 'wait') {
-            state = 'next-map';
-            pauseTime = 4 * ticksPerSecond;
-            game.playSound(SoundIndex.sfx_sgcock);
-            return;
-        } else if (state === 'next-map') {
-            // we've finished our wait for entering state so go to next map
-            // NOTE: stop the ticker because it can take time to load the next map and we don't want any more ticks
-            tickN = null;
-            complete = true;
-            return;
-        }
-
-        if (tickers.every(e => e.isComplete())) {
-            const next =
-                secretPercent.isComplete() ? [parTime, mapTime, gameTime] :
-                itemPercent.isComplete() ? [secretPercent] :
-                killPercent.isComplete() ? [itemPercent] :
-                [killPercent];
-            tickers = [...tickers, ...next];
-            if (tickers.every(e => e.isComplete())) {
-                // 4 second pause to see next map name (and "you are here" in doom1)
-                state = 'wait';
-                pauseTime = 4 * ticksPerSecond;
-            }
-            return;
-        }
-
-        tickers.forEach(e => e.tick());
-        // if we just finished our tickers, add pause time
-        if (tickers.every(e => e.isComplete())) {
-            pauseTime = ticksPerSecond;
-        }
+        stateFn = stateFn?.(buttonPressed);
     }
 </script>
 
 <div class="relative w-[320px] h-[200px]">
     {#if episodeMaps && episode < 4}
-        <AnimatedBackground episode={episode - 1} {details} showLocation={state === 'next-map'} />
+        <AnimatedBackground episode={episode - 1} {details} showLocation={stateFn === nextMapState} />
     {:else}
         <Picture name="INTERPIC" />
     {/if}
     <div class="content">
-        {#if state === 'next-map'}
+        {#if stateFn === nextMapState}
             {#if details.finishedMap.name !== 'MAP30'}
                 <div class="dtitle">
                     <span><Picture name="WIENTER" /></span>

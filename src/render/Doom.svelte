@@ -38,7 +38,7 @@
     const { map, intermission } = game;
     // TODO: having a separate WipeContainer component is messy and so is tracking two screen states. I wonder if we could
     // move to a single "screen" variable and manage it somehow in App.svelte?
-    // I'm pretty confident this can all be cleaned up... somday.
+    // I'm pretty confident this can all be cleaned up... someday.
     // NOTE: add noise to map name so that idclev to same map does screen wipe
     $: screenName = ($map?.name ?? '') + Math.random();
     $: intScreen = $intermission ? 'summary' : null;
@@ -53,10 +53,6 @@
     const touchDevice = matchMedia('(hover: none)').matches;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
     $: settings.compassMove.set($cameraMode === "svg");
-    $: if ($map) {
-        // Test intermission screens
-        // $map.triggerSpecial({ special: 52 } as any, $map.player, 'W')
-    }
     $: mapMusicTrack = $map?.musicTrack;
 
     const isPointerLocked = pointerLock.isPointerLocked;
