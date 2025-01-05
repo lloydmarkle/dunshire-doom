@@ -816,7 +816,7 @@ export class PlayerMapObject extends MapObject {
         if (this.isDead) {
             return super.applyGravity();
         }
-        if (this.info.flags & MFFlags.MF_NOGRAVITY) {
+        if ((this.info.flags & MFFlags.MF_NOCLIP) && (this.info.flags & MFFlags.MF_NOGRAVITY)) {
             return;
         }
         if (this._onGround && this.velocity.z <= stopVelocity) {

@@ -402,7 +402,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                     // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
                     nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
                     const moveDot = params.move.dot(nVec);
-                    // NOTE: dot === 0 is special. We allow this only when we are moving
+                    // NOTE: we allow dot === 0 because we only check dot product when we are moving
                     // (if we aren't moving, dot will always be 0 and we skip everything)
                     if (moveDot >= 0) {
                         continue;
@@ -421,6 +421,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         }
 
         if (params.hitFlat) {
+            const height = params.height ?? 0;
             for (let i = 0, n = block.subsectors.length; i < n; i++) {
                 const subsector = block.subsectors[i];
                 if (subsector.blockHit === scanN) {
@@ -434,14 +435,14 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                     subsector.blockHit = scanN;
                     hits.push(floorHit);
                 }
-                const ceilHit = params.move.z > 0 && flatHit('ceil', block, subsector, sector.zCeil - (params.height ?? 0), params);
+                const ceilHit = params.move.z > 0 && flatHit('ceil', block, subsector, sector.zCeil - height, params);
                 if (ceilHit) {
                     subsector.blockHit = scanN;
                     hits.push(ceilHit);
                 }
                 // already colliding with a ceiling (like a crusher)
                 const beingCrushed = checkRootSector
-                    && sector.zCeil - sector.zFloor - params.height < 0
+                    && sector.zCeil - sector.zFloor - height < 0
                     && pointInBlock(block, params.start)
                     && pointInSubsector(subsector, params.start);
                 if (beingCrushed) {
