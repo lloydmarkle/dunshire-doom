@@ -2,12 +2,14 @@
     import type { Size } from "@threlte/core";
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
+    import BspDepthHeatMap from "./BspDepthHeatMap.svelte";
     import { type MapRuntime, type SubSector } from "../../doom";
-    import { useAppContext, useDoomMap } from "../DoomContext";
-    import { Color } from "three";
+    import { useAppContext, useDoomMap, type KeyMap } from "../DoomContext";
+    import { Color, Vector3 } from "three";
     import type { RenderSector } from "../RenderData";
     import { onDestroy } from "svelte";
     import { bridgeEventsToReadables, type MapObject as MObj } from "../Map/SvelteBridge";
+    import { writable } from "svelte/store";
 
     export let size: Size;
     export let map: MapRuntime;
@@ -26,7 +28,7 @@
     });
 
     const { position, direction } = map.player.renderData as any;
-    const showBlockmap = useAppContext().settings.showBlockMap;
+    const { showBlockMap, keymap } = useAppContext().settings;
 
     // DOOM vertexes are in the range -32768 and 32767 so maps have a fixed maximum size
     const mapSize = 65536;
@@ -65,10 +67,11 @@
         // helpful for debugging...
         selRS = rs;
         selSubSec = subsec;
-        console.log(selRS.sector.num, subsec.num)
     }
 
-    const debugShowSubsectors = false;
+    let debugShowBspDepthMap = false;
+    let debugShowSubsectors = false;
+    // TODO: this needs input handling somehow...
     const namedColor = (n: number) =>
         '#' + Object.values(Color.NAMES)[n % Object.keys(Color.NAMES).length].toString(16).padStart(6, '0');
 </script>
@@ -114,7 +117,6 @@
     <g
         stroke-linecap={'round'}
     >
-
         {#if debugShowSubsectors}
             {#each renderSectors as rs, i}
                 {#each rs.subsectors as subsector, j}
@@ -131,7 +133,11 @@
             {/each}
         {/if}
 
-        {#if $showBlockmap}
+        {#if debugShowBspDepthMap}
+            <BspDepthHeatMap {map} />
+        {/if}
+
+        {#if $showBlockMap}
             <rect
                 x={bounds.left} y={bounds.bottom}
                 width={bounds.right - bounds.left} height={bounds.top - bounds.bottom}
@@ -172,6 +178,34 @@
         {/if}
     </g>
 </svg>
+
+<div class="dropdown dropdown-end absolute right-0">
+    <div tabindex="0" role="button" class="btn">Debug</div>
+    <div tabindex="-1" class="
+        dropdown-content z-10 shadow bg-base-100 w-screen max-w-96 rounded-box
+    ">
+        <ul class="menu">
+            <li>
+                <label class="label cursor-pointer">
+                    <span class="label-text">Show subsectors</span>
+                    <input type="checkbox" class="checkbox" bind:checked={debugShowSubsectors} />
+                </label>
+            </li>
+            <li>
+                <label class="label cursor-pointer">
+                    <span class="label-text">Show blockmap</span>
+                    <input type="checkbox" class="checkbox" bind:checked={$showBlockMap} />
+                </label>
+            </li>
+            <li>
+                <label class="label cursor-pointer">
+                    <span class="label-text">Show BSP depth heatmap</span>
+                    <input type="checkbox" class="checkbox" bind:checked={debugShowBspDepthMap} />
+                </label>
+            </li>
+        </ul>
+    </div>
+</div>
 
 <style>
     svg {

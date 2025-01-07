@@ -5,7 +5,6 @@
     export let linedef: LineDef;
 
     const wad = map.game.wad;
-    const position = map.player.position;
     const palette = wad.palettes[0];
 
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector?.renderData ?? {};
@@ -18,18 +17,6 @@
             ($zCeilL !== $zCeilR) ? palette[231] :
             palette[96];
     })();
-
-    $: lineOpacity = (function() {
-        // if (!linedef.left) {
-            return 1;
-        // }
-        // const ceilingGap = $position.z + map.player.info.height - Math.min($zCeilR, $zCeilL);
-        // if (ceilingGap > 0) {
-        //     return Math.min(.9, Math.max(0.2, ceilingGap / 100));
-        // }
-        // const floorDiff = Math.abs($position.z - Math.max($zFloorR, $zFloorL));
-        // return Math.min(.9, Math.max(0.2, floorDiff / 100));
-    })();
 </script>
 
 <line
@@ -37,8 +24,8 @@
     y1={linedef.v[0].y}
     x2={linedef.v[1].x}
     y2={linedef.v[1].y}
-    stroke-opacity={lineOpacity}
+    stroke-opacity={1}
     stroke={'#' + lineStroke.getHexString()}
-    stroke-width={2}
+    stroke-width={4}
     fill='transparent'
 />

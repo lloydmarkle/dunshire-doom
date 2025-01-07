@@ -87,7 +87,7 @@
         x={$position.x - radius} y={-$position.y}
         stroke='none'
         fill={thingColor(mobj)}
-    >{mobj.description ?? ''} {mobj.id}</text>
+    >{mobj.id}:{mobj.description ?? MapObjectIndex[mobj.type]}</text>
 </g>
 
 <style>
