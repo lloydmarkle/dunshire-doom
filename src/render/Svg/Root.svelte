@@ -4,12 +4,11 @@
     import Wall from "./Wall.svelte";
     import BspDepthHeatMap from "./BspDepthHeatMap.svelte";
     import { type MapRuntime, type SubSector } from "../../doom";
-    import { useAppContext, useDoomMap, type KeyMap } from "../DoomContext";
-    import { Color, Vector3 } from "three";
+    import { useAppContext, useDoomMap } from "../DoomContext";
+    import { Color } from "three";
     import type { RenderSector } from "../RenderData";
     import { onDestroy } from "svelte";
     import { bridgeEventsToReadables, type MapObject as MObj } from "../Map/SvelteBridge";
-    import { writable } from "svelte/store";
 
     export let size: Size;
     export let map: MapRuntime;
@@ -28,7 +27,7 @@
     });
 
     const { position, direction } = map.player.renderData as any;
-    const { showBlockMap, keymap } = useAppContext().settings;
+    const { showBlockMap } = useAppContext().settings;
 
     // DOOM vertexes are in the range -32768 and 32767 so maps have a fixed maximum size
     const mapSize = 65536;
@@ -117,24 +116,8 @@
     <g
         stroke-linecap={'round'}
     >
-        {#if debugShowSubsectors}
-            {#each renderSectors as rs, i}
-                {#each rs.subsectors as subsector, j}
-                    <polygon
-                        points={subsector.vertexes.map(e => e.x + ',' + e.y).join(' ')}
-                        fill={namedColor(i)}
-                        on:click={() => selectRS(rs, subsector)} />
-                    <polygon
-                        points={subsector.vertexes.map(e => e.x + ',' + e.y).join(' ')}
-                        opacity={.1}
-                        fill={namedColor(j)}
-                        on:click={() => selectRS(rs, subsector)} />
-                {/each}
-            {/each}
-        {/if}
-
         {#if debugShowBspDepthMap}
-            <BspDepthHeatMap {map} />
+            <BspDepthHeatMap {map} {renderSectors} />
         {/if}
 
         {#if $showBlockMap}
@@ -176,30 +159,46 @@
                 <text x={selSubSec.bounds.left} y={-selSubSec.bounds.top - 10} fill='white'>{selSubSec.num}</text>
             </g>
         {/if}
+
+        {#if debugShowSubsectors}
+        {#each renderSectors as rs, i}
+            {#each rs.subsectors as subsector, j}
+                <polygon
+                    points={subsector.vertexes.map(e => e.x + ',' + e.y).join(' ')}
+                    fill={namedColor(i)}
+                    on:click={() => selectRS(rs, subsector)} />
+                <polygon
+                    points={subsector.vertexes.map(e => e.x + ',' + e.y).join(' ')}
+                    opacity={.1}
+                    fill={namedColor(j)}
+                    on:click={() => selectRS(rs, subsector)} />
+            {/each}
+        {/each}
+        {/if}
     </g>
 </svg>
 
 <div class="dropdown dropdown-end absolute right-0">
-    <div tabindex="0" role="button" class="btn">Debug</div>
+    <div tabindex="0" role="button" class="btn">Overlays</div>
     <div tabindex="-1" class="
         dropdown-content z-10 shadow bg-base-100 w-screen max-w-96 rounded-box
     ">
         <ul class="menu">
             <li>
                 <label class="label cursor-pointer">
-                    <span class="label-text">Show subsectors</span>
+                    <span class="label-text">Subsectors</span>
                     <input type="checkbox" class="checkbox" bind:checked={debugShowSubsectors} />
                 </label>
             </li>
             <li>
                 <label class="label cursor-pointer">
-                    <span class="label-text">Show blockmap</span>
+                    <span class="label-text">Blockmap</span>
                     <input type="checkbox" class="checkbox" bind:checked={$showBlockMap} />
                 </label>
             </li>
             <li>
                 <label class="label cursor-pointer">
-                    <span class="label-text">Show BSP depth heatmap</span>
+                    <span class="label-text">BSP depth heatmap</span>
                     <input type="checkbox" class="checkbox" bind:checked={debugShowBspDepthMap} />
                 </label>
             </li>
