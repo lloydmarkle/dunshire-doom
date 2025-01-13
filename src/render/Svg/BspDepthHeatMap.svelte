@@ -33,19 +33,18 @@
             subsectorDepth.set(node.childRight, depth);
         }
     }
-    const depths = [...subsectorDepth.values()];
-    let maxDepth = depths.reduce((a, b) => Math.max(a, b), -Infinity);
-    let minDepth = depths.reduce((a, b) => Math.min(a, b), Infinity);
-    let depthRange = maxDepth - minDepth;
-    const distribution = depths.reduce((map, v) => map.set(v, 1 + (map.get(v) ?? 0)), new Map<number, number>());
+    const maxDepth = 80
+    const minDepth = 0
+    const depthRange = maxDepth - minDepth;
+    const distribution = [...subsectorDepth.values()].reduce((map, v) => map.set(v, 1 + (map.get(v) ?? 0)), new Map<number, number>());
     console.log('distribution', distribution);
 
     const subsectorColor = (subsec: SubSector) =>
         depthColor(subsectorDepth.get(subsec) ?? maxDepth);
 
     function depthColor(n: number) {
-        const v = (n) / maxDepth;
-        return '#' + new Color().setRGB(v, v, v).getHexString();
+        const v = Math.min(n, maxDepth) / maxDepth;
+        return '#' + new Color().setRGB(v, v, v).convertSRGBToLinear().getHexString();
     }
 
     const scaleStops: number[] = [];
