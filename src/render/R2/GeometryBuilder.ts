@@ -257,10 +257,10 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
     };
 
     const transferLindefUpdater = (ld: LineDef, width: number, mid: Vertex, angle: number, skyHack: boolean) => {
-        const control = ld.right.sector.transfer?.right?.sector ?? ld.left.sector.transfer.right.sector;
         // create geometries for the A, B, C partitions created from transfer sectors and then clip the walls into
         // those partitions during update. It's not pretty... but it works.
         if (!ld.left) {
+            const control = ld.right.sector.transfer?.right?.sector ?? ld.left.sector.transfer.right.sector;
             const update1SidedWall: VerticalSegmentUpdater = (m, idx, n, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
                 m.changeWallHeight(idx, top, height);
                 m.applyWallTexture(idx, textureName, width, height, xOffset, yOffset);
@@ -305,19 +305,20 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         const partitionB = createLinedefGeometries(ld, width, mid, angle, skyHack);
         const partitionC = createLinedefGeometries(ld, width, mid, angle, skyHack);
         return create2SidedLinedefUpdater(ld, partitionB, (m, _, n, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
-            const controlLightSector = sector.transfer?.right?.sector ?? sector;
+            const control = sector.transfer?.right?.sector ?? sector;
+            const bottom = top - height;
             // Partition A
-            const aTop = Math.min(top, sector.zCeil)
-            const aHeight = Math.max(0, aTop - Math.max(top - height, control.zCeil));
-            update2SidedWall(m, partitionA[n], n, textureName, aTop, aHeight, controlLightSector, xOffset, yOffset + (top - aTop), flipWall);
+            const aTop = Math.min(top, sector.zCeil);
+            const aHeight = Math.max(0, aTop - Math.max(bottom, control.zCeil));
+            update2SidedWall(m, partitionA[n], n, textureName, aTop, aHeight, control, xOffset, yOffset + (top - aTop), flipWall);
             // Partition B
-            const bTop = Math.min(top, control.zCeil)
-            const bHeight = Math.max(0, bTop - Math.max(top - height, control.zFloor));
+            const bTop = Math.min(top, control.zCeil);
+            const bHeight = Math.max(0, bTop - Math.max(bottom, control.zFloor));
             update2SidedWall(m, partitionB[n], n, textureName, bTop, bHeight, sector, xOffset, yOffset + (top - bTop), flipWall);
             // Partition C
-            const cTop = Math.min(top, control.zFloor)
-            const cHeight = Math.max(0, cTop - Math.max(top - height, sector.zFloor));
-            update2SidedWall(m, partitionC[n], n, textureName, cTop, cHeight, controlLightSector, xOffset, yOffset + (top - cTop), flipWall);
+            const cTop = Math.min(top, control.zFloor);
+            const cHeight = Math.max(0, cTop - Math.max(bottom, sector.zFloor));
+            update2SidedWall(m, partitionC[n], n, textureName, cTop, cHeight, control, xOffset, yOffset + (top - cTop), flipWall);
         });
     };
 
