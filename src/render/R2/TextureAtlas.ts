@@ -73,7 +73,7 @@ export function findPacking(textures: [number, Picture][], maxSize: number) {
         texture.needsUpdate = true;
         return { tSize, packing, texture };
     }
-    throw new Error(`cannot build texture atlas with ${[this.maxSize, this.textures.length]}`);
+    throw new Error(`cannot build texture atlas with ${[maxSize, textures.length]}`);
 }
 
 // Cool background I found while trying to improve this: https://www.david-colson.com/2020/03/10/exploring-rect-packing.html
