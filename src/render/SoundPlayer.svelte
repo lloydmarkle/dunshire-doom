@@ -80,10 +80,11 @@
             const buff = wad.lumpByName(name).data;
             const sampleRate = word(buff, 0x2);
             const numSamples = dword(buff, 0x4) - 32;
-            const buffer = audio.createBuffer(1, numSamples, sampleRate);
             // NB: Convert from unsigned int to float in range [-1,1] is CRITICAL to avoid popping/crackling sounds
             // It took me _way_ too long to figure this out
             const pcmData = Float32Array.from(buff.slice(0x18, 0x18 + numSamples), v => (v - 128) / 128);
+            // createBuffer cannot handle 0-length sounds (see magnolia.wad!)
+            const buffer = audio.createBuffer(1, Math.max(1, numSamples), sampleRate);
             buffer.getChannelData(0).set(pcmData);
             soundBuffers.set(name, buffer);
         }
@@ -125,7 +126,7 @@
             const isPositional = player && location && location !== player;
 
             const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
-            this.soundNode = audio.createBufferSource()
+            this.soundNode = audio.createBufferSource();
             this.soundNode.buffer = soundBuffer(name);
             this.soundNode.playbackRate.value = timescale;
             this.soundNode.addEventListener('ended', this.deactivate);
