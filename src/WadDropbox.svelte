@@ -7,6 +7,8 @@
     export let wadStore: WadStore;
     const wads = wadStore.wads;
 
+    $: haveIWads = $wads.filter(wad => wad.iwad).length > 0;
+
     const messageTime = 4000;
     let toastMessageId = 0;
     let toastMessages = [];
@@ -58,7 +60,8 @@
 </script>
 
 <div class="collapse collapse-arrow bg-base-300"
-    class:collapse-open={$wads.filter(wad => wad.iwad).length === 0}
+    class:collapse-arrow={haveIWads}
+    class:collapse-open={!haveIWads}
 >
     <input type="checkbox" />
     <div class="collapse-title text-center text-xl font-medium">
@@ -113,6 +116,7 @@
             class:border-3={fileDropActive}
             class:border-primary={fileDropActive}
             class:bg-base-300={fileDropActive}
+            class:dragging={fileDropActive}
             role="button"
             tabindex="0"
             on:drop|preventDefault={fileDropHandler}
@@ -153,5 +157,9 @@
     }
     .swap-flip input:checked ~ .swap-on {
         height: auto;
+    }
+
+    .dragging * {
+        pointer-events: none;
     }
 </style>

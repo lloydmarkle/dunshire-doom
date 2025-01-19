@@ -72,7 +72,11 @@
     <div class="flex flex-col place-items-center justify-center min-h-48">
         <p>No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.</p>
         <p>To start playing DOOM, drag and drop DOOM WAD files into the drop box below.</p>
-        <p>Don't have any DOOM WADs? Download and use the <a class="link link-primary" href="https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad">DOOM shareware WAD</a>.</p>
+        <p>
+            Don't have any DOOM WADs?
+            Try out <a class="link link-primary" href="https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip">FreeDoom</a>
+            or the <a class="link link-primary" href="https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad">DOOM shareware WAD</a>.
+        </p>
     </div>
     <div class="p-8 max-w-6xl mx-auto">
         <WadDropbox {wadStore} />

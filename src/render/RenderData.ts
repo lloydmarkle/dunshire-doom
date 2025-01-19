@@ -226,7 +226,6 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         rs.sector = secMap.get(outerSector).sector;
     }
 
-    // FIXME: this is broken in R2 anyway so it needs a proper fixed
     // transparent door and window hack (https://www.doomworld.com/tutorials/fx5.php)
     for (const linedef of map.linedefs) {
         if (!linedef.left) {
