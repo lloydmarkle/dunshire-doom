@@ -18,18 +18,18 @@
     $: isMp3 = musicBuffer && (
             (musicBuffer[0] === 0xff && [0xfb, 0xf3, 0xf2].includes(musicBuffer[1]))
             || (musicBuffer[0] === 0x49 && musicBuffer[1] === 0x44 && musicBuffer[2] === 0x33));
-    $: music = toMidi(musicBuffer);
-    function toMidi(musicBuffer: Uint8Array) {
+    $: music = toMidi(musicBuffer).buffer;
+    function toMidi(musicBuffer: Uint8Array): Buffer<ArrayBuffer> {
         try {
             // some wads have mp3 files, not mus
             if (isMp3) {
-                return buff.from(musicBuffer).buffer;
+                return buff.from(musicBuffer);
             }
             // some wads have vanilla midi
             if ('MThd' === String.fromCharCode(...musicBuffer.subarray(0, 4))) {
                 return buff.from(musicBuffer);
             }
-            return mus2midi(buff.from(musicBuffer));
+            return mus2midi(buff.from(musicBuffer)) as Buffer<ArrayBuffer>;
         } catch {
             console.warn('unabled to play midi', trackName)
         }
@@ -53,7 +53,7 @@
         return () => {};
     }
 
-    async function mp3Player(music: ArrayBufferLike) {
+    async function mp3Player(music: ArrayBuffer) {
         stopTheMusic();
 
         const mp3 = audio.createBufferSource();
@@ -69,13 +69,13 @@
     // be able to supply their own if they want but that can be added later.
     const defaultSF2Url = 'https://raw.githubusercontent.com/edge-classic/EDGE-classic/5fa1e0867e1ef71e260f45204888df85ada4be1b/soundfont/Default.sf2'
     const sampleStore = new MidiSampleStore();
-    async function spessaSynthPlayer(midi: ArrayBufferLike) {
+    async function spessaSynthPlayer(midi: ArrayBuffer) {
         stopTheMusic();
 
         await audio.audioWorklet.addModule(new URL('/' + WORKLET_URL_ABSOLUTE, import.meta.url)); // add the worklet
         const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
         const synth = new Synthetizer(audioRoot, soundFontArrayBuffer);
-        const seq = new Sequencer([{ binary: midi }], synth);
+        const seq = new Sequencer([{ binary: midi, altName: trackName }], synth);
         seq.loop = true;
         seq.play();
         return () => seq?.stop();
