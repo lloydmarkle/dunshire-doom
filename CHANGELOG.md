@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0] - 2025-01-21
+
+### Added
+- [Property transfer linedefs](https://doomwiki.org/wiki/Linedef_type#Property_transfer). Not including palette change but otherwise it should _just work_.
+- Play sounds for moving platforms. All DOOM sound effects should play properly now.
+- Partial [voodoo doll](https://doomwiki.org/wiki/Voodoo_doll) support. Dolls move and trigger lines but will not pick up items or take damage.
+- Keyboard shortcuts for cheats: `fly` (toggle freefly) and `inspect` (toggle inspector)
+
+### Changed
+- Use [SpessaSynth](https://github.com/spessasus/SpessaSynth) for midi playback. Way better music playback now.
+- Link to FreeDoom assets for first time users
+- Improved tracking and for isometric camera. Players can now see the whole map.
+- Use Blockmap for collision detection and [many other performance improvements](https://www.lloydmarkle.com/quieter-life/2025/doom-perf-part-3/):
+    - Reduce memory usage by moving away from svelte stores in core logic
+    - Use Maps and Sets to speed up map load and map queries
+    - Faster monster move checks when in a crowd
+
+### Fixed
+- BFG tracers not hitting targets
+- Auto z-aim aiming at monster feet
+- Do not slow crushers when crushing non-solid objects (eg. medikits)
+- Map fail to load when linedef does not have front sidedef (!)
+- Do not `console.warn()` when triggering known linedef types
+- Delayed sprite rotation at low framerates (< 5fps)
+- Monster moving when they start in a sector with low ceiling
+- Missiles skimming the ground instead of exploding when they hit trees
+- Linedef type 53 choosing wrong neighbour sector
+- Numerous sound fixes:
+    - Stop crackling/popping on sound playback
+    - Adjustable max channels
+    - Replace distance sounds with closer sounds
+    - Don't crash on zero length sounds
+    - Sound propagation
+- Intermission timing and sound playback stopping too early
+
 ## [0.9.1] - 2024-11-21
 
 ### Fixed
