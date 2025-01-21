@@ -26,12 +26,12 @@
 
 <div class="bg-base-100 rounded-box p-2">
     <label class="label">
-        <span class="label-text">Texture x-offset {$xOffset}</span>
-        <input class="range" type="range" min="-256" max="256" bind:value={$xOffset} />
+        <span class="label-text">Texture x-offset</span>
+        <input class="input" type="number" bind:value={$xOffset} />
     </label>
     <label class="label">
-        <span class="label-text">Texture y-offset {$yOffset}</span>
-        <input class="range" type="range" min="-256" max="256" bind:value={$yOffset} />
+        <span class="label-text">Texture y-offset</span>
+        <input class="input" type="number" bind:value={$yOffset} />
     </label>
     <TextureChooser {wad} label="Upper" type="wall" bind:value={$upper} on:change={() => map.initializeWallTextureAnimation(linedef,  side, 'upper')} />
     <TextureChooser {wad} label="Middle" type="wall" bind:value={$middle} on:change={() => map.initializeWallTextureAnimation(linedef,  side, 'middle')} />

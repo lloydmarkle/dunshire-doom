@@ -13,6 +13,7 @@
     const { wad } = useDoom();
     const originalZCeil = sector.zCeil;
     const originalZFloor = sector.zFloor;
+    const originalLight = sector.light;
 
     const light = writable(sector.light);
     const ceilFlat = writable(sector.ceilFlat);
@@ -113,7 +114,7 @@
     {/if}
 </div>
 <label class="label">
-    <span class="label-text">Light level {$light}</span>
+    <span class="label-text">Light level {$light} (original {originalLight})</span>
     <input type="range" class="range" min="0" max="255" step="8" bind:value={$light} />
 </label>
 <!--
@@ -134,12 +135,12 @@ There are lots of possibilities.
 <div class="bg-neutral rounded-box p-2">
     <span>Floor ceiling gap {$zCeil - $zFloor}</span>
     <label class="label">
-        <span class="label-text">Ceiling height {$zCeil} (original {originalZCeil})</span>
-        <input type="text" class="input" inputmode="numeric" pattern="[0-9]*" bind:value={$zCeil} />
+        <span class="label-text">Ceiling height (original {originalZCeil})</span>
+        <input type="number" class="input" bind:value={$zCeil} />
     </label>
     <label class="label">
-        <span class="label-text">Floor height {$zFloor} (original {originalZFloor})</span>
-        <input type="text" class="input" inputmode="numeric" pattern="[0-9]*" bind:value={$zFloor} />
+        <span class="label-text">Floor height (original {originalZFloor})</span>
+        <input type="number" class="input" bind:value={$zFloor} />
     </label>
 </div>
 <TextureChooser {wad} label="Ceiling" type="flat" bind:value={$ceilFlat} />
