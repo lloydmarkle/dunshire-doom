@@ -72,7 +72,7 @@
     async function spessaSynthPlayer(midi: ArrayBuffer) {
         stopTheMusic();
 
-        await audio.audioWorklet.addModule(new URL('/' + WORKLET_URL_ABSOLUTE, import.meta.url)); // add the worklet
+        await audio.audioWorklet.addModule('./' + WORKLET_URL_ABSOLUTE); // add the worklet
         const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
         const synth = new Synthetizer(audioRoot, soundFontArrayBuffer);
         const seq = new Sequencer([{ binary: midi, altName: trackName }], synth);
