@@ -2,6 +2,7 @@ import { MapData } from '../map-data.ts';
 import { type Picture, type Palette, PatchPicture, LumpPicture, FlatPicture } from './picture.ts';
 import { Color } from 'three';
 import { dword, int16, lumpString, pnamesLump, textureLump, word, type Lump, type Texture, type WadFile } from './wadfile.ts';
+import { SoundIndex } from '../doom-things-info.ts';
 
 interface SpriteFrame {
     name: string;
@@ -9,6 +10,12 @@ interface SpriteFrame {
     frame: number;
     rotation: number;
 }
+
+const doomSharewareSoundLumps = ["DSPISTOL", "DSSHOTGN", "DSSGCOCK", "DSSAWUP", "DSSAWIDL", "DSSAWFUL", "DSSAWHIT", "DSRLAUNC", "DSRXPLOD", "DSFIRSHT", "DSFIRXPL", "DSPSTART", "DSPSTOP", "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSSWTCHN", "DSSWTCHX", "DSPLPAIN", "DSDMPAIN", "DSPOPAIN", "DSSLOP", "DSITEMUP", "DSWPNUP", "DSOOF", "DSTELEPT", "DSPOSIT1", "DSPOSIT2", "DSPOSIT3", "DSBGSIT1", "DSBGSIT2", "DSSGTSIT", "DSBRSSIT", "DSSGTATK", "DSCLAW", "DSPLDETH", "DSPDIEHI", "DSPODTH1", "DSPODTH2", "DSPODTH3", "DSBGDTH1", "DSBGDTH2", "DSSGTDTH", "DSBRSDTH", "DSPOSACT", "DSBGACT", "DSDMACT", "DSNOWAY", "DSBAREXP", "DSPUNCH", "DSTINK", "DSBDOPN", "DSBDCLS", "DSITMBK", "DSGETPOW"];
+const doom1SoundLumps = [...doomSharewareSoundLumps, "DSPLASMA", "DSBFG", "DSCACSIT", "DSCYBSIT", "DSSPISIT", "DSSKLATK", "DSCACDTH", "DSSKLDTH", "DSCYBDTH", "DSSPIDTH", "DSHOOF", "DSMETAL"];
+const doom2SoundLumps = Object.keys(SoundIndex).slice(Object.keys(SoundIndex).length / 2)
+    .filter(snd => snd !== 'sfx_None' && snd !== 'sfx_chgun')
+    .map(snd => 'DS' + snd.toUpperCase().split('_')[1])
 
 type TextureAnimation = { frames: string[], speed: number };
 type WallTexture = { lump: Texture, pnames: string[] };
@@ -26,9 +33,21 @@ export class DoomWad {
 
     get mapNames() { return [...this.mapLumps.keys()]; }
     get isIWAD() {
-        // this is a _very_ cheap (and incorrect) version of the check from https://doomwiki.org/wiki/IWAD.
-        // It will probably cause problems and need to be improved
-        return Boolean(this.textureData.length && this.spriteLumps.length && this.flatLumps.length
+        // Checking for the presence of all sounds (and at least some textures, maps, and certain other lumps)
+        // is good. It's not perfect but there isn't really a perfect iwad detection scheme
+        // - https://doomwiki.org/wiki/IWAD.
+        // - https://www.doomworld.com/forum/topic/106963-reliable-iwad-detection-method/
+        const soundLumps =
+            // It's a "full" DOOM 1 wad
+            this.wads[0].lumpByName('E2M1') ? doom1SoundLumps :
+            // Maybe a shareware DOOM 1 wad?
+            this.wads[0].lumpByName('E1M1') ? doomSharewareSoundLumps :
+            // if it's DOOM2 (or similar), we need to check for all sounds
+            doom2SoundLumps;
+
+        return Boolean(
+            this.wads.length === 1 && soundLumps.every(name => this.wads[0].lumpByName(name))
+            && this.textureData.length && this.spriteLumps.length && this.flatLumps.length
             && this.palettes.length && this.animatedFlats.size && this.animatedWalls.size && this.switchWalls.length
             && this.mapNames.length && this.lumpByName('ENDOOM') && this.lumpByName('COLORMAP'));
     }
