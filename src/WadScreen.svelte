@@ -19,11 +19,8 @@
     $: iWads = $wads.filter(wad => wad.iwad);
     $: pWads = $wads.filter(wad => !wad.iwad);
 
-    // used for exit transition. For some reason selectedIWad.name is always null
-    let selectedWadName: string;
     let mapName: string;
     let selectedIWad: WADInfo;
-    // TODO: also manage pwads via url params?
     let selectedPWads: WADInfo[] = [];
     $: mapNames = wad?.mapNames ?? [];
     function parseUrlHash(hash: string, iwads: WADInfo[]) {
@@ -31,8 +28,7 @@
 
         const urlIWad = params.get('iwad') ?? params.get('wad');
         if (urlIWad) {
-            selectedWadName = urlIWad;
-            selectedIWad = iwads.find(e => e.name === selectedWadName);
+            selectedIWad = iwads.find(e => e.name === urlIWad);
             selectedPWads = [];
         } else {
             selectedIWad = null;
@@ -64,10 +60,7 @@
 
 <svelte:window on:popstate={() => parseUrlHash(window.location.hash, iWads)} />
 
-<div out:fade class="
-    container mx-auto grid grid-cols-1 grid-rows-1 p-2 bg-base-100 justify-center
-    md:rounded-box md:shadow-2xl
-">
+<div out:fade class="grid grid-cols-1 grid-rows-1 justify-center">
     {#if !iWads.length}
     <div class="flex flex-col place-items-center justify-center min-h-48">
         <p>No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.</p>
@@ -83,23 +76,27 @@
     </div>
     {:else}
     <div class="flex flex-col gap-2">
-        <div class="grid sm:grid-cols-2 mx-auto gap-4">
+        <div class="mx-auto py-2 grid grid-cols-2 gap-4 px-4
+                    md:grid-cols-3 sm:gap-8 sm:px-8
+                    lg:grid-cols-4 ">
             {#each iWads as iwad (iwad.name)}
                 {#if selectedIWad !== iwad}
-                <a
-                    class="btn h-auto no-animation"
-                    href="#iwad={iwad.name}"
-                    in:receive={{ key: iwad.name }}
-                    out:send={{ key: iwad.name }}
-                >
-                    <img src={iwad.image} alt={iwad.name} />
-                </a>
+                    <a
+                        class="btn h-auto no-animation p-0 overflow-hidden shadow-2xl hover:scale-105"
+                        href="#iwad={iwad.name}"
+                        in:receive={{ key: iwad.name }}
+                        out:send={{ key: iwad.name }}
+                    >
+                        <img width="320" height="200" src={iwad.image} alt={iwad.name} />
+                    </a>
                 {/if}
             {/each}
         </div>
+        {#if !selectedIWad}
         <div class="p-8 max-w-6xl mx-auto">
             <WadDropbox {wadStore} />
         </div>
+        {/if}
     </div>
     {/if}
 
@@ -108,6 +105,7 @@
         <a class="btn btn-secondary w-48 shadow-xl" href={"#"}>❮ Select IWAD</a>
     </div>
 
+    {@const selectedWadName = selectedIWad.name}
     <div class="card image-full bg-base-200 shadow-xl absolute inset-0"
         class:show-background={!Boolean(wad)}
         in:receive={{ key: selectedWadName }}
@@ -115,6 +113,7 @@
     >
         <figure>
             <img class="flex-grow object-cover"
+                width="320" height="200"
                 src={wad ? imageDataUrl(wad, 'TITLEPIC', 'any') : selectedIWad.image}
                 alt={''} />
         </figure>
@@ -211,10 +210,6 @@
 </div>
 
 <style>
-    .container {
-        min-height: min(100vh, 36rem);
-    }
-
     .card.image-full::before {
         transition: opacity .3s;
     }

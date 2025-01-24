@@ -37,7 +37,7 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { Game, MapRuntime, data } from "../../doom";
+    import { Game, data } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
