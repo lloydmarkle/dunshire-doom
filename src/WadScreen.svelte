@@ -93,7 +93,7 @@
             {/each}
         </div>
         {#if !selectedIWad}
-        <div class="p-8 max-w-6xl mx-auto">
+        <div class="py-8 px-2 mx-auto">
             <WadDropbox {wadStore} />
         </div>
         {/if}
