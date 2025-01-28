@@ -29,11 +29,9 @@
         const params = new URLSearchParams(hash.substring(1));
 
         const urlIWad = params.get('iwad') ?? params.get('wad');
-        if (urlIWad) {
-            selectedIWad = iwads.find(e => e.name === urlIWad);
+        selectedIWad = iwads.find(e => e.name === urlIWad);
+        if (!selectedIWad) {
             selectedPWads = [];
-        } else {
-            selectedIWad = null;
         }
 
         const urlMapName = params.get('map');
@@ -50,9 +48,10 @@
             selectedPWads = [...selectedPWads, pwad]
         }
     }
-    $: bgImage = selectedPWads.reduce<string>((img, pwad) => pwad.image ?? img, undefined)
-        ?? (wad ? imageDataUrl(wad, 'TITLEPIC', 'any') : selectedIWad?.image);
-    $: console.log('change bg', bgImage)
+    $: bgImage =
+        wad ? imageDataUrl(wad, 'TITLEPIC', 'any', 'image/jpeg') : (
+        selectedPWads.reduce<string>((img, pwad) => pwad.image ?? img, undefined)
+        ?? selectedIWad?.image);
 
     function detailsString(wad: WADInfo) {
         return `${wad.mapCount} maps` + (wad.episodicMaps ? ' (episodic)' : '');
@@ -134,8 +133,7 @@
         <figure transition:fade>
             <img class="flex-grow object-cover"
                 width="320" height="200"
-                src={bgImage}
-                alt={'TITLEPIC'} />
+                src={bgImage} alt={'TITLEPIC'} />
         </figure>
         {/key}
 

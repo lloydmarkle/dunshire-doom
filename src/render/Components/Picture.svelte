@@ -4,7 +4,7 @@
     let lastWad: DoomWad;
 
     type ImageType = 'wall' | 'flat' | 'sprite' | 'any';
-    export function imageDataUrl(wad: DoomWad, name: string, type: ImageType) {
+    export function imageDataUrl(wad: DoomWad, name: string, type: ImageType, format = 'image/png') {
         if (wad !== lastWad) {
             cache.clear();
         }
@@ -34,7 +34,7 @@
             ctx.putImageData(img, 0, 0);
 
             // convert to data url
-            const dataUrl = canvas.toDataURL('image/png');
+            const dataUrl = canvas.toDataURL(format);
             cache.set(key, dataUrl);
             return dataUrl;
         } catch {
