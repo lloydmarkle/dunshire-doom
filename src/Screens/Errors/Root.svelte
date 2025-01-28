@@ -2,7 +2,7 @@
     import { type DoomError, type InvalidMap, type MissingMap } from '../../doom';
     import { ExclamationCircle, CheckCircle, XCircle, Home } from '@steeze-ui/heroicons'
     import { Icon } from '@steeze-ui/svelte-icon'
-    import WadDropbox from '../../WadDropbox.svelte';
+    import WadDropbox from '../../render/Components/WadDropbox.svelte';
     import { WadStore } from '../../WadStore';
     import { useAppContext } from '../../render/DoomContext';
 

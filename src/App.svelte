@@ -6,7 +6,7 @@
     import AppInfo from './render/Components/AppInfo.svelte';
     import { createAppContext } from './render/DoomContext';
     import { setContext } from 'svelte';
-    import WadScreen from './WadScreen.svelte';
+    import WadScreen from './Screens/WadScreen.svelte';
     import { WadStore } from './WadStore';
     import WipeContainer from './render/Components/WipeContainer.svelte';
     import ErrorScreen from './Screens/Errors/Root.svelte';

@@ -1,10 +1,11 @@
 <script lang="ts">
-    import { WadStore, type WADInfo } from "./WadStore";
-    import WadDropbox from "./WadDropbox.svelte";
+    import { WadStore, type WADInfo } from "../WadStore";
+    import WadDropbox from "../render/Components/WadDropbox.svelte";
 	import { crossfade, fade, fly } from 'svelte/transition';
-    import { useAppContext } from "./render/DoomContext";
-    import Picture, { imageDataUrl } from './render/Components/Picture.svelte';
-    import { DoomWad, data } from "./doom";
+    import { useAppContext } from "../render/DoomContext";
+    import Picture, { imageDataUrl } from '../render/Components/Picture.svelte';
+    import WadList from "../render/Components/WadList.svelte";
+    import { DoomWad, data } from "../doom";
 
     const [send, receive] = crossfade({
 		duration: 300,
@@ -13,9 +14,10 @@
 
     export let wadStore: WadStore;
     export let wad: DoomWad = null;
-
     const { pointerLock } = useAppContext();
+
     const wads = wadStore.wads;
+    $: haveIWads = $wads.filter(wad => wad.iwad).length > 0;
     $: iWads = $wads.filter(wad => wad.iwad);
     $: pWads = $wads.filter(wad => !wad.iwad);
 
@@ -48,6 +50,9 @@
             selectedPWads = [...selectedPWads, pwad]
         }
     }
+    $: bgImage = selectedPWads.reduce<string>((img, pwad) => pwad.image ?? img, undefined)
+        ?? (wad ? imageDataUrl(wad, 'TITLEPIC', 'any') : selectedIWad?.image);
+    $: console.log('change bg', bgImage)
 
     function detailsString(wad: WADInfo) {
         return `${wad.mapCount} maps` + (wad.episodicMaps ? ' (episodic)' : '');
@@ -71,7 +76,7 @@
             or the <a class="link link-primary" href="https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad">DOOM shareware WAD</a>.
         </p>
     </div>
-    <div class="p-8 max-w-6xl mx-auto">
+    <div class="py-8 px-2 mx-auto">
         <WadDropbox {wadStore} />
     </div>
     {:else}
@@ -94,7 +99,21 @@
         </div>
         {#if !selectedIWad}
         <div class="py-8 px-2 mx-auto">
-            <WadDropbox {wadStore} />
+            <div class="collapse collapse-arrow bg-base-300"
+                class:collapse-arrow={haveIWads}
+                class:collapse-open={!haveIWads}
+            >
+                <input type="checkbox" />
+                <div class="collapse-title text-center text-xl font-medium">
+                    Manage WADs
+                </div>
+                <div class="collapse-content z-0 flex flex-col sm:flex-row gap-4">
+                    {#if haveIWads}
+                        <WadList {wadStore} />
+                    {/if}
+                    <WadDropbox {wadStore} />
+                </div>
+            </div>
         </div>
         {/if}
     </div>
@@ -111,12 +130,14 @@
         in:receive={{ key: selectedWadName }}
         out:send={{ key: selectedWadName }}
     >
-        <figure>
+        {#key bgImage}
+        <figure transition:fade>
             <img class="flex-grow object-cover"
                 width="320" height="200"
-                src={wad ? imageDataUrl(wad, 'TITLEPIC', 'any') : selectedIWad.image}
-                alt={''} />
+                src={bgImage}
+                alt={'TITLEPIC'} />
         </figure>
+        {/key}
 
         {#if wad}
         <div class="card-body justify-self-center pt-12">
