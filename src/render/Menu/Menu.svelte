@@ -222,7 +222,9 @@
         </div>
         {/if}
 
-        <AppInfo />
+        <div class="fixed bottom-4 px-2">
+            <AppInfo />
+        </div>
     </div>
 </div>
 

@@ -47,7 +47,7 @@
 </script>
 
 <div class="
-        flex flex-col items-center justify-center gap-4 text-center
+        flex flex-col items-center justify-center gap-4 text-center h-full
         border-2 border-accent border-dashed
         rounded-lg cursor-pointer p-2
         "

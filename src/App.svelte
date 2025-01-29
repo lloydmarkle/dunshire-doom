@@ -149,7 +149,6 @@
             {/key}
         {:else}
             <WadScreen {wad} {wadStore} />
-            <AppInfo />
         {/if}
     </WipeContainer>
 </main>

@@ -171,7 +171,7 @@ export const createAppContext = () => {
         range('advanced', settings.maxLostSouls, 'Max Lost Souls (0 means no limit)', 0, 50, 5),
         range('advanced', settings.timescale, 'Timescale', 0.1, 2, .1),
         option('advanced', settings.fakeContrast, 'Fake contrast', ['classic', 'gradual', 'off']),
-        range('advanced', settings.fpsLimit, 'Target FPS', 5, 200, 5),
+        range('advanced', settings.fpsLimit, 'Max FPS', 5, 200, 5),
         range('advanced', settings.pixelScale, 'Pixel scale', .1, window.devicePixelRatio, .1),
         option('advanced', settings.randomNumbers, 'Random numbers', ['table', 'computed']),
         color('advanced', settings.playerLight, 'Player light'),
@@ -181,7 +181,7 @@ export const createAppContext = () => {
         toggle('debug', settings.useTextures, 'Show textures'),
         range('debug', settings.shotTraceSeconds, 'Shot tracer duration (seconds)', 0, 20, .25),
         option('debug', settings.monsterAI, 'AI mode', ['enabled', 'disabled', 'move-only', 'fast']),
-        toggle('debug', settings.skipInitialSpawn, 'No items/monsters (will reset progress)'),
+        toggle('debug', settings.skipInitialSpawn, 'No items/monsters (reset map progress)'),
         option('debug', settings.wireframe, 'Show geometry', ['off', 'visible', 'all']),
         option('debug', settings.renderMode, 'Render engine', ['r1', 'r2']),
         // experimental
