@@ -1,6 +1,6 @@
 <script lang="ts">
     import { useDoom } from "../DoomContext";
-    import { _T, MapObjectIndex, MapRuntime } from "../../doom";
+    import { _T, MapData, MapObjectIndex, MapRuntime } from "../../doom";
     import STText from "../Components/STText.svelte";
     import Picture from "../Components/Picture.svelte";
 
@@ -9,7 +9,8 @@
 
     const yScale = (16 / 10) / (4 / 3);
 
-    let map = new MapRuntime('MAP30', wad.readMap('MAP30'), game);
+    let mapData = new MapData(wad.mapLumps.get('MAP30'));
+    let map = new MapRuntime('MAP30', mapData, game);
     let castNumber = 0;
     const cast: [MapObjectIndex, string][] = [
         [MapObjectIndex.MT_POSSESSED, _T('CC_ZOMBIE')],

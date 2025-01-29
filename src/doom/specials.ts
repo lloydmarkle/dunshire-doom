@@ -6,7 +6,7 @@ import { zeroVec, type LineDef, type Sector, hittableThing, linedefSlope, type L
 import { _T } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
-import type { Store } from "./store";
+import { ticksPerSecond } from "./math";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -36,7 +36,6 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
 
 // Push, Switch, Walk, Gun (shoot)
 export type TriggerType = 'P' | 'S' | 'W' | 'G';
-const ticksPerSecond = 35;
 const floorMax = 32000;
 export interface SpecialDefinition {
     repeatable: boolean;

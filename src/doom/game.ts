@@ -5,8 +5,8 @@ import { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
 import { Vector3 } from "three";
 import { SoundIndex } from "./doom-things-info";
-import type { Sector } from "./map-data";
-import { type RNG, TableRNG } from "./math";
+import { MapData, type Sector } from "./map-data";
+import { type RNG, TableRNG, tickTime } from "./math";
 import type { GameLogicFailure, InvalidMap, MissingMap } from "./error";
 
 export type GameTime = Game['time'];
@@ -30,8 +30,6 @@ export interface GameSettings {
 }
 export type Skill = 1 | 2 | 3 | 4 | 5;
 
-export const ticksPerSecond = 35;
-export const tickTime = 1 / ticksPerSecond;
 // Using a fixed time slice for physics makes it SOOOO much easier to reason about player movement and for the times we
 // need to convert it to DOOM's standard 35 tics
 const physicsTickTime = 1 / 60;
@@ -165,25 +163,24 @@ export class Game implements SoundEmitter {
     startMap(mapName: string) {
         this.map.val?.dispose();
 
-        if (!this.wad.hasMap(mapName)) {
-            const err: MissingMap = {
+        const lumps = this.wad.mapLumps.get(mapName);
+        if (!lumps) {
+            throw {
                 code: 2,
                 details: { mapName, game: this },
                 message: `Map not found: ${name}`,
-            }
-            throw err;
+            } as MissingMap;
         }
 
         try {
-            const mapData = this.wad.readMap(mapName);
+            const mapData = new MapData(lumps);
             this.map.set(new MapRuntime(mapName, mapData, this));
         } catch (exception) {
-            const err: InvalidMap = {
+            throw {
                 code: 1,
                 details: { mapName, exception, game: this },
                 message: `Invalid map: ${mapName}; ${exception.message}`
-            }
-            throw err;
+            } as InvalidMap;
         }
         this.intermission.set(null);
     }

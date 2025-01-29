@@ -4,6 +4,9 @@ export const EIGHTH_PI = Math.PI / 8;
 export const ToRadians = Math.PI / 180;
 export const ToDegrees = 180 / Math.PI;
 
+export const ticksPerSecond = 35;
+export const tickTime = 1 / ticksPerSecond;
+
 export interface Vertex {
     x: number;
     y: number;

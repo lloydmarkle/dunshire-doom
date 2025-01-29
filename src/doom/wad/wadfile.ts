@@ -1,11 +1,12 @@
 export type Lump = { name: string, data: Uint8Array };
 export class WadFile {
-    raw: any[];
     lumps: Lump[];
     type: string;
+    size: number;
 
     constructor(readonly name: string, buffer: ArrayBuffer) {
         const buff = new Uint8Array(buffer);
+        this.size = buff.byteLength;
         this.type = String.fromCharCode(buff[0], buff[1], buff[2], buff[3]);
         const numLumps = dword(buff, 4);
         const directoryLocation = dword(buff, 8);

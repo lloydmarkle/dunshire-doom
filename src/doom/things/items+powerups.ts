@@ -1,6 +1,6 @@
 import { type ThingType } from '.';
 import { SoundIndex } from '../doom-things-info';
-import { ticksPerSecond } from '../game';
+import { ticksPerSecond } from '../math';
 import type { AmmoType, PlayerInventory, PlayerMapObject } from "../map-object";
 import type { MessageId } from '../text';
 import { clipAmmo, giveAmmo } from './ammunitions';

@@ -5,6 +5,8 @@
     import { ExclamationTriangle, MagnifyingGlass, Trash } from '@steeze-ui/heroicons'
     import WadDropbox from "../render/Components/WadDropbox.svelte";
     import WadList from "../render/Components/WadList.svelte";
+    import WadInfoScreen from "./WadInfoScreen.svelte";
+    import { WadFile } from "../doom";
 
     export let wadStore: WadStore;
     const wads = wadStore.wads;
@@ -28,9 +30,14 @@
         selectedPWads = !wadSelectCheckbox.checked ? [] :
             [...visibleWads, ...selectedPWads].filter((e, i, arr) => arr.indexOf(e) === i);
     }
+
+    const loadWadFile = (wadInfo: WADInfo) =>
+        wadStore.fetchWad(wadInfo.name).then(buff => new WadFile(wadInfo.name, buff));
+    $: selectedWadFile = selectedPWads.length ? loadWadFile(selectedPWads[0]) : Promise.resolve();
 </script>
 
-<div class="flex max-h-[calc(100vh-4rem)]">
+<!-- TODO: would grid be better than flex here? Probably... -->
+<div class="flex max-h-[calc(100vh-4rem)] gap-2">
     <!-- <WadList {wadStore} /> -->
 
     <div class="flex flex-col relative max-w-sm">
@@ -72,12 +79,24 @@
             class:shift-down={confirmDelete}
             style:--tr-shift-down="6rem"
         >
-            <WadList wads={visibleWads} bind:selected={selectedPWads} />
+            <WadList wads={visibleWads} bind:selected={selectedPWads} multiSelect={false} />
         </div>
 
         <div class="h-48">
             <WadDropbox {wadStore} />
         </div>
+    </div>
+
+    <div class="flex-grow max-h-[calc(100vh-4rem)] overflow-scroll bg-base-100 px-4">
+        {#await selectedWadFile}
+            <div class="flex justify-center">
+                <span class="loading loading-spinner loading-md"></span>
+            </div>
+        {:then wadFile}
+            {#if wadFile}
+                <WadInfoScreen {wadFile} wadInfo={selectedPWads[0]} />
+            {/if}
+        {/await}
     </div>
 </div>
 

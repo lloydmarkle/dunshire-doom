@@ -635,6 +635,20 @@ export const hitSkyWall = (z: number, front: Sector, back: Sector) =>
         (back && z > back.zCeil && back.skyHeight !== undefined && back.skyHeight !== back.zCeil)
 );
 
+export function readMapVertexLinedefsAndSectors(lumps: Lump[]) {
+    const sectors = sectorsLump(lumps[8]);
+    const vertexes = vertexesLump(lumps[4]);
+    fixVertexes(
+        vertexes,
+        lumps[2], // linedefs
+        lumps[5], // segs
+    );
+
+    const sidedefs = sideDefsLump(lumps[3], sectors);
+    const linedefs = lineDefsLump(lumps[2], vertexes, sidedefs);
+    return { vertexes, linedefs, sectors };
+}
+
 export const zeroVec = new Vector3();
 export const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 export class MapData {
@@ -649,18 +663,12 @@ export class MapData {
 
     constructor(lumps: Lump[]) {
         console.time('map-bin')
+        const vls = readMapVertexLinedefsAndSectors(lumps);
+        this.vertexes = vls.vertexes;
+        this.linedefs = vls.linedefs;
+        this.sectors = vls.sectors;
         this.things = thingsLump(lumps[1]);
-        this.sectors = sectorsLump(lumps[8]);
-        this.vertexes = vertexesLump(lumps[4]);
-        fixVertexes(
-            this.vertexes,
-            lumps[2], // linedefs
-            lumps[5], // segs
-        );
-
         this.rejects = lumps[9].data;
-        const sidedefs = sideDefsLump(lumps[3], this.sectors);
-        this.linedefs = lineDefsLump(lumps[2], this.vertexes, sidedefs);
 
         const { segs, nodes, subsectors } = readBspData(lumps, this.vertexes, this.linedefs);
         this.nodes = nodes;
@@ -744,12 +752,8 @@ export class MapData {
         console.timeEnd('map-bin');
     }
 
-    findSubSector(x: number, y: number): SubSector {
-        return findSubSector(this.nodes[this.nodes.length - 1], x, y);
-    }
-
     findSector(x: number, y: number): Sector {
-        return this.findSubSector(x, y).sector;
+        return findSubSector(this.nodes[this.nodes.length - 1], x, y).sector;
     }
 
     sectorNeighbours(sector: Sector): Sector[] {

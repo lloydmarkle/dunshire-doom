@@ -1,10 +1,10 @@
 import { store, type Store } from "./store";
 import { type MapData, type LineDef, type Thing, type Action, type Sector } from "./map-data";
 import { Object3D, Vector3 } from "three";
-import { HALF_PI, ComputedRNG, TableRNG, ToRadians } from "./math";
+import { HALF_PI, ComputedRNG, TableRNG, ToRadians, ticksPerSecond, tickTime } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
-import { ticksPerSecond, type Game, type GameTime, type ControllerInput, tickTime } from "./game";
+import { type Game, type GameTime, type ControllerInput } from "./game";
 import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
 import type { InventoryWeapon } from "./things/weapons";

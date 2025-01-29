@@ -88,7 +88,7 @@
     <div class="navbar-end"><AppInfo /></div>
 </div>
 
-<div class="grid grid-cols-1 grid-rows-1 justify-center pb-16">
+<div class="grid grid-cols-1 grid-rows-1 justify-center">
     {#if !haveIWads}
         <div class="flex flex-col gap-2 sm:items-center justify-center p-8">
             <p>No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.</p>

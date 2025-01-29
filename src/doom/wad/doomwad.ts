@@ -1,4 +1,3 @@
-import { MapData } from '../map-data.ts';
 import { type Picture, type Palette, PatchPicture, LumpPicture, FlatPicture } from './picture.ts';
 import { Color } from 'three';
 import { dword, int16, lumpString, pnamesLump, textureLump, word, type Lump, type Texture, type WadFile } from './wadfile.ts';
@@ -25,7 +24,7 @@ export class DoomWad {
     private textureData: WallTexture[] = [];
     private flatLumps: Lump[] = [];
     private spriteLumps: Lump[] = [];
-    private mapLumps = new Map<string, Lump[]>();
+    readonly mapLumps = new Map<string, Lump[]>();
 
     private switchWalls: string[][];
     readonly animatedFlats = new Map<string, TextureAnimation>();
@@ -202,15 +201,6 @@ export class DoomWad {
             const i2 = allTextures.indexOf(e[1]);
             return i1 === -1 || i2 === -1 ? null : e;
         }).filter(e => e);
-    }
-
-    readMap(name: string) {
-        const lumps = this.mapLumps.get(name)
-        return lumps ? new MapData(lumps) : null;
-    }
-
-    hasMap(name: string) {
-        return this.mapLumps.has(name);
     }
 
     switchToggle(name: string): string | undefined {
