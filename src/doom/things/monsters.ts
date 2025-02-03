@@ -4,7 +4,7 @@ import { angleBetween, MapObject, xyDistanceBetween, maxStepSize, maxFloatSpeed,
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, sweepAABBAABB, sweepAABBLine, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, type LineDef, type MapObjectTraceHit, type SectorTraceHit } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, type LineDef, type MapObjectTraceHit, type SectorTraceHit, type HandleTraceHit } from '../map-data';
 import { attackRange, checkMissileSpawn, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
 import { exitLevel, telefragTargets, teleportReorientMove } from '../specials';
 
@@ -930,12 +930,12 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
 const _precomputedHits = [] as TraceHit[];
 function precomputeCollisions(mobj: MapObject) {
     _precomputedHits.length = 0;
-    mobj.map.data.traceMove({
-        start: mobj.position,
-        move: zeroVec,
-        radius: mobj.info.radius + mobj.info.speed,
-        height: mobj.info.height,
-        hitObject: hit => {
+
+    // for perf: if we are not solid, skip hitting other mobjs. MSCP MAP14 was really slow without this because of the
+    // hundreds of stacked cell packs on a sliding floor
+    const hitObject: HandleTraceHit<MapObjectTraceHit> =
+        !(mobj.info.flags & MFFlags.MF_SOLID) ? null
+        : hit => {
             const skipHit = false
                 || (hit.mobj === mobj) // don't collide with yourself
                 || !(hit.mobj.info.flags & hittableThing) // not hittable
@@ -946,7 +946,14 @@ function precomputeCollisions(mobj: MapObject) {
                 _precomputedHits.push(hit);
             }
             return true; // continue search
-        },
+        };
+
+    mobj.map.data.traceMove({
+        start: mobj.position,
+        move: zeroVec,
+        radius: mobj.info.radius + mobj.info.speed,
+        height: mobj.info.height,
+        hitObject,
         hitLine: hit => {
             _precomputedHits.push(hit);
             return true;

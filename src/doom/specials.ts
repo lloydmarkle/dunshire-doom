@@ -1397,8 +1397,8 @@ export function pusherAction(map: MapRuntime, linedef: LineDef) {
     movement.set(dx, dy, 0);
     const action = () => {
         // group mobjs by sector _before_ moving because otherwise the mobj may be put into another sector
-        // that also moves.
-        // TODO: the above can still happen if the mobj moves to a different pusher. Does that matter?
+        // that also moves. Actually, that can still happen if the mobj moves to a different pusher but from the
+        // little testing I've done (cchest MAP02), it's expect.
         const sectorMobjs = sectors.map(sector => sectorObjects(map, sector).filter(e => e.onGround));
         for (const mobjs of sectorMobjs) {
             for (let i = 0; i < mobjs.length; i++) {
