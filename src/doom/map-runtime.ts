@@ -161,6 +161,9 @@ export class MapRuntime {
             this.destroy(playerThing);
         }));
 
+        if (game.settings.pistolStart.val) {
+            game.resetInventory();
+        }
         const inv = Object.assign(game.inventory, {
             items: {
                 berserkTicks: 0,
@@ -654,7 +657,7 @@ class GameInput {
                 start: this.player.position,
                 move: vec,
                 hitLine: hit => {
-                    if (hit.line.special) {
+                    if (hit.line.special && hit.side === -1) {
                         this.map.triggerSpecial(hit.line, this.player, 'S');
                         return false; // stop trace, we used a line
                     } else if (hit.line.left) {

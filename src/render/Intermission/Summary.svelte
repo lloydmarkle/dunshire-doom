@@ -36,6 +36,7 @@
     ];
 
     const ticker = (tickRate: number, count: number, total?: number) => {
+        count = count ?? 0;
         const target = total ? (count * 100) / total : count;
         const value = writable(-1);
         return {

@@ -58,9 +58,11 @@ const bodyMover: Mover = (() => {
                 const ignoreHit = (false
                     || (hit.mobj === self) // don't collide with yourself
                     || (!(hit.mobj.info.flags & hittableThing)) // not hittable
-                    || (start.z + self.info.height < hit.mobj.position.z) // passed under target
-                    || (start.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
                     || (hit.mobj.hitC === hitCount) // already hit this mobj
+                    || (self.map.game.settings.moveChecksZ.val && (
+                        (start.z + self.info.height < hit.mobj.position.z) || // passed under target
+                        (start.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
+                    ))
                 );
                 if (ignoreHit) {
                     return true;
@@ -94,7 +96,10 @@ const bodyMover: Mover = (() => {
 
                     // console.log('[sz,ez], [f,t,cf,do]',self.id,[start.z, back.zFloor], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
                     if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
-                        if (hit.line.special) {
+                        // only players trigger specials during move, monsters trigger then as part of ai routines (A_Chase)
+                        // NB: if we decide to change this, we'll need to be careful about things like MT_BLOOD
+                        // triggering specials when you shoot a monsters
+                        if (hit.line.special && self instanceof PlayerMapObject) {
                             const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
                             const endSide = signedLineDistance(hit.line.v, vec) < 0 ? -1 : 1
                             if (startSide !== endSide) {

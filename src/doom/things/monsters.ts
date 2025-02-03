@@ -940,8 +940,10 @@ function precomputeCollisions(mobj: MapObject) {
                 || (hit.mobj === mobj) // don't collide with yourself
                 || !(hit.mobj.info.flags & hittableThing) // not hittable
                 || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
-                || (mobj.position.z + mobj.info.height < hit.mobj.position.z) // passed under target
-                || (mobj.position.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
+                || (mobj.map.game.settings.moveChecksZ.val && (
+                    (mobj.position.z + mobj.info.height < hit.mobj.position.z) || // passed under target
+                    (mobj.position.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
+                ))
             if (!skipHit) {
                 _precomputedHits.push(hit);
             }
@@ -987,8 +989,7 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
         const hit = _precomputedHits[i];
         if ('mobj' in hit) {
             _nVec.set(mobj.position.x - hit.mobj.position.x, mobj.position.y - hit.mobj.position.y, 0);
-            const moveDot = move.dot(_nVec);
-            if (moveDot >= 0) {
+            if (mobj.map.game.settings.stuckMonstersCanMove.val && move.dot(_nVec) >= 0) {
                 continue;
             }
             const point = sweepAABBAABB(mobj.position, moveRadius, move, hit.mobj.position, hit.mobj.info.radius);
@@ -997,8 +998,7 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
             }
         } else if ('line' in hit) {
             _nVec.set(hit.seg.v[1].y - hit.seg.v[0].y, hit.seg.v[0].x - hit.seg.v[1].x, 0);
-            const moveDot = move.dot(_nVec);
-            if (moveDot >= 0) {
+            if (move.dot(_nVec) >= 0) {
                 continue;
             }
             const point = sweepAABBLine(mobj.position, moveRadius, move, hit.seg.v);

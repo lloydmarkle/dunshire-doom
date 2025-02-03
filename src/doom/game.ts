@@ -13,6 +13,9 @@ export type GameTime = Game['time'];
 export interface GameSettings {
     timescale: Store<number>;
     freelook: Store<boolean>;
+    pistolStart: Store<boolean>;
+    moveChecksZ: Store<boolean>;
+    stuckMonstersCanMove: Store<boolean>;
     skipInitialSpawn: Store<boolean>;
     xyAimAssist: Store<boolean>;
     zAimAssist: Store<boolean>;

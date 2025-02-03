@@ -63,7 +63,7 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     let target = floorMax;
     // https://www.doomworld.com/forum/topic/95030-why-does-raise-floor-by-shortest-lower-texture-only-half-work-on-older-ports/#comment-1770824
     // solves a bug in Doom2's MAP15 but it really doesn't feel right. I'm guessing almost every doom "shortest lower texture"
-    // lindef out there expects 64px (or less) rise because, in my opinion, it's highly unlikely both side lower textures are set
+    // linedef out there expects 64px (or less) rise because, in my opinion, it's highly unlikely both side lower textures are set
     const missingTextureSize = 64;
     for (const ld of map.data.linedefs) {
         if (ld.left?.sector === sector || ld.right.sector === sector) {

@@ -129,6 +129,11 @@ export function idkfa(game: Game) {
 function addFullAmmo(game: Game) {
     const player = game.map?.val?.player;
     game.map?.val?.player?.inventory?.update(inv => {
+        inv.ammo.bullets.max = 400;
+        inv.ammo.shells.max = 100;
+        inv.ammo.rockets.max = 100;
+        inv.ammo.cells.max = 600;
+
         for (const t of Object.keys(inv.ammo)) {
             inv.ammo[t].amount = inv.ammo[t].max;
         }

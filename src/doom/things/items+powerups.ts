@@ -67,6 +67,7 @@ const giveInvlun = updateInventory('GOTINVUL', inv => inv.items.invincibilityTic
 const giveInvis = updateInventory('GOTINVIS', inv => inv.items.invisibilityTicks = 120 * ticksPerSecond);
 const giveLightGoggles = updateInventory('GOTVISOR', inv => inv.items.nightVisionTicks = 60 * ticksPerSecond);
 const giveBerserk = (player: PlayerMapObject) => {
+    player.health.update(health => Math.max(health, 100));
     player.inventory.update(inv => {
         inv.items.berserkTicks = 20 * ticksPerSecond;
         inv.items.berserk = true;
