@@ -52,7 +52,7 @@ const highestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
 const highestNeighbourFloorInclusive = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), sector.zFloor);
 const nextNeighbourFloor = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor > sector.zFloor ? Math.min(last, sec.zFloor) : last, floorMax);
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor > sector.zFloor ? sec.zFloor : last), sector.zFloor);
 const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
 const highestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
