@@ -11,6 +11,7 @@
     import WadList from "../render/Components/WadList.svelte";
     import { Icon } from "@steeze-ui/svelte-icon";
     import { MagnifyingGlass } from "@steeze-ui/heroicons";
+    import { menuCategories } from "../render/Menu/Menu.svelte";
 
     const [send, receive] = crossfade({
 		duration: 300,
@@ -20,12 +21,7 @@
     export let wadStore: WadStore;
     export let wad: DoomWad = null;
     const { settingsMenu, pointerLock } = useAppContext();
-    const settings = {
-        Normal: settingsMenu.filter((e) => e.cat === "normal"),
-        Advanced: settingsMenu.filter((e) => e.cat === "advanced"),
-        Debug: settingsMenu.filter((e) => e.cat === "debug"),
-        Experimental: settingsMenu.filter((e) => e.cat === "experimental"),
-    };
+    const settings = menuCategories(settingsMenu);
 
     const wads = wadStore.wads;
     // FIXME: There's a delay where the screen flickers from "no wads" to play during load. Hmmmm.....

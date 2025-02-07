@@ -2,7 +2,7 @@
 import { MapObject, PlayerMapObject } from "./map-object";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
-import { zeroVec, type LineDef, type Sector, hittableThing, linedefSlope, type LineTraceHit } from "./map-data";
+import { zeroVec, type LineDef, type Sector, linedefSlope, type LineTraceHit } from "./map-data";
 import { _T } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
@@ -134,6 +134,7 @@ function crunchMapObject(mobj: MapObject) {
         mobj.setState(StateIndex.S_GIBS);
         mobj.info.flags &= ~MFFlags.MF_SOLID;
         mobj.info.height = 0;
+        mobj.info.radius = 0;
         return false;
     }
     // check if we hit something solid
@@ -952,6 +953,8 @@ export const sectorLightAnimations = {
 };
 
 // Teleports
+// Note: we use applyPositionChanged() for updating mobj position so that if
+// others trying to teleport to the same spot, in the same tic, are blocked
 const playerTeleportTypes = [39, 97, 174, 195, 207, 208, 209, 210, 243, 244, 262, 263];
 const createTeleportDefinition = (trigger: string, translateFn: typeof teleportReorientMove, specialEffects: typeof teleportSoundAndFog, targetFn: typeof teleportThingInSectorTarget) => ({
     translateFn,
@@ -966,7 +969,7 @@ export const teleportReorientMove = (mobj: MapObject, dest: MapObject) => {
     mobj.velocity.set(0, 0, 0);
     mobj.direction = dest.direction;
     mobj.position.set(dest.position.x, dest.position.y, dest.sector.zFloor);
-    mobj.positionChanged();
+    mobj.applyPositionChanged();
 
     if (mobj.type === MapObjectIndex.MT_PLAYER) {
         // freeze player after teleporting
@@ -975,7 +978,7 @@ export const teleportReorientMove = (mobj: MapObject, dest: MapObject) => {
 }
 const teleportPreserveMove = (mobj: MapObject, dest: MapObject) => {
     mobj.position.set(dest.position.x, dest.position.y, dest.sector.zFloor);
-    mobj.positionChanged();
+    mobj.applyPositionChanged();
     // also freeze player?
 }
 
@@ -1012,7 +1015,7 @@ const lineWithTag = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject)
         const px = ld.v[0].x + (ld.v[1].x - ld.v[0].x) * frac;
         const py = ld.v[0].y + (ld.v[1].y - ld.v[0].y) * frac;
         mobj.position.set(px, py, mobj.position.z);
-        mobj.positionChanged();
+        mobj.applyPositionChanged();
         return true;
     }
     return false;
@@ -1047,6 +1050,19 @@ export const telefragTargets = (mobj: MapObject) => {
     });
 }
 
+const moveBlocker = MFFlags.MF_SOLID | MFFlags.MF_SHOOTABLE;
+export const isMonsterMoveBlocked = (mobj: MapObject, position: Vector3) => {
+    let blocked = false;
+    mobj.map.data.traceMove({
+        start: position,
+        move: zeroVec,
+        radius: mobj.info.radius,
+        height: mobj.info.height,
+        hitObject: hit => !(blocked = Boolean(hit.mobj.info.flags & moveBlocker)),
+    });
+    return blocked;
+};
+
 const applyTeleportAction =
         (def: ReturnType<typeof createTeleportDefinition>) =>
         (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
@@ -1072,14 +1088,7 @@ const applyTeleportAction =
     def.targetFn(mobj, linedef, tp => {
         if (mobj.isMonster) {
             // monsters cannot teleport if a hittable mobj is blocking teleport landing
-            let blocked = false;
-            mobj.map.data.traceMove({
-                start: tp.position,
-                move: zeroVec,
-                radius: mobj.info.radius,
-                height: mobj.info.height,
-                hitObject: hit => !(blocked = Boolean('mobj' in hit && hit.mobj.info.flags & hittableThing)),
-            })
+            const blocked = isMonsterMoveBlocked(mobj, tp.position);
             if (blocked) {
                 return false;
             }

@@ -376,12 +376,12 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                         continue;
                     }
                 }
-                const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.info.radius);
+                const hit = sweepAABBAABB(params.start, radius, params.move, mobj.position, mobj.originalRadius);
                 if (hit && (params.radius || pointInBlock(block, hit))) {
                     mobj.blockHit = scanN;
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
                     const sector = mobj.sector;
-                    const ov = aabbAabbOverlap(point, radius, mobj.position, mobj.info.radius);
+                    const ov = aabbAabbOverlap(point, radius, mobj.position, mobj.originalRadius);
                     hits.push({ sector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
                 }
             }

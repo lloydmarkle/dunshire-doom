@@ -1,12 +1,12 @@
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
-import { angleBetween, MapObject, xyDistanceBetween, maxStepSize, maxFloatSpeed, missileMover } from '../map-object';
+import { angleBetween, MapObject, xyDistanceBetween, maxStepSize, maxFloatSpeed, PlayerMapObject } from '../map-object';
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, sweepAABBAABB, sweepAABBLine, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, type LineDef, type MapObjectTraceHit, type SectorTraceHit, type HandleTraceHit } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector,  type MapObjectTraceHit, type HandleTraceHit } from '../map-data';
 import { attackRange, checkMissileSpawn, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
-import { exitLevel, telefragTargets, teleportReorientMove } from '../specials';
+import { exitLevel, isMonsterMoveBlocked, telefragTargets, teleportReorientMove } from '../specials';
 
 export const monsters: ThingType[] = [
     { type: 7, class: 'M', description: 'Spiderdemon' },
@@ -148,42 +148,45 @@ const doom2BossActions: ActionMap = {
 
 const archvileActions: ActionMap = {
     [ActionIndex.A_VileChase]: mobj => {
-        // find corpse to resurrect
-        if (mobj.movedir !== MoveDirection.None) {
-            let corpseMobj: MapObject;
-            _moveVec.copy(_directionTable[mobj.movedir]).multiplyScalar(mobj.info.speed);
-            mobj.map.data.traceMove({
-                start: mobj.position,
-                move: _moveVec,
-                radius: mobj.info.radius,
-                height: mobj.info.height,
-                hitObject: hit => {
-                    const foundCorpse = ('mobj' in hit)
-                        // TODO: Doom also check mobj.state.ticks, should we?
-                        && (hit.mobj.info.flags & MFFlags.MF_CORPSE)
-                        && hit.mobj.info.raisestate !== StateIndex.S_NULL
-                        // don't resurrect something we are already touching otherwise we get stuck
-                        && hit.fraction > 0
-                        // mobj.kill() sets height to 1/4
-                        && (hit.mobj.zCeil - hit.mobj.zFloor) >= (hit.mobj.info.height * 4)
-                    if (foundCorpse) {
-                        corpseMobj = hit.mobj;
-                        return false;
-                    }
-                    return true;
-                },
-            });
-
-            if (corpseMobj) {
-                faceTarget(mobj, corpseMobj);
-                mobj.setState(StateIndex.S_VILE_HEAL1);
-                mobj.map.game.playSound(SoundIndex.sfx_slop, corpseMobj);
-
-                corpseMobj.resurrect();
-                corpseMobj.chaseTarget = mobj.chaseTarget;
-            }
+        if (mobj.movedir === MoveDirection.None) {
+            return allActions[ActionIndex.A_Chase](mobj);
         }
-        allActions[ActionIndex.A_Chase](mobj);
+
+        // find corpse to resurrect
+        let corpseMobj: MapObject;
+        _moveVec.copy(_directionTable[mobj.movedir]).multiplyScalar(mobj.info.speed);
+        mobj.map.data.traceMove({
+            start: mobj.position,
+            move: _moveVec,
+            radius: mobj.info.radius,
+            height: mobj.info.height,
+            hitObject: hit => {
+                const foundCorpse = (hit.mobj.info.flags & MFFlags.MF_CORPSE)
+                    // TODO: Doom also check mobj.state.ticks, should we?
+                    && hit.mobj.info.raisestate !== StateIndex.S_NULL
+                    // don't resurrect something we are already touching otherwise we get stuck
+                    && hit.fraction > 0
+                    // mobj.kill() sets height to 1/4
+                    && (hit.mobj.zCeil - hit.mobj.zFloor) >= (hit.mobj.info.height * 4)
+                    && (mobj.map.game.settings.stuckMonstersCanMove.val || !isMonsterMoveBlocked(hit.mobj, hit.mobj.position))
+                if (foundCorpse) {
+                    corpseMobj = hit.mobj;
+                    return false;
+                }
+                return true;
+            },
+        });
+        if (!corpseMobj) {
+            // no corpse so try to move
+            return allActions[ActionIndex.A_Chase](mobj);
+        }
+
+        faceTarget(mobj, corpseMobj);
+        mobj.setState(StateIndex.S_VILE_HEAL1);
+        mobj.map.game.playSound(SoundIndex.sfx_slop, corpseMobj);
+
+        corpseMobj.resurrect();
+        corpseMobj.chaseTarget = mobj.chaseTarget;
     },
 	[ActionIndex.A_VileStart]: mobj => {
         mobj.map.game.playSound(SoundIndex.sfx_vilatk, mobj);
@@ -841,7 +844,6 @@ let _moveDir = [0, 0];
 function newChaseDir(mobj: MapObject, target: MapObject) {
     // Kind of P_NewChaseDir but also helped along by a doomworld discussion
     // https://www.doomworld.com/forum/topic/122794-source-code-monster-behavior-moving-around-objects/
-
     // set search direction baesd on location of target and mobj
     const dx = target.position.x - mobj.position.x;
     const dy = target.position.y - mobj.position.y;
@@ -982,8 +984,17 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
     // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
     const moveRadius = mobj.info.radius - 1;
     // compute highest and lowest floor we are touching because monsters cannot climb narrow steps
-    // (players nad floating monsters can though)
+    // (players and floating monsters can though)
     const maxFloorChangeOK = (mobj.info.flags & MFFlags.MF_FLOAT) || maxFloorChange(mobj, move, moveRadius) <= maxStepSize;
+
+    if (moveRadius < 0) {
+        // a negative radius means we're dealing with a ghost monster! We handle those collisions differently
+        // See also https://doomwiki.org/wiki/Ghost_monster or https://classicdoom.com/ghostfaq.htm
+        const newSector = mobj.map.data.findSector(_centreMoveEnd.x, _centreMoveEnd.y);
+        if (newSector.zFloor - mobj.sector.zFloor > maxStepSize || newSector.zCeil < mobj.sector.zFloor) {
+            return newSector;
+        }
+    }
 
     for (let i = 0, n = _precomputedHits.length; i < n; i++) {
         const hit = _precomputedHits[i];
@@ -997,6 +1008,9 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
                 continue;
             }
         } else if ('line' in hit) {
+            if (moveRadius < 0) {
+                continue; // ghost monster line checks are handled separately
+            }
             _nVec.set(hit.seg.v[1].y - hit.seg.v[0].y, hit.seg.v[0].x - hit.seg.v[1].x, 0);
             if (move.dot(_nVec) >= 0) {
                 continue;
@@ -1053,6 +1067,7 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
         }
         return hit;
     }
+
     return null;
 }
 

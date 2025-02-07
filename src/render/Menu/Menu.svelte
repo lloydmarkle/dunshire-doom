@@ -29,6 +29,14 @@
         navigator.clipboard.writeText(window.location.href);
         return window.location.href;
     }
+
+    export const menuCategories = (settingsMenu: any) => ({
+        Normal: settingsMenu.filter(e => e.cat === "normal"),
+        Advanced: settingsMenu.filter(e => e.cat === "advanced"),
+        Compatibility: settingsMenu.filter(e => e.cat === "compatibility"),
+        Debug: settingsMenu.filter(e => e.cat === "debug"),
+        Experimental: settingsMenu.filter(e => e.cat === "experimental"),
+    });
 </script>
 <script lang="ts">
     import { fade, fly } from "svelte/transition";
@@ -76,12 +84,7 @@
         shared = true;
     }
 
-    const settings = {
-        Normal: settingsMenu.filter((e) => e.cat === "normal"),
-        Advanced: settingsMenu.filter((e) => e.cat === "advanced"),
-        Debug: settingsMenu.filter((e) => e.cat === "debug"),
-        Experimental: settingsMenu.filter((e) => e.cat === "experimental"),
-    };
+    const settings = menuCategories(settingsMenu);
 
     function keyup(ev: KeyboardEvent) {
         switch (ev.code) {

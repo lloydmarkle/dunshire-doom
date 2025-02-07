@@ -23,19 +23,26 @@
             return '';
         }
 
+        dataUrl = pictureDataUrl(px, format);
+        if (dataUrl.length) {
+            cache.set(key, dataUrl);
+        }
+        return dataUrl;
+    }
+
+    export function pictureDataUrl(pic: Picture, format = 'image/png') {
         try {
             // draw image onto canvas
             const canvas = document.createElement('canvas');
-            canvas.width = px.width;
-            canvas.height = px.height;
+            canvas.width = pic.width;
+            canvas.height = pic.height;
             const ctx = canvas.getContext('2d');
             const img = ctx.createImageData(canvas.width, canvas.height);
-            px.toBuffer(img.data);
+            pic.toBuffer(img.data);
             ctx.putImageData(img, 0, 0);
 
             // convert to data url
             const dataUrl = canvas.toDataURL(format);
-            cache.set(key, dataUrl);
             return dataUrl;
         } catch {
             // interestingly, some wads contain TITLEPIC but not playpal which means we have images but no palette.
@@ -46,7 +53,7 @@
 </script>
 <script lang="ts">
     import { useDoom } from "../DoomContext";
-    import type { DoomWad } from "../../doom";
+    import type { DoomWad, Picture } from "../../doom";
 
     export let name: string;
     export let type: ImageType = 'any';

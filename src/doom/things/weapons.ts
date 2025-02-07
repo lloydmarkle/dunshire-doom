@@ -724,7 +724,7 @@ function shootMissile(shooter: MapObject, type: PlayerMissileType) {
         _shotEuler.set(0, -slope, shotTracer.lastAngle);
         missile.velocity.set(vel, 0, 0).applyEuler(_shotEuler);
     }
-    missile.map.game.playSound(missile.info.seesound, missile);
+    missile.map.game.playSound(missile.info.seesound, shooter);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
     missile.chaseTarget = shooter;

@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { PlayerMapObject } from "../../doom";
-    import Picture from "../Components/Picture.svelte";
+    import Picture, { imageDataUrl } from "../Components/Picture.svelte";
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";
     import type { Size } from "@threlte/core";
@@ -11,14 +11,22 @@
     export let size: Size;
 
     const { health, weapon, inventory } = player;
-    const hudHeight = player.map.game.wad.graphic('STBAR').height * 2; // why *2? Because we are scaling by 2 in a css transform below
-    $: weaponLights = $inventory.weapons.map(e => e?.keynum);
+    const weaponLights = $inventory.weapons.map(e => e?.keynum);
+    const stbarGfx = player.map.game.wad.graphic('STBAR');
+    const hudHeight = stbarGfx.height * 2; // why *2? Because we are scaling by 2 in a css transform below
+    const stbar = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
+    const stbarOffsetX = (320 - stbarGfx.width) / 2;
 </script>
 
 <HUDMessages {player} />
 
-<div class="root" style="top:{size.height - hudHeight}px">
-    <Picture name={'STBAR'} />
+<div
+    class="root"
+    style:--st-top="{size.height - hudHeight}px"
+    style:--st-bg="url({stbar})"
+    style:--st-bg-offsetx="{stbarOffsetX}px"
+>
+    <!-- <Picture name={'STBAR'} /> -->
     <div class="ammo">
         {#if $inventory.ammo[$weapon.ammoType]}
             <STNumber sprite='STTNUM' value={$inventory.ammo[$weapon.ammoType].amount} />
@@ -84,8 +92,12 @@
     .root {
         place-self: center;
         width: 320px;
+        height: 32px;
         transform: scale(2);
         transform-origin: top center;
+        top: var(--st-top);
+        background: var(--st-bg);
+        background-position: var(--st-bg-offsetx) 0px;
     }
 
     .ammo {

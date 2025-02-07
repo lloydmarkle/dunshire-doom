@@ -74,7 +74,7 @@ const giveBerserk = (player: PlayerMapObject) => {
         return inv;
     });
     // switch to fists
-    player.nextWeapon = player.inventory.val.weapons[1];
+    player.nextWeapon = player.inventory.val.weapons[0];
     return itemPickedUp(SoundIndex.sfx_getpow, 'GOTBERSERK');
 };
 

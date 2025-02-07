@@ -47,6 +47,7 @@ const bodyMover: Mover = (() => {
         }
 
         const start = self.position;
+        const blockFlags = self.class === 'M' ? 0x0003 : 0x0001;
         let blocker: TraceHit = 1 as any;
         hitCount += 1;
         const traceParams: TraceParams = {
@@ -83,7 +84,7 @@ const bodyMover: Mover = (() => {
             },
             hitLine: hit => {
                 const twoSided = Boolean(hit.line.left);
-                const blocking = (hit.line.flags & 0x0001) !== 0;
+                const blocking = Boolean(hit.line.flags & blockFlags);
                 if (twoSided && !blocking) {
                     const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
 
@@ -285,7 +286,7 @@ export class MapObject {
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
     readonly sectorChanged: (sector: Sector) => void;
     readonly positionChanged: () => void;
-    protected applyPositionChanged: () => void;
+    readonly applyPositionChanged: () => void;
 
     private _sector: Sector;
     get sector(): Sector { return this._sector; };
@@ -310,6 +311,7 @@ export class MapObject {
     get description() { return this.spec.description; }
     get class() { return this.spec.class; }
     get onPickup() { return this.spec.onPickup; }
+    get originalRadius() { return this.spec.mo.radius; }
 
     constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex, direction: number) {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
@@ -324,9 +326,14 @@ export class MapObject {
         this.resurrect = () => {
             this.velocity.set(0, 0, 0);
             this.setState(spec.mo.raisestate)
-            this.info.height = spec.mo.height;
             this.health.set(spec.mo.spawnhealth);
             this.info.flags = spec.mo.flags;
+            if (map.game.settings.ghostMonsters.val) {
+                this.info.height *= 4;
+            } else {
+                this.info.height = spec.mo.height;
+                this.info.radius = spec.mo.radius;
+            }
         }
 
         // only players, monsters, and dropped things are moveable which affects how we choose zFloor and zCeil
@@ -383,14 +390,15 @@ export class MapObject {
         this.direction = direction;
 
         this.position = new Vector3(pos.x, pos.y, 0);
-        // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
-        // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
-        const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
         this.positionChanged = () => {
             this._positionChanged = true;
             this._onGround = this.position.z <= this._zFloor;
         }
         this.applyPositionChanged = () => {
+            this._positionChanged = false;
+            // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
+            // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
+            const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
             const sector = map.data.blockMap.moveMobj(this, radius);
             this._zCeil = lowestZCeil(sector, sector.zCeil);
             const lastZFloor = this._zFloor;
@@ -421,7 +429,7 @@ export class MapObject {
         this.sectorMap.forEach((rev, sec) => this.map.sectorObjs.get(sec).delete(this));
         this.blocks.forEach((rev, block) => block.mobjs.delete(this));
         // don't update position after object destroyed
-        this.applyPositionChanged = () => {};
+        (this as any).applyPositionChanged = () => {};
     }
 
     get spriteTics() { return states[this._state.index].tics; }
@@ -441,7 +449,6 @@ export class MapObject {
 
         if (this._positionChanged) {
             this.applyPositionChanged();
-            this._positionChanged = false;
         }
     }
 

@@ -180,6 +180,8 @@ export class MapRuntime {
         this.players[this.players.length - 1] = this.player;
         this.objs.add(this.player);
         this.events.emit('mobj-added', this.player);
+        // reset monster chase targets for monsters already chasing the player
+        this.objs.forEach(mo => mo.chaseTarget = mo.chaseTarget === playerThing ? this.player : mo.chaseTarget);
         // restore values from last level (and subscribe to preserve values for next level)
         this.player.health.set(game.inventory.health);
         this.player.health.subscribe(health => game.inventory.health = health);

@@ -16,6 +16,7 @@ export interface GameSettings {
     pistolStart: Store<boolean>;
     moveChecksZ: Store<boolean>;
     stuckMonstersCanMove: Store<boolean>;
+    ghostMonsters: Store<boolean>;
     skipInitialSpawn: Store<boolean>;
     xyAimAssist: Store<boolean>;
     zAimAssist: Store<boolean>;

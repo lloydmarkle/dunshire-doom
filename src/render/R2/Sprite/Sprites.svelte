@@ -31,7 +31,7 @@
     // }
 
     const { editor, settings } = useAppContext();
-    const { playerLight, interpolateMovement, cameraMode, useTextures } = settings;
+    const { playerLight, interpolateMovement, monsterAI, cameraMode, useTextures } = settings;
 
     function hit(ev) {
         if (!ev.instanceId) {
@@ -70,17 +70,16 @@
             $tranUniforms.camP.value.copy(p);
         }
     })();
-    function updateTimeUniforms(time: number) {
-        const t2 = time * tickTime
-        $uniforms.time.value = t2;
-        $uniforms.tics.value = $interpolateMovement ? time : 0;
-        $tranUniforms.time.value = t2;
-        $tranUniforms.tics.value =  $interpolateMovement ? time : 0;
-    }
+    const updateTimeUniform = (time: number) =>
+        $uniforms.time.value = $tranUniforms.time.value = time * tickTime;
+    $: updateInterpolationUniform = $interpolateMovement && $monsterAI !== 'disabled'
+        ? (time: number) => $uniforms.tics.value = $tranUniforms.tics.value = time
+        : (time: number) => $uniforms.tics.value = $tranUniforms.tics.value = 0;
     // NOTE: use a task instead of $: to make sure we have the latest value before rendering
     useTask(() => {
-        updateCameraUniforms($threlteCam, $position, $angle)
-        updateTimeUniforms(map.game.time.tick.val);
+        updateCameraUniforms($threlteCam, $position, $angle);
+        updateTimeUniform(map.game.time.tick.val);
+        updateInterpolationUniform(map.game.time.tick.val);
     }, { stage: useThrelte().renderStage });
 
     function updateInspectorUniforms(edit) {
@@ -141,7 +140,7 @@
             return;
         }
 
-        // swap from spector to non?
+        // swap from spectre to non?
         const isSpectre = mo.info.flags & MFFlags.MF_SHADOW;
         if (geo === opaqGeo && isSpectre) {
             opaqGeo.remove(mo);

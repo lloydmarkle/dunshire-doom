@@ -13,7 +13,7 @@
 
     function revive() {
         // spawn a dead player where we revived (DSDA Doom at least has this behaviour and it's cool)
-        player.map.spawn(MapObjectIndex.MT_MISC62, player.position.val.x, player.position.val.y);
+        player.map.spawn(MapObjectIndex.MT_MISC62, player.position.x, player.position.y);
         player.map.game.playSound(SoundIndex.sfx_slop, player);
         // undo effects of MapObject.kill()
         const tw = tweened(player.health.val);

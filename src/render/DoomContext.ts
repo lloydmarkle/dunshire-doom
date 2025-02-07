@@ -32,7 +32,7 @@ interface ToggleSetting extends BaseSetting<boolean> {
 }
 const toggle = (cat: MenuSettingCategory, val: Writable<boolean>, text: string): ToggleSetting => ({ type: 'toggle', cat, val, text });
 
-type MenuSettingCategory = 'normal' | 'advanced' | 'debug' | 'experimental';
+type MenuSettingCategory = 'normal' | 'compatibility' | 'advanced' | 'debug' | 'experimental';
 interface BaseSetting<T> {
     text: string;
     cat: MenuSettingCategory;
@@ -47,6 +47,7 @@ export const createDefaultSettings = () => {
         pistolStart: store(false),
         moveChecksZ: store(false),
         stuckMonstersCanMove: store(false),
+        ghostMonsters: store(false),
         skipInitialSpawn: store(false),
         zAimAssist: store(true),
         xyAimAssist: store(false),
@@ -170,17 +171,18 @@ export const createAppContext = () => {
         toggle('advanced', settings.alwaysRun, 'Always run'),
         toggle('advanced', settings.freelook, 'Free look'),
         toggle('advanced', settings.pistolStart, 'Pistol start'),
-        toggle('advanced', settings.moveChecksZ, 'Allow walking over or under monsters'),
-        toggle('advanced', settings.stuckMonstersCanMove, 'Allow stuck monsters to move'),
         range('advanced', settings.fov, 'Field of view (FOV)', 50, 120, 2),
         toggle('advanced', settings.interpolateMovement, 'Interpolate movement'),
-        range('advanced', settings.maxLostSouls, 'Max Lost Souls (0 means no limit)', 0, 50, 5),
         range('advanced', settings.timescale, 'Timescale', 0.1, 2, .1),
         option('advanced', settings.fakeContrast, 'Fake contrast', ['classic', 'gradual', 'off']),
         range('advanced', settings.fpsLimit, 'Max FPS', 5, 200, 5),
         range('advanced', settings.pixelScale, 'Pixel scale', .1, window.devicePixelRatio, .1),
-        option('advanced', settings.randomNumbers, 'Random numbers', ['table', 'computed']),
         color('advanced', settings.playerLight, 'Player light'),
+        toggle('compatibility', settings.moveChecksZ, 'Allow walking over or under monsters'),
+        toggle('compatibility', settings.stuckMonstersCanMove, 'Allow stuck monsters to move'),
+        toggle('compatibility', settings.ghostMonsters, 'Allow ghost monsters'),
+        range('compatibility', settings.maxLostSouls, 'Max Lost Souls (0 means no limit)', 0, 50, 5),
+        option('compatibility', settings.randomNumbers, 'Random numbers', ['table', 'computed']),
         // toggle($editor.active, 'Inspector'),
         toggle('debug', settings.showStats, 'Show render stats'),
         toggle('debug', settings.showBlockMap, 'Show blockmap'),
