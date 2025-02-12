@@ -168,6 +168,7 @@ export class MapTextureAtlas {
     // animations cause jank after map load as the different frames are loaded into the atlas.
     // So we store the texture names that are part of animations and if one is loaded, we load the rest
     wallTexture(name: string): [number, Picture] {
+        name = name ?? TransparentWindowTexture.TextureName;
         let data = this.textures.get(name);
         if (!data) {
             const pic = this.wad.wallTextureData(name);
@@ -195,6 +196,7 @@ export class MapTextureAtlas {
     }
 
     flatTexture(name: string): [number, Picture] {
+        name = name ?? TransparentWindowTexture.TextureName;
         let data = this.flats.get(name);
         if (!data) {
             const pic = this.wad.flatTextureData(name);
