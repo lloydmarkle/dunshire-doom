@@ -101,7 +101,7 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
 function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: SubSector[]) {
     let idx = (child as any) as number;
     // Similar to zdoom bsp, subsector/node reference is 4 bytes
-    return (idx & 0xa000_0000)
+    return (idx & 0x8000_0000)
         ? ssector[idx & 0x7fff_ffff]
         : nodes[idx & 0x7fff_ffff];
 };

@@ -105,7 +105,7 @@ function bspNodesLump(lump: Lump, subsectors: SubSector[]) {
 
 function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: SubSector[]) {
     let idx = (child as any) as number;
-    return (idx & 0xa000)
+    return (idx & 0x8000)
         ? ssector[idx & 0x7fff]
         : nodes[idx & 0x7fff];
 };

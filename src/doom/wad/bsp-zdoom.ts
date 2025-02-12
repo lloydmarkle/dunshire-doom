@@ -93,7 +93,7 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
     let idx = (child as any) as number;
     // https://zdoom.org/wiki/Node#ZDoom_extended_nodes:
     // "Just remember that the child references are stored using four bytes each instead of two."
-    return (idx & 0xa000_0000)
+    return (idx & 0x8000_0000)
         ? ssector[idx & 0x7fff_ffff]
         : nodes[idx & 0x7fff_ffff];
 };
