@@ -204,6 +204,12 @@ export interface TraceParams {
     hitFlat?: HandleTraceHit<SectorTraceHit>;
     hitObject?: HandleTraceHit<MapObjectTraceHit>;
 }
+export const baseMoveTrace: TraceParams = {
+    start: null,
+    move: null,
+    radius: 0,
+    height: 0,
+}
 
 export interface Block {
     x: number;

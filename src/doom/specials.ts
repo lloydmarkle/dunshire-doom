@@ -2,7 +2,7 @@
 import { MapObject, PlayerMapObject } from "./map-object";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
-import { zeroVec, type LineDef, type Sector, linedefSlope, type LineTraceHit } from "./map-data";
+import { zeroVec, type LineDef, type Sector, linedefSlope, type LineTraceHit, type TraceParams, baseMoveTrace } from "./map-data";
 import { _T } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
@@ -1028,40 +1028,51 @@ const lineWithTagReversed = (mobj: MapObject, linedef: LineDef, applyFn: (tp: Ma
     }
 }
 
-export const telefragTargets = (mobj: MapObject) => {
-    // monsters only telefrag in level 30
-    if (mobj.isMonster && mobj.map.name !== 'MAP30') {
-        return true;
-    }
-    // telefrag anything in our way
-    mobj.map.data.traceMove({
-        start: mobj.position,
+export const telefragTargets = (() => {
+    let self: MapObject;
+    const traceParams: TraceParams = {
+        ...baseMoveTrace,
         move: zeroVec,
-        radius: mobj.info.radius,
-        height: mobj.info.height,
         hitObject: hit => {
             // skip non shootable things and (obviously) don't hit ourselves
-            if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) || hit.mobj === mobj) {
+            if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) || hit.mobj === self) {
                 return true;
             }
-            hit.mobj.damage(10_000, mobj, mobj);
+            hit.mobj.damage(10_000, self, self);
             return true;
         }
-    });
-}
+    }
+    return (mobj: MapObject) => {
+        // monsters only telefrag in level 30
+        if (mobj.isMonster && mobj.map.name !== 'MAP30') {
+            return true;
+        }
+        // telefrag anything in our way
+        self = mobj;
+        traceParams.start = mobj.position;
+        traceParams.radius = mobj.info.radius
+        traceParams.height = mobj.info.height
+        mobj.map.data.traceMove(traceParams);
+    };
+})();
 
 const moveBlocker = MFFlags.MF_SOLID | MFFlags.MF_SHOOTABLE;
-export const isMonsterMoveBlocked = (mobj: MapObject, position: Vector3) => {
+export const isMonsterMoveBlocked = (() => {
     let blocked = false;
-    mobj.map.data.traceMove({
-        start: position,
+    const traceParams: TraceParams = {
+        ...baseMoveTrace,
         move: zeroVec,
-        radius: mobj.info.radius,
-        height: mobj.info.height,
         hitObject: hit => !(blocked = Boolean(hit.mobj.info.flags & moveBlocker)),
-    });
-    return blocked;
-};
+    }
+    return (mobj: MapObject, position: Vector3) => {
+        blocked = false;
+        traceParams.start = position;
+        traceParams.radius = mobj.info.radius
+        traceParams.height = mobj.info.height
+        mobj.map.data.traceMove(traceParams);
+        return blocked;
+    }
+})();
 
 const applyTeleportAction =
         (def: ReturnType<typeof createTeleportDefinition>) =>

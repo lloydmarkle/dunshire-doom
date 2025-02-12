@@ -1,10 +1,10 @@
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
-import { angleBetween, MapObject, xyDistanceBetween, maxStepSize, maxFloatSpeed, PlayerMapObject } from '../map-object';
+import { angleBetween, MapObject, xyDistanceBetween, maxStepSize, maxFloatSpeed } from '../map-object';
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, sweepAABBAABB, sweepAABBLine, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector,  type MapObjectTraceHit, type HandleTraceHit } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector,  type TraceParams, type MapObjectTraceHit, baseMoveTrace } from '../map-data';
 import { attackRange, checkMissileSpawn, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
 import { exitLevel, isMonsterMoveBlocked, telefragTargets, teleportReorientMove } from '../specials';
 
@@ -147,19 +147,11 @@ const doom2BossActions: ActionMap = {
 };
 
 const archvileActions: ActionMap = {
-    [ActionIndex.A_VileChase]: mobj => {
-        if (mobj.movedir === MoveDirection.None) {
-            return allActions[ActionIndex.A_Chase](mobj);
-        }
-
-        // find corpse to resurrect
+    [ActionIndex.A_VileChase]: (() => {
         let corpseMobj: MapObject;
-        _moveVec.copy(_directionTable[mobj.movedir]).multiplyScalar(mobj.info.speed);
-        mobj.map.data.traceMove({
-            start: mobj.position,
-            move: _moveVec,
-            radius: mobj.info.radius,
-            height: mobj.info.height,
+        const traceParams: TraceParams = {
+            ...baseMoveTrace,
+            move: new Vector3(),
             hitObject: hit => {
                 const foundCorpse = (hit.mobj.info.flags & MFFlags.MF_CORPSE)
                     // TODO: Doom also check mobj.state.ticks, should we?
@@ -168,26 +160,41 @@ const archvileActions: ActionMap = {
                     && hit.fraction > 0
                     // mobj.kill() sets height to 1/4
                     && (hit.mobj.zCeil - hit.mobj.zFloor) >= (hit.mobj.info.height * 4)
-                    && (mobj.map.game.settings.stuckMonstersCanMove.val || !isMonsterMoveBlocked(hit.mobj, hit.mobj.position))
+                    && (hit.mobj.map.game.settings.stuckMonstersCanMove.val || !isMonsterMoveBlocked(hit.mobj, hit.mobj.position))
                 if (foundCorpse) {
                     corpseMobj = hit.mobj;
                     return false;
                 }
                 return true;
             },
-        });
-        if (!corpseMobj) {
-            // no corpse so try to move
-            return allActions[ActionIndex.A_Chase](mobj);
+        };
+        const findCorpse = (mobj: MapObject) => {
+            traceParams.start = mobj.position;
+            traceParams.move.copy(_directionTable[mobj.movedir]).multiplyScalar(mobj.info.speed);
+            traceParams.radius = mobj.info.radius;
+            traceParams.height = mobj.info.height;
+            corpseMobj = null;
+            mobj.map.data.traceMove(traceParams);
+            return corpseMobj;
+        };
+
+        return mobj => {
+            if (mobj.movedir === MoveDirection.None) {
+                return allActions[ActionIndex.A_Chase](mobj);
+            }
+            const corpse = findCorpse(mobj);
+            if (!corpse) {
+                return allActions[ActionIndex.A_Chase](mobj);
+            }
+
+            faceTarget(mobj, corpse);
+            mobj.setState(StateIndex.S_VILE_HEAL1);
+            mobj.map.game.playSound(SoundIndex.sfx_slop, corpse);
+
+            corpse.resurrect();
+            corpse.chaseTarget = mobj.chaseTarget;
         }
-
-        faceTarget(mobj, corpseMobj);
-        mobj.setState(StateIndex.S_VILE_HEAL1);
-        mobj.map.game.playSound(SoundIndex.sfx_slop, corpseMobj);
-
-        corpseMobj.resurrect();
-        corpseMobj.chaseTarget = mobj.chaseTarget;
-    },
+    })(),
 	[ActionIndex.A_VileStart]: mobj => {
         mobj.map.game.playSound(SoundIndex.sfx_vilatk, mobj);
     },
@@ -449,7 +456,7 @@ export const monsterAttackActions: ActionMap = {
         const slope = shotTracer.zAim(mobj, attackRange);
         const angle = mobj.direction + mobj.rng.angleNoise(20);
         const damage = 3 * mobj.rng.int(1, 5);
-        shotTracer.fire(mobj, damage, angle, slope, attackRange);
+        shotTracer.fire(damage, angle, slope, attackRange);
     },
 	[ActionIndex.A_SPosAttack]: mobj => {
         if (!mobj.chaseTarget) {
@@ -462,7 +469,7 @@ export const monsterAttackActions: ActionMap = {
         for (let i = 0; i < 3; i++) {
             const angle = mobj.direction + mobj.rng.angleNoise(20);
             const damage = 3 * mobj.rng.int(1, 5);
-            shotTracer.fire(mobj, damage, angle, slope, attackRange);
+            shotTracer.fire(damage, angle, slope, attackRange);
         }
     },
     [ActionIndex.A_SkelWhoosh]: mobj => {
@@ -502,7 +509,7 @@ export const monsterAttackActions: ActionMap = {
         const angle = mobj.direction + mobj.rng.angleNoise(20);
         const damage = 3 * mobj.rng.int(1, 5);
         const slope = shotTracer.zAim(mobj, attackRange);
-        shotTracer.fire(mobj, damage, angle, slope, attackRange);
+        shotTracer.fire(damage, angle, slope, attackRange);
     },
 	[ActionIndex.A_CPosRefire]: mobj => {
         allActions[ActionIndex.A_FaceTarget](mobj);
@@ -929,47 +936,54 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     return !blocker;
 }
 
-const _precomputedHits = [] as TraceHit[];
-function precomputeCollisions(mobj: MapObject) {
-    _precomputedHits.length = 0;
-
-    // for perf: if we are not solid, skip hitting other mobjs. MSCP MAP14 was really slow without this because of the
-    // hundreds of stacked cell packs on a sliding floor
-    const hitObject: HandleTraceHit<MapObjectTraceHit> =
-        !(mobj.info.flags & MFFlags.MF_SOLID) ? null
-        : hit => {
-            const skipHit = false
-                || (hit.mobj === mobj) // don't collide with yourself
-                || !(hit.mobj.info.flags & hittableThing) // not hittable
-                || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
-                || (mobj.map.game.settings.moveChecksZ.val && (
-                    (mobj.position.z + mobj.info.height < hit.mobj.position.z) || // passed under target
-                    (mobj.position.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
-                ))
-            if (!skipHit) {
-                _precomputedHits.push(hit);
-            }
-            return true; // continue search
-        };
-
-    mobj.map.data.traceMove({
-        start: mobj.position,
+let _precomputedHits = [] as TraceHit[];
+const precomputeCollisions = (() => {
+    let self: MapObject;
+    const traceParams: TraceParams = {
+        ...baseMoveTrace,
         move: zeroVec,
-        radius: mobj.info.radius + mobj.info.speed,
-        height: mobj.info.height,
-        hitObject,
+        hitObject: null,
         hitLine: hit => {
             _precomputedHits.push(hit);
             return true;
         },
         hitFlat: hit => {
-            if (hit.sector === mobj.sector) {
+            if (hit.sector === self.sector) {
                 _precomputedHits.push(hit);
             }
             return true;
         }
-    });
-}
+    }
+
+    const hitMobj = (hit: MapObjectTraceHit) => {
+        const skipHit = false
+            || (hit.mobj === self) // don't collide with yourself
+            || !(hit.mobj.info.flags & hittableThing) // not hittable
+            || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
+            || (self.map.game.settings.moveChecksZ.val && (
+                (self.position.z + self.info.height < hit.mobj.position.z) || // passed under target
+                (self.position.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
+            ))
+        if (!skipHit) {
+            _precomputedHits.push(hit);
+        }
+        return true; // continue search
+    }
+
+    return (mobj: MapObject) => {
+        _precomputedHits = [];
+
+        self = mobj;
+        traceParams.start = mobj.position;
+        traceParams.radius = mobj.info.radius + mobj.info.speed;
+        traceParams.height = mobj.info.height;
+        // for perf: if we are not solid, skip hitting other mobjs. MSCP MAP14 was really slow without this because of the
+        // hundreds of stacked cell packs on a sliding floor
+        traceParams.hitObject = (mobj.info.flags & MFFlags.MF_SOLID) ? hitMobj : null;
+
+        mobj.map.data.traceMove(traceParams);
+    }
+})();
 
 const _nVec = new Vector3();
 const _centreMoveEnd = new Vector3();

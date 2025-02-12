@@ -290,7 +290,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
 
         const slope = shotTracer.zAim(player, meleeRange);
         const angle = bulletAngle(player, shotTracer) + player.rng.angleNoise(18);
-        shotTracer.fire(player, damage, angle, slope, meleeRange);
+        shotTracer.fire(damage, angle, slope, meleeRange);
 
         // turn to face target
         if (shotTracer.lastTarget) {
@@ -304,7 +304,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         // use meleerange + 1 so the puff doesn't skip the flash
         const slope = shotTracer.zAim(player, meleeRange + 1);
         const angle = bulletAngle(player, shotTracer) + player.rng.angleNoise(18);
-        shotTracer.fire(player, damage, angle, slope, meleeRange + 1);
+        shotTracer.fire(damage, angle, slope, meleeRange + 1);
 
         if (!shotTracer.lastTarget) {
             player.map.game.playSound(SoundIndex.sfx_sawful, player);
@@ -339,7 +339,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
             // mess up angle slightly for refire
             angle += player.rng.angleNoise(18);
         }
-        shotTracer.fire(player, bulletDamage(player), angle, slope, attackRange);
+        shotTracer.fire(bulletDamage(player), angle, slope, attackRange);
     },
     [ActionIndex.A_FireShotgun]: (player, weapon) => {
         weaponActions[ActionIndex.A_GunFlash](player, weapon);
@@ -349,7 +349,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         const slope = shotTracer.zAim(player, scanRange);
         const angle = bulletAngle(player, shotTracer);
         for (let i = 0; i < 7; i++) {
-            shotTracer.fire(player, bulletDamage(player), angle + player.rng.angleNoise(18), slope, attackRange);
+            shotTracer.fire(bulletDamage(player), angle + player.rng.angleNoise(18), slope, attackRange);
         }
     },
 
@@ -365,7 +365,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         const angle = bulletAngle(player, shotTracer);
         for (let i = 0; i < 20; i++) {
             const slopeNoise = player.rng.real2() * ssgNoiseVariation;
-            shotTracer.fire(player, bulletDamage(player), angle + player.rng.angleNoise(19), slope + slopeNoise, attackRange);
+            shotTracer.fire(bulletDamage(player), angle + player.rng.angleNoise(19), slope + slopeNoise, attackRange);
         }
     },
     [ActionIndex.A_OpenShotgun2]: (player, weapon) => {
@@ -391,7 +391,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
             // mess up angle slightly for refire
             angle += player.rng.angleNoise(18);
         }
-        shotTracer.fire(player, bulletDamage(player), angle, slope, attackRange);
+        shotTracer.fire(bulletDamage(player), angle, slope, attackRange);
     },
 
     [ActionIndex.A_FireMissile]: (player, weapon) => {
@@ -457,9 +457,12 @@ class ShotTracer {
 
     private traceNum = 0;
     private map: MapRuntime;
+    private shooter: MapObject;
     private start = new Vector3();
     private direction = new Vector3();
     zAim(shooter: MapObject | PlayerMapObject, range: number) {
+        this.shooter = shooter;
+        this.map = shooter.map;
         this.start.copy(shooter.position);
         this.start.z += shooter.info.height * .5 + 8;
         let dir = shooter.direction;
@@ -494,8 +497,70 @@ class ShotTracer {
         return target.mobj ? target.slope : 0;
     }
 
+    private fireRange = 0;
+    private fireDamage = 0;
+    private fireTrace: TraceParams = {
+        start: this.start,
+        move: this.direction,
+        hitObject: hit => {
+            const ignoreHit = (false
+                || (hit.mobj === this.shooter) // can't shoot ourselves
+                || !(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) // not shootable
+                || (hit.mobj.position.z + hit.mobj.info.height < hit.point.z) // shoot over thing
+                || (hit.mobj.position.z > hit.point.z) // shoot under thing
+            )
+            if (ignoreHit) {
+                return true; // keep searching
+            }
+
+            const pos = this.bulletHitLocation(10, this.fireRange, hit.fraction);
+            if (hit.mobj.info.flags & MFFlags.MF_NOBLOOD) {
+                spawnPuff(this.shooter, pos);
+            } else {
+                this.spawnBlood(hit.mobj, pos, this.fireDamage);
+            }
+            hit.mobj.damage(this.fireDamage, this.shooter, this.shooter);
+            return false;
+        },
+        hitLine: hit => {
+            if (hit.line.special) {
+                this.shooter.map.triggerSpecial(hit.line, this.shooter, 'G', hit.side);
+            }
+
+            if (!hit.line.left) {
+                return this.hitWallOrSky(this.shooter, hit.line.right.sector, null, this.bulletHitLocation(4, this.fireRange, hit.fraction));
+            }
+
+            const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
+            const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
+            if (front.zCeil !== back.zCeil) {
+                const wallBottom = Math.min(front.zCeil, back.zCeil);
+                if (wallBottom < hit.point.z) {
+                    return this.hitWallOrSky(this.shooter, front, back, this.bulletHitLocation(4, this.fireRange, hit.fraction));
+                }
+            }
+            if (front.zFloor !== back.zFloor) {
+                const wallTop = Math.max(front.zFloor, back.zFloor);
+                if (wallTop > hit.point.z) {
+                    return this.hitWallOrSky(this.shooter, front, back, this.bulletHitLocation(4, this.fireRange, hit.fraction));
+                }
+            }
+            return true;
+        },
+        hitFlat: hit => {
+            if (hitSkyFlat(hit)) {
+                return false; // hit sky so don't spawn puff and don't keep searching, we're done.
+            }
+            const mobj = spawnPuff(this.shooter, this.bulletHitLocation(4, this.fireRange, hit.fraction));
+            if (hit.flat === 'ceil') {
+                // invert puff sprite when hitting ceiling
+                mobj.info.flags |= MFFlags.InvertSpriteYOffset;
+            }
+            return false;
+        }
+    }
     // kind of like PTR_ShootTraverse from p_map.c
-    fire(shooter: MapObject, damage: number, angle: number, aimSlope: number, range: number) {
+    fire(damage: number, angle: number, aimSlope: number, range: number) {
         // this scan function is almost the same as the one we use in zAim but it has a few differences:
         // 1) it spawns blood/puffs on impact
         // 2) it spawns nothing on impact with sky
@@ -503,7 +568,7 @@ class ShotTracer {
         // 4) it does not impact aimSlope (it relies on it being set)
         // it's useful to have a separate aim and fire function because some weapons (notably the shotgun)
         // aim once and fire several bullets
-        if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
+        if (this.shooter && !this.shooter.map.game.settings.zAimAssist.val) {
             _shotEuler.set(0, -aimSlope, angle);
             this.direction.set(range, 0, 0).applyEuler(_shotEuler);
         } else {
@@ -513,68 +578,9 @@ class ShotTracer {
                 aimSlope * range,
             );
         }
-        this.map = shooter.map;
-
-        shooter.map.data.traceRay({
-            start: this.start,
-            move: this.direction,
-            hitObject: hit => {
-                const ignoreHit = (false
-                    || (hit.mobj === shooter) // can't shoot ourselves
-                    || !(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) // not shootable
-                    || (hit.mobj.position.z + hit.mobj.info.height < hit.point.z) // shoot over thing
-                    || (hit.mobj.position.z > hit.point.z) // shoot under thing
-                )
-                if (ignoreHit) {
-                    return true; // keep searching
-                }
-
-                const pos = this.bulletHitLocation(10, range, hit.fraction);
-                if (hit.mobj.info.flags & MFFlags.MF_NOBLOOD) {
-                    spawnPuff(shooter, pos);
-                } else {
-                    this.spawnBlood(hit.mobj, pos, damage);
-                }
-                hit.mobj.damage(damage, shooter, shooter);
-                return false;
-            },
-            hitLine: hit => {
-                if (hit.line.special) {
-                    shooter.map.triggerSpecial(hit.line, shooter, 'G', hit.side);
-                }
-
-                if (!hit.line.left) {
-                    return this.hitWallOrSky(shooter, hit.line.right.sector, null, this.bulletHitLocation(4, range, hit.fraction));
-                }
-
-                const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
-                const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
-                if (front.zCeil !== back.zCeil) {
-                    const wallBottom = Math.min(front.zCeil, back.zCeil);
-                    if (wallBottom < hit.point.z) {
-                        return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, range, hit.fraction));
-                    }
-                }
-                if (front.zFloor !== back.zFloor) {
-                    const wallTop = Math.max(front.zFloor, back.zFloor);
-                    if (wallTop > hit.point.z) {
-                        return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, range, hit.fraction));
-                    }
-                }
-                return true;
-            },
-            hitFlat: hit => {
-                if (hitSkyFlat(hit)) {
-                    return false; // hit sky so don't spawn puff and don't keep searching, we're done.
-                }
-                const mobj = spawnPuff(shooter, this.bulletHitLocation(4, range, hit.fraction));
-                if (hit.flat === 'ceil') {
-                    // invert puff sprite when hitting ceiling
-                    mobj.info.flags |= MFFlags.InvertSpriteYOffset;
-                }
-                return false;
-            }
-        });
+        this.fireDamage = damage;
+        this.fireRange = range;
+        this.shooter.map.data.traceRay(this.fireTrace);
     }
 
     private hitWallOrSky(shooter: MapObject, front: Sector, back: Sector, spot: Vector3) {

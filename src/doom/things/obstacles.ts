@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex } from '../doom-things-info';
 import { MapObject } from '../map-object';
-import { zeroVec } from '../map-data';
+import { zeroVec, type TraceParams } from '../map-data';
 
 export const obstacles: ThingType[] = [
     { type: 25, class: 'O', description: 'Impaled human' },
@@ -93,31 +93,19 @@ export function radiusDamage(damage: number, mobj: MapObject, source: MapObject)
     }
 }
 
-const _losStart = new Vector3();
-const _losVec = new Vector3();
-export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
-    const rj = mobj1.map.data.rejects;
-    const idx = (mobj1.sector.num * mobj1.map.data.sectors.length) + mobj2.sector.num;
-    if (rj[idx >> 3] & (1 << (idx & 7))) {
-        return false;
-    }
-
+export const hasLineOfSight = (() => {
     // Kind of like P_CheckSight
-    let los = true;
-    // start from the "eyes" of mobj1 (or about 75% of height)
-    _losStart.copy(mobj1.position);
-    _losStart.z += mobj1.info.height * .75;
-    _losVec.copy(mobj2.position).sub(_losStart);
-    let zTop = (mobj2.position.z + mobj2.info.height) - _losStart.z;
-    let zBottom = mobj2.position.z - _losStart.z;
-
-    mobj1.map.data.traceRay({
-        start: mobj1.position,
-        move: _losVec,
+    const eyes = new Vector3();
+    let hasLOS = true;
+    let zTop = 0;
+    let zBottom = 0;
+    const traceParams: TraceParams = {
+        start: null,
+        move: new Vector3(),
         hitLine: hit => {
             if (!hit.line.left) {
                 // we've hit a solid wall so line of sight is false
-                los = false;
+                hasLOS = false;
                 return false;
             }
 
@@ -127,7 +115,7 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
             const openBottom = Math.max(front.sector.zFloor, back.sector.zFloor);
             if (openBottom >= openTop) {
                 // it's a two-sided line but there is no opening (eg. a closed door)
-                los = false;
+                hasLOS = false;
                 return false;
             }
 
@@ -136,20 +124,39 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
             // line and assume they see both sides
             if (hit.fraction > 0) {
                 if (front.sector.zCeil !== back.sector.zCeil) {
-                    zTop = Math.min(zTop, (openTop - _losStart.z) / hit.fraction);
+                    zTop = Math.min(zTop, (openTop - eyes.z) / hit.fraction);
                 }
                 if (front.sector.zFloor !== back.sector.zFloor) {
-                    zBottom = Math.max(zBottom, (openBottom - _losStart.z) / hit.fraction);
+                    zBottom = Math.max(zBottom, (openBottom - eyes.z) / hit.fraction);
                 }
             }
 
             if (zTop <= zBottom) {
                 // no room means no line of sight so stop searching
-                los = false;
+                hasLOS = false;
                 return false;
             }
             return true; // keep searching...
         },
-    });
-    return los;
-}
+    };
+
+    return (mobj1: MapObject, mobj2: MapObject): boolean => {
+        const rj = mobj1.map.data.rejects;
+        const idx = (mobj1.sector.num * mobj1.map.data.sectors.length) + mobj2.sector.num;
+        if (rj[idx >> 3] & (1 << (idx & 7))) {
+            return false;
+        }
+
+        // start from the "eyes" of mobj1 (or about 75% of height)
+        eyes.copy(mobj1.position);
+        eyes.z += mobj1.info.height * .75;
+        traceParams.start = mobj1.position;
+        traceParams.move.copy(mobj2.position).sub(eyes);
+        zTop = (mobj2.position.z + mobj2.info.height) - eyes.z;
+        zBottom = mobj2.position.z - eyes.z;
+
+        hasLOS = true;
+        mobj1.map.data.traceRay(traceParams);
+        return hasLOS;
+    }
+})();
