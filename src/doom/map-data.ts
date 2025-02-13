@@ -219,8 +219,10 @@ export interface Block {
     subsectors: SubSector[];
     mobjs: Set<MapObject>;
 }
+// Hmm... is it faster to have a single array or two objects? I think a single array would be better but how to measure?
+export type BlockRegion = [number, number, number, number];
 function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
-    // newer maps (and UDMF) don't have block so skip the lump and just compute it
+    // newer maps (and UDMF) don't have a blockmap lump so skip the lump and just compute it
     const blockSize = 128;
     const invBlockSize = 1 / blockSize;
     let minX = vertexes[0].x;
@@ -257,6 +259,15 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         blocks[i] = { rev: 0, segs: [], subsectors: [], mobjs: new Set(), x, y };
     }
 
+    const region = [0,0, 0,0];
+    const computeRegion = (x1: number, y1: number, x2: number, y2: number) => {
+        region[0] = Math.max(0, Math.floor((x1 - minX) * invBlockSize));
+        region[1] = Math.max(0, Math.floor((y1 - minY) * invBlockSize));
+        region[2] = Math.floor((x2 - minX) * invBlockSize) + 1;
+        region[3] = Math.floor((y2 - minY) * invBlockSize) + 1;
+        return region;
+    }
+
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
     for (const subsector of subsectors) {
         for (const seg of subsector.segs) {
@@ -267,45 +278,48 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             }
         }
 
-        let bx = Math.max(0, Math.floor((subsector.bounds.left - minX) * invBlockSize));
-        let xEnd = Math.floor((subsector.bounds.right - minX) * invBlockSize) + 1;
-        let yEnd = Math.floor((subsector.bounds.bottom - minY) * invBlockSize) + 1;
-        for (; bx < dimensions.numCols && bx < xEnd; bx++) {
-            let by = Math.max(0, Math.floor((subsector.bounds.top - minY) * invBlockSize));
-            for (; by < dimensions.numRows && by < yEnd; by++) {
+        const [xStart, yStart, xEnd, yEnd] = computeRegion(
+            subsector.bounds.left, subsector.bounds.top,
+            subsector.bounds.right, subsector.bounds.bottom,
+        );
+        for (let bx = xStart; bx < dimensions.numCols && bx < xEnd; bx++) {
+            for (let by = yStart; by < dimensions.numRows && by < yEnd; by++) {
                 const block = blocks[by * dimensions.numCols + bx];
                 block.subsectors.push(subsector);
             }
         }
     }
 
-    let mobjRev = 0;
     const moveMobj = (mo: MapObject, radius: number) => {
-        mobjRev += 1;
+        scanN += 1;
         const map = mo.map;
 
-        // collect the sectors we're currently in
+        // figure out the sector were the mobj center is
         const sector = map.data.findSector(mo.position.x, mo.position.y);
         if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
             return sector;
         }
-        mo.sectorMap.set(sector, mobjRev);
-        // ...and any other sectors we are touching
+        mo.sectorMap.set(sector, scanN);
+        // ...and any other sectors mobj are touching
         radiusTracer(mo.position, radius, block => {
             for (let i = 0, n = block.segs.length; i < n; i++) {
                 const seg = block.segs[i];
+                if (!seg.linedef.left || seg.blockHit === scanN) {
+                    continue;
+                }
                 const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
                 if (hit) {
-                    const sector = seg.direction ? seg.linedef.left.sector : seg.linedef.right.sector;
-                    mo.sectorMap.set(sector, mobjRev);
+                    seg.blockHit = scanN
+                    mo.sectorMap.set(seg.linedef.left.sector, scanN);
+                    mo.sectorMap.set(seg.linedef.right.sector, scanN);
                 }
             }
-            mo.blocks.set(block, mobjRev);
+            mo.blocks.set(block, scanN);
             block.mobjs.add(mo);
         });
 
         mo.sectorMap.forEach((rev, sector) => {
-            if (mobjRev !== rev) {
+            if (scanN !== rev) {
                 map.sectorObjs.get(sector).delete(mo);
                 mo.sectorMap.delete(sector);
             } else {
@@ -313,7 +327,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             }
         });
         mo.blocks.forEach((rev, block) => {
-            if (mobjRev !== rev) {
+            if (scanN !== rev) {
                 block.mobjs.delete(mo);
                 mo.blocks.delete(block);
             }
@@ -497,12 +511,12 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     }
 
     const radiusTracer = (pos: Vertex, radius: number, hitBlock: (block: Block) => void) => {
-        let bx = Math.max(0, Math.floor((pos.x - radius - minX) * invBlockSize));
-        let xEnd = Math.floor((pos.x + radius - minX) * invBlockSize) + 1;
-        let yEnd = Math.floor((pos.y + radius - minY) * invBlockSize) + 1;
-        for (; bx < dimensions.numCols && bx < xEnd; bx++) {
-            let by = Math.max(0, Math.floor((pos.y - radius - minY) * invBlockSize));
-            for (; by < dimensions.numRows && by < yEnd; by++) {
+        const [xStart, yStart, xEnd, yEnd] = computeRegion(
+            pos.x - radius, pos.y - radius,
+            pos.x + radius, pos.y + radius,
+        );
+        for (let bx = xStart; bx < dimensions.numCols && bx < xEnd; bx++) {
+            for (let by = yStart; by < dimensions.numRows && by < yEnd; by++) {
                 hitBlock(blocks[by * dimensions.numCols + bx]);
             }
         }

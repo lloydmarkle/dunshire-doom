@@ -3,7 +3,7 @@ import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, signedLineDistance, type Vertex, randInt, tickTime, ticksPerSecond } from "./math";
-import { hittableThing, type Sector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block, baseMoveTrace } from "./map-data";
+import { hittableThing, type Sector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block, baseMoveTrace, type BlockRegion } from "./map-data";
 import { type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -269,9 +269,10 @@ export class MapObject {
     // check for already hit lines/mobjs
     hitC: number;
     blockHit = 0;
-    private readonly mover: Mover;
+    blockArea: BlockRegion = [0,0,0,0];
     sectorMap = new Map<Sector, number>();
     blocks = new Map<Block, number>();
+    private readonly mover: Mover;
 
     protected _state = new SpriteStateMachine(
         sprite => this.map.events.emit('mobj-updated-sprite', this, sprite),

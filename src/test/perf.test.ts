@@ -51,7 +51,7 @@ describe('perf', () => {
         const wad = new DoomWad(params.wadNames.join('+'), wads);
         const settings = createDefaultSettings();
         // FIXME: The test score goes nuts if we leave this false but... why?
-        settings.moveChecksZ.set(true)
+        settings.moveChecksZ.set(true);
         const game = new Game(wad, 4, settings);
         game.startMap(params.mapName);
         // fire a shot to wakeup enemies
