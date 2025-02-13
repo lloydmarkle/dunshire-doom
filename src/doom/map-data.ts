@@ -259,7 +259,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         blocks[i] = { rev: 0, segs: [], subsectors: [], mobjs: new Set(), x, y };
     }
 
-    const region = [0,0, 0,0];
+    const region: BlockRegion = [0,0, 0,0];
     const computeRegion = (x1: number, y1: number, x2: number, y2: number) => {
         region[0] = Math.max(0, Math.floor((x1 - minX) * invBlockSize));
         region[1] = Math.max(0, Math.floor((y1 - minY) * invBlockSize));
@@ -290,8 +290,8 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         }
     }
 
+    const r2: BlockRegion = [0,0,0,0];
     const moveMobj = (mo: MapObject, radius: number) => {
-        scanN += 1;
         const map = mo.map;
 
         // figure out the sector were the mobj center is
@@ -299,6 +299,46 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
             return sector;
         }
+
+        scanN += 1;
+        const region = map.data.blockMap.computeRegion(
+            mo.position.x - radius, mo.position.y - radius,
+            mo.position.x + radius, mo.position.y + radius,
+        );
+        const old = mo.blockArea;
+        if (region[0] !== old[0] || region[1] !== old[1] || region[2] !== old[2] || region[3] !== old[3]) {
+            const noOverlap = (
+                old[0] > region[2]
+                || old[2] < region[0]
+                || old[1] > region[3]
+                || old[3] < region[1]);
+            if (noOverlap) {
+                regionTracer(old, block => block.mobjs.delete(mo));
+                regionTracer(region, block => block.mobjs.add(mo));
+            }else {
+                // TODO: is this actually more efficient than just deleting and adding like above?
+                r2[0] = Math.min(region[0], old[0]);
+                r2[1] = Math.min(region[1], old[1]);
+                r2[2] = Math.max(region[2], old[2]);
+                r2[3] = Math.max(region[3], old[3]);
+                regionTracer(r2, (block, x, y) => {
+                    const inOld = x >= old[0] && x < old[2] && y >= old[1] && y < old[3];
+                    const inNew = x >= region[0] && x < region[2] && y >= region[1] && y < region[3];
+                    if (!inOld && inNew) {
+                        block.mobjs.add(mo);
+                    } else if (inOld && !inNew) {
+                        block.mobjs.delete(mo);
+                    }
+                });
+            }
+
+            // update block area
+            old[0] = region[0];
+            old[1] = region[1];
+            old[2] = region[2];
+            old[3] = region[3];
+        }
+
         mo.sectorMap.set(sector, scanN);
         // ...and any other sectors mobj are touching
         radiusTracer(mo.position, radius, block => {
@@ -314,8 +354,6 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                     mo.sectorMap.set(seg.linedef.right.sector, scanN);
                 }
             }
-            mo.blocks.set(block, scanN);
-            block.mobjs.add(mo);
         });
 
         mo.sectorMap.forEach((rev, sector) => {
@@ -326,12 +364,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                 map.sectorObjs.get(sector).add(mo);
             }
         });
-        mo.blocks.forEach((rev, block) => {
-            if (scanN !== rev) {
-                block.mobjs.delete(mo);
-                mo.blocks.delete(block);
-            }
-        });
+
         return sector;
     }
 
@@ -511,13 +544,18 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     }
 
     const radiusTracer = (pos: Vertex, radius: number, hitBlock: (block: Block) => void) => {
-        const [xStart, yStart, xEnd, yEnd] = computeRegion(
+        const region = computeRegion(
             pos.x - radius, pos.y - radius,
             pos.x + radius, pos.y + radius,
         );
+        regionTracer(region, hitBlock);
+    }
+
+    const regionTracer = (region: BlockRegion, hitBlock: (block: Block, x: number, y: number) => void) => {
+        const [xStart, yStart, xEnd, yEnd] = region;
         for (let bx = xStart; bx < dimensions.numCols && bx < xEnd; bx++) {
             for (let by = yStart; by < dimensions.numRows && by < yEnd; by++) {
-                hitBlock(blocks[by * dimensions.numCols + bx]);
+                hitBlock(blocks[by * dimensions.numCols + bx], bx, by);
             }
         }
     }
@@ -595,7 +633,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         });
     }
 
-    return { dimensions, moveMobj, traceRay, traceMove };
+    return { dimensions, computeRegion, moveMobj, regionTracer, traceRay, traceMove };
 }
 
 export interface Seg {

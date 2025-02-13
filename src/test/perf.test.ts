@@ -14,7 +14,7 @@ const params = {
     ],
     mapName: 'MAP08',
     warmupSeconds: 2,
-    timeIntervalMS: 1 / 35, // DOOM runs at 35fps
+    timeIntervalSeconds: 1 / 35, // DOOM runs at 35fps
     testReps: 10,
     testDurationSeconds: 2,
 };
@@ -58,7 +58,7 @@ describe('perf', () => {
         game.input.attack = true;
         // let the game idle for a few seconds before measuring
         while (game.time.elapsed < params.warmupSeconds) {
-            game.tick(params.timeIntervalMS);
+            game.tick(params.timeIntervalSeconds);
         }
 
         let gcEntries = [];
@@ -76,7 +76,7 @@ describe('perf', () => {
             const mStart = memoryUsage().heapUsed;
             const endTime = performance.now() + params.testDurationSeconds * 1000;
             while (performance.now() < endTime) {
-                game.tick(params.timeIntervalMS);
+                game.tick(params.timeIntervalSeconds);
             }
             ticks[i] = Math.trunc(game.time.tick.val) - tStart;
             memory.push((memoryUsage().heapUsed - mStart) / megabyte);

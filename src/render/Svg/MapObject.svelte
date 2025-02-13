@@ -32,7 +32,7 @@
 
     const blockMapBounds = mobj.map.data.blockMap.dimensions;
     const showBlocks = false;
-    $: blocks = (showBlocks && $position) ? mobj.blocks : null;
+    $: blocks = (showBlocks && $position) ? mobj.blockArea : null;
     $: thingOpacity = mobj.info.flags & hittableThing ? 1 : .3;
 </script>
 
@@ -42,15 +42,17 @@
     stroke={thingColor(mobj)}
 >
 
-    {#if showBlocks}
-        {#each blocks as [block, num]}
-            <rect
-                x={block.x + blockMapBounds.originX}
-                y={block.y + blockMapBounds.originY}
-                width={128} height={128}
-                opacity={0.2}
-                fill={'blue'}
-            />
+    {#if blocks}
+        {#each Array(blocks[2] - blocks[0]) as _, bx}
+            {#each Array(blocks[3] - blocks[1]) as _, by}
+                <rect
+                    x={(blocks[0] + bx) * 128 + blockMapBounds.originX}
+                    y={(blocks[1] + by) * 128 + blockMapBounds.originY}
+                    width={128} height={128}
+                    opacity={0.2}
+                    fill={'blue'}
+                />
+            {/each}
         {/each}
     {/if}
 

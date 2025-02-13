@@ -271,7 +271,6 @@ export class MapObject {
     blockHit = 0;
     blockArea: BlockRegion = [0,0,0,0];
     sectorMap = new Map<Sector, number>();
-    blocks = new Map<Block, number>();
     private readonly mover: Mover;
 
     protected _state = new SpriteStateMachine(
@@ -403,6 +402,69 @@ export class MapObject {
 
         this.direction = direction;
 
+        // const updateBlockmap = () => {
+        //     // figure out the sector were the mobj center is
+        //     const sector = map.data.findSector(this.position.x, this.position.y);
+        //     if (this.info.flags & MFFlags.MF_NOBLOCKMAP) {
+        //         return sector;
+        //     }
+
+        //     // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
+        //     // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
+        //     const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
+        //     const region = map.data.blockMap.computeRegion(
+        //         pos.x - radius, pos.y - radius,
+        //         pos.x + radius, pos.y + radius,
+        //     );
+        //     if (region[0] !== this.blockArea[0] || region[1] !== this.blockArea[1] || region[2] !== this.blockArea[2] || region[3] !== this.blockArea[3]) {
+        //         // remove mobj from old blocks
+        //         for (let bx = Math.max(0, region[0] - this.blockArea[0]), xEnd = Math.max(0, region[2] - this.blockArea[2]); bx < xEnd; bx++) {
+        //             for (let by = Math.max(0, region[1] - this.blockArea[1]), yEnd = Math.max(0, region[3] - this.blockArea[3]); by < yEnd; by++) {
+        //             }
+        //         }
+
+        //         // add mobj to new blocks
+        //         for (let bx = Math.max(0, this.blockArea[0] - region[0]), xEnd = Math.max(0, this.blockArea[2] - region[2]); bx < xEnd; bx++) {
+        //             for (let by = Math.max(0, this.blockArea[1] - region[1]), yEnd = Math.max(0, this.blockArea[3] - region[3]); by < yEnd; by++) {
+        //             }
+        //         }
+
+        //         // update block area
+        //         this.blockArea[0] = region[0];
+        //         this.blockArea[1] = region[1];
+        //         this.blockArea[2] = region[2];
+        //         this.blockArea[3] = region[3];
+        //     }
+
+        //     this.sectorMap.set(sector, scanN);
+        //     // ...and any other sectors mobj are touching
+        //     radiusTracer(this.position, radius, block => {
+        //         for (let i = 0, n = block.segs.length; i < n; i++) {
+        //             const seg = block.segs[i];
+        //             if (!seg.linedef.left || seg.blockHit === scanN) {
+        //                 continue;
+        //             }
+        //             const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
+        //             if (hit) {
+        //                 seg.blockHit = scanN
+        //                 this.sectorMap.set(seg.linedef.left.sector, scanN);
+        //                 this.sectorMap.set(seg.linedef.right.sector, scanN);
+        //             }
+        //         }
+        //         block.mobjs.add(this);
+        //     });
+
+        //     this.sectorMap.forEach((rev, sector) => {
+        //         if (scanN !== rev) {
+        //             map.sectorObjs.get(sector).delete(this);
+        //             this.sectorMap.delete(sector);
+        //         } else {
+        //             map.sectorObjs.get(sector).add(this);
+        //         }
+        //     });
+        //     return sector;
+        // }
+
         this.position = new Vector3(pos.x, pos.y, 0);
         this.positionChanged = () => {
             this._positionChanged = true;
@@ -441,7 +503,7 @@ export class MapObject {
 
     dispose() {
         this.sectorMap.forEach((rev, sec) => this.map.sectorObjs.get(sec).delete(this));
-        this.blocks.forEach((rev, block) => block.mobjs.delete(this));
+        this.map.data.blockMap.regionTracer(this.blockArea, block => block.mobjs.delete(this));
         // don't update position after object destroyed
         (this as any).applyPositionChanged = () => {};
     }
