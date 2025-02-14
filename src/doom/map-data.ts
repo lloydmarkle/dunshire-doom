@@ -291,6 +291,20 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     }
 
     const r2: BlockRegion = [0,0,0,0];
+    const evaluateSectors = (mo: MapObject, radius: number, block: Block) => {
+        for (let i = 0, n = block.segs.length; i < n; i++) {
+            const seg = block.segs[i];
+            if (!seg.linedef.left || seg.blockHit === scanN) {
+                continue;
+            }
+            const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
+            if (hit) {
+                seg.blockHit = scanN
+                mo.sectorMap.set(seg.linedef.left.sector, scanN);
+                mo.sectorMap.set(seg.linedef.right.sector, scanN);
+            }
+        }
+    }
     const moveMobj = (mo: MapObject, radius: number) => {
         const map = mo.map;
 
@@ -299,6 +313,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
             return sector;
         }
+        mo.sectorMap.set(sector, scanN);
 
         scanN += 1;
         const region = map.data.blockMap.computeRegion(
@@ -306,7 +321,11 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             mo.position.x + radius, mo.position.y + radius,
         );
         const old = mo.blockArea;
-        if (region[0] !== old[0] || region[1] !== old[1] || region[2] !== old[2] || region[3] !== old[3]) {
+        const blockMapChanged = region[0] !== old[0] || region[1] !== old[1] || region[2] !== old[2] || region[3] !== old[3];
+        if (!blockMapChanged) {
+            // re-evaluate any sectors the mobj is touching
+            regionTracer(mo.blockArea, block => evaluateSectors(mo, radius, block));
+        } else {
             const noOverlap = (
                 old[0] > region[2]
                 || old[2] < region[0]
@@ -314,8 +333,11 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                 || old[3] < region[1]);
             if (noOverlap) {
                 regionTracer(old, block => block.mobjs.delete(mo));
-                regionTracer(region, block => block.mobjs.add(mo));
-            }else {
+                regionTracer(region, block => {
+                    block.mobjs.add(mo);
+                    evaluateSectors(mo, radius, block);
+                });
+            } else {
                 // TODO: is this actually more efficient than just deleting and adding like above?
                 r2[0] = Math.min(region[0], old[0]);
                 r2[1] = Math.min(region[1], old[1]);
@@ -325,6 +347,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                     const inOld = x >= old[0] && x < old[2] && y >= old[1] && y < old[3];
                     const inNew = x >= region[0] && x < region[2] && y >= region[1] && y < region[3];
                     if (!inOld && inNew) {
+                        evaluateSectors(mo, radius, block);
                         block.mobjs.add(mo);
                     } else if (inOld && !inNew) {
                         block.mobjs.delete(mo);
@@ -338,23 +361,6 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             old[2] = region[2];
             old[3] = region[3];
         }
-
-        mo.sectorMap.set(sector, scanN);
-        // ...and any other sectors mobj are touching
-        radiusTracer(mo.position, radius, block => {
-            for (let i = 0, n = block.segs.length; i < n; i++) {
-                const seg = block.segs[i];
-                if (!seg.linedef.left || seg.blockHit === scanN) {
-                    continue;
-                }
-                const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
-                if (hit) {
-                    seg.blockHit = scanN
-                    mo.sectorMap.set(seg.linedef.left.sector, scanN);
-                    mo.sectorMap.set(seg.linedef.right.sector, scanN);
-                }
-            }
-        });
 
         mo.sectorMap.forEach((rev, sector) => {
             if (scanN !== rev) {
