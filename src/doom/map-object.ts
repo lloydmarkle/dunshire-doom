@@ -2,8 +2,8 @@ import { store, type Store } from "./store";
 import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
-import { HALF_PI, signedLineDistance, type Vertex, randInt, tickTime, ticksPerSecond } from "./math";
-import { hittableThing, type Sector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block, baseMoveTrace, type BlockRegion } from "./map-data";
+import { HALF_PI, signedLineDistance, type Vertex, randInt, tickTime, ticksPerSecond, sweepAABBLine } from "./math";
+import { hittableThing, type Sector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block, baseMoveTrace, type BlockRegion, zeroVec } from "./map-data";
 import { type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -257,6 +257,104 @@ export const missileMover: Mover = (() => {
     };
 })();
 
+const updateBlockMapPosition = (() => {
+    let scanN = 0;
+
+    const touchSectors = (mo: MapObject, radius: number, block: Block) => {
+        for (let i = 0, n = block.segs.length; i < n; i++) {
+            const seg = block.segs[i];
+            if (!seg.linedef.left || seg.blockHit === scanN) {
+                continue;
+            }
+            const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
+            if (hit) {
+                seg.blockHit = scanN;
+                mo.sectorMap.set(seg.linedef.left.sector, scanN);
+                mo.sectorMap.set(seg.linedef.right.sector, scanN);
+            }
+        }
+    }
+
+    const updateBlockmap = (mo: MapObject) => {
+        const blockMap = mo.map.data.blockMap;
+        // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
+        // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
+        const radius = mo.class === 'M' ? mo.info.radius - 1 : mo.info.radius;
+
+        const rOld = mo.blockArea;
+        const rNew = blockMap.computeRegion(
+            mo.position.x - radius, mo.position.y - radius,
+            mo.position.x + radius, mo.position.y + radius,
+        );
+        const blockMapChanged = rNew[0] !== rOld[0] || rNew[1] !== rOld[1] || rNew[2] !== rOld[2] || rNew[3] !== rOld[3];
+        if (!blockMapChanged) {
+            // re-evaluate any sectors the mobj is touching
+            blockMap.regionTracer(mo.blockArea, block => touchSectors(mo, radius, block));
+            return;
+        }
+
+        const noOverlap = (
+            rOld[0] > rNew[2]
+            || rOld[2] < rNew[0]
+            || rOld[1] > rNew[3]
+            || rOld[3] < rNew[1]);
+        if (noOverlap) {
+            blockMap.regionTracer(rOld, block => block.mobjs.delete(mo));
+            blockMap.regionTracer(rNew, block => {
+                touchSectors(mo, radius, block);
+                block.mobjs.add(mo);
+            });
+        } else {
+            // TODO: is this actually more efficient than just deleting and adding like above?
+            mergedRegion[0] = Math.min(rNew[0], rOld[0]);
+            mergedRegion[1] = Math.min(rNew[1], rOld[1]);
+            mergedRegion[2] = Math.max(rNew[2], rOld[2]);
+            mergedRegion[3] = Math.max(rNew[3], rOld[3]);
+            blockMap.regionTracer(mergedRegion, (block, x, y) => {
+                const inOld = x >= rOld[0] && x < rOld[2] && y >= rOld[1] && y < rOld[3];
+                const inNew = x >= rNew[0] && x < rNew[2] && y >= rNew[1] && y < rNew[3];
+                if (!inOld && inNew) {
+                    touchSectors(mo, radius, block);
+                    block.mobjs.add(mo);
+                } else if (inOld && !inNew) {
+                    block.mobjs.delete(mo);
+                }
+            });
+        }
+
+        // update block area
+        rOld[0] = rNew[0];
+        rOld[1] = rNew[1];
+        rOld[2] = rNew[2];
+        rOld[3] = rNew[3];
+    }
+
+    const mergedRegion: BlockRegion = [0,0,0,0];
+    return (mo: MapObject) => {
+        const map = mo.map;
+
+        // figure out the sector were the mobj center is
+        const sector = map.data.findSector(mo.position.x, mo.position.y);
+        if (mo.info.flags & MFFlags.MF_NOBLOCKMAP) {
+            return sector;
+        }
+
+        scanN += 1;
+        mo.sectorMap.set(sector, scanN);
+        updateBlockmap(mo);
+        mo.sectorMap.forEach((rev, sector) => {
+            if (scanN !== rev) {
+                map.sectorObjs.get(sector).delete(mo);
+                mo.sectorMap.delete(sector);
+            } else {
+                map.sectorObjs.get(sector).add(mo);
+            }
+        });
+
+        return sector;
+    }
+})();
+
 export const maxFloatSpeed = 4;
 export const maxStepSize = 24;
 const stopVelocity = 0.001;
@@ -402,69 +500,6 @@ export class MapObject {
 
         this.direction = direction;
 
-        // const updateBlockmap = () => {
-        //     // figure out the sector were the mobj center is
-        //     const sector = map.data.findSector(this.position.x, this.position.y);
-        //     if (this.info.flags & MFFlags.MF_NOBLOCKMAP) {
-        //         return sector;
-        //     }
-
-        //     // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
-        //     // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
-        //     const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
-        //     const region = map.data.blockMap.computeRegion(
-        //         pos.x - radius, pos.y - radius,
-        //         pos.x + radius, pos.y + radius,
-        //     );
-        //     if (region[0] !== this.blockArea[0] || region[1] !== this.blockArea[1] || region[2] !== this.blockArea[2] || region[3] !== this.blockArea[3]) {
-        //         // remove mobj from old blocks
-        //         for (let bx = Math.max(0, region[0] - this.blockArea[0]), xEnd = Math.max(0, region[2] - this.blockArea[2]); bx < xEnd; bx++) {
-        //             for (let by = Math.max(0, region[1] - this.blockArea[1]), yEnd = Math.max(0, region[3] - this.blockArea[3]); by < yEnd; by++) {
-        //             }
-        //         }
-
-        //         // add mobj to new blocks
-        //         for (let bx = Math.max(0, this.blockArea[0] - region[0]), xEnd = Math.max(0, this.blockArea[2] - region[2]); bx < xEnd; bx++) {
-        //             for (let by = Math.max(0, this.blockArea[1] - region[1]), yEnd = Math.max(0, this.blockArea[3] - region[3]); by < yEnd; by++) {
-        //             }
-        //         }
-
-        //         // update block area
-        //         this.blockArea[0] = region[0];
-        //         this.blockArea[1] = region[1];
-        //         this.blockArea[2] = region[2];
-        //         this.blockArea[3] = region[3];
-        //     }
-
-        //     this.sectorMap.set(sector, scanN);
-        //     // ...and any other sectors mobj are touching
-        //     radiusTracer(this.position, radius, block => {
-        //         for (let i = 0, n = block.segs.length; i < n; i++) {
-        //             const seg = block.segs[i];
-        //             if (!seg.linedef.left || seg.blockHit === scanN) {
-        //                 continue;
-        //             }
-        //             const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
-        //             if (hit) {
-        //                 seg.blockHit = scanN
-        //                 this.sectorMap.set(seg.linedef.left.sector, scanN);
-        //                 this.sectorMap.set(seg.linedef.right.sector, scanN);
-        //             }
-        //         }
-        //         block.mobjs.add(this);
-        //     });
-
-        //     this.sectorMap.forEach((rev, sector) => {
-        //         if (scanN !== rev) {
-        //             map.sectorObjs.get(sector).delete(this);
-        //             this.sectorMap.delete(sector);
-        //         } else {
-        //             map.sectorObjs.get(sector).add(this);
-        //         }
-        //     });
-        //     return sector;
-        // }
-
         this.position = new Vector3(pos.x, pos.y, 0);
         this.positionChanged = () => {
             this._positionChanged = true;
@@ -472,10 +507,7 @@ export class MapObject {
         }
         this.applyPositionChanged = () => {
             this._positionChanged = false;
-            // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
-            // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
-            const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
-            const sector = map.data.blockMap.moveMobj(this, radius);
+            const sector = updateBlockMapPosition(this);
             this._zCeil = lowestZCeil(sector, sector.zCeil);
             const lastZFloor = this._zFloor;
             this._zFloor = fromCeiling && !this.isDead //<-- for keens
