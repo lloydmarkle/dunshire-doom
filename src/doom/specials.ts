@@ -17,6 +17,9 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
     if (linedef.special === 9) {
         return donut(mobj, linedef, trigger, side);
     }
+    if (ignoreLines.has(linedef.special)) {
+        return;
+    }
 
     const action =
         doorDefinitions[linedef.special] ??
@@ -31,8 +34,13 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
     if (action) {
         return action(mobj, linedef, trigger, side);
     }
-    console.warn('unsupported linedef special:', linedef.special);
+    console.warn('unsupported linedef special:', linedef.special, linedef.num);
 }
+
+const ignoreLines = new Set([
+    // scrollers can be walked over but they don't do anything (they don't start/stop) so ignore them
+    48, 84, 255, 250, 251, 252, 253, 254
+]);
 
 // Push, Switch, Walk, Gun (shoot)
 export type TriggerType = 'P' | 'S' | 'W' | 'G';
