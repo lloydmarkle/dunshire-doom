@@ -260,13 +260,21 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     }
 
     const region: BlockRegion = [0,0, 0,0];
-    const computeRegion = (x1: number, y1: number, x2: number, y2: number) => {
-        region[0] = Math.max(0, Math.floor((x1 - minX) * invBlockSize));
-        region[1] = Math.max(0, Math.floor((y1 - minY) * invBlockSize));
-        region[2] = Math.floor((x2 - minX) * invBlockSize) + 1;
-        region[3] = Math.floor((y2 - minY) * invBlockSize) + 1;
+    const blockRegion = (x1: number, y1: number, x2: number, y2: number) => {
+        region[0] = Math.max(Math.floor((x1 - minX) * invBlockSize), 0);
+        region[1] = Math.max(Math.floor((y1 - minY) * invBlockSize), 0);
+        region[2] = Math.min(Math.floor((x2 - minX) * invBlockSize) + 1, dimensions.numCols);
+        region[3] = Math.min(Math.floor((y2 - minY) * invBlockSize) + 1, dimensions.numRows);
         return region;
-    }
+    };
+    const regionTracer = (region: BlockRegion, hitBlock: (block: Block, x: number, y: number) => void) => {
+        const [xStart, yStart, xEnd, yEnd] = region;
+        for (let bx = xStart; bx < xEnd; bx++) {
+            for (let by = yStart; by < yEnd; by++) {
+                hitBlock(blocks[by * dimensions.numCols + bx], bx, by);
+            }
+        }
+    };
 
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
     for (const subsector of subsectors) {
@@ -278,16 +286,11 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             }
         }
 
-        const [xStart, yStart, xEnd, yEnd] = computeRegion(
+        const region = blockRegion(
             subsector.bounds.left, subsector.bounds.top,
             subsector.bounds.right, subsector.bounds.bottom,
         );
-        for (let bx = xStart; bx < dimensions.numCols && bx < xEnd; bx++) {
-            for (let by = yStart; by < dimensions.numRows && by < yEnd; by++) {
-                const block = blocks[by * dimensions.numCols + bx];
-                block.subsectors.push(subsector);
-            }
-        }
+        regionTracer(region, block => block.subsectors.push(subsector));
     }
 
     const checkLine: Line = [null, null];
@@ -453,56 +456,46 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
 
     const traceRay = (params: TraceParams) => {
         let hits: TraceHit[] = [];
-
         scanN += 1;
         checkRootSector = true;
-        let complete = false;
+
         let v = tracer.init(params.start.x, params.start.y, params.move);
-        while (!complete && v) {
+        while (v) {
             scanBlock(params, blocks[v.y * dimensions.numCols + v.x], hits);
-            complete = notify(params, hits);
+            if (notify(params, hits)) {
+                return;
+            }
             v = tracer.step();
         }
     }
 
-    const radiusTracer = (pos: Vertex, radius: number, hitBlock: (block: Block) => void) => {
-        const region = computeRegion(
-            pos.x - radius, pos.y - radius,
-            pos.x + radius, pos.y + radius,
-        );
-        regionTracer(region, hitBlock);
-    }
-
-    const regionTracer = (region: BlockRegion, hitBlock: (block: Block, x: number, y: number) => void) => {
-        const [xStart, yStart, xEnd, yEnd] = region;
-        for (let bx = xStart; bx < dimensions.numCols && bx < xEnd; bx++) {
-            for (let by = yStart; by < dimensions.numRows && by < yEnd; by++) {
-                hitBlock(blocks[by * dimensions.numCols + bx], bx, by);
-            }
-        }
-    }
-
-    const blockTrace = (() => {
-        let moveRev = 0;
+    const traceMove = (() => {
         const mTrace = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
         const ccwTrace = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
         const cwTrace = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
 
-        return (params: TraceParams, hitBlock: (block: Block) => boolean) => {
+        return (params: TraceParams) => {
+            let hits: TraceHit[] = [];
+            scanN += 1;
+            checkRootSector = true;
+
             // our AmanatidesWooTrace doesn't handle zero movement well so do a special trace for that
             if (params.move.lengthSq() < 0.001) {
-                radiusTracer(params.start, params.radius, hitBlock);
-                return;
+                const region = blockRegion(
+                    params.start.x - params.radius, params.start.y - params.radius,
+                    params.start.x + params.radius, params.start.y + params.radius,
+                );
+                regionTracer(region, block => scanBlock(params, block, hits));
+                return notify(params, hits);
             }
 
-            moveRev += 1;
-            const tryHit = (x: number, y: number) => {
+            const hitBlock = (x: number, y: number) => {
                 const block = blocks[y * dimensions.numCols + x];
-                if (!block || block.rev === moveRev) {
+                if (!block || block.rev === scanN) {
                     return;
                 }
-                block.rev = moveRev;
-                return hitBlock(block);
+                block.rev = scanN;
+                scanBlock(params, block, hits);
             }
 
             // if sx or sy is 0 (vertical/horizontal line) we still need to find leading corners so choose a value
@@ -513,49 +506,42 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             let mid = mTrace.init(params.start.x + params.radius * dx, params.start.y + params.radius * dy, params.move);
             let cw = cwTrace.init(params.start.x - params.radius * dx, params.start.y + params.radius * dy, params.move);
 
-            let complete = false;
-            while (!complete && mid) {
-                // Note we always tryHit instead of checking complete because we want to complete these blocks equally
-                complete = tryHit(mid.x, mid.y) || complete;
-                complete = tryHit(ccw.x, ccw.y) || complete;
-                complete = tryHit(cw.x, cw.y) || complete;
+            while (mid) {
+                // Note we hit all blocks before notifying because we may miss hits if we early exit
+                hitBlock(mid.x, mid.y);
+                hitBlock(ccw.x, ccw.y);
+                hitBlock(cw.x, cw.y);
 
                 if (ccw && mid) {
                     // fill in the gaps between ccw and mid corners
                     for (let i = Math.min(ccw.x, mid.x); i < Math.max(mid.x, ccw.x); i += 1) {
-                        complete = tryHit(i, mid.y) || complete;
+                        hitBlock(i, mid.y);
                     }
                     for (let i = Math.min(ccw.y, mid.y); i < Math.max(mid.y, ccw.y); i += 1) {
-                        complete = tryHit(mid.x, i) || complete;
+                        hitBlock(mid.x, i);
                     }
                 }
                 if (cw && mid) {
                     // fill in the gaps between mid and cw corners
                     for (let i = Math.min(cw.x, mid.x); i < Math.max(mid.x, cw.x); i += 1) {
-                        complete = tryHit(i, mid.y) || complete;
+                        hitBlock(i, mid.y);
                     }
                     for (let i = Math.min(cw.y, mid.y); i < Math.max(mid.y, cw.y); i += 1) {
-                        complete = tryHit(mid.x, i) || complete;
+                        hitBlock(mid.x, i);
                     }
                 }
 
+                if (notify(params, hits)) {
+                    return;
+                }
                 ccw = ccwTrace.step() ?? ccw;
                 mid = mTrace.step();
                 cw = cwTrace.step() ?? cw;
             }
         }
     })();
-    const traceMove = (params: TraceParams) => {
-        let hits: TraceHit[] = [];
-        scanN += 1;
-        checkRootSector = true;
-        blockTrace(params, block => {
-            scanBlock(params, block, hits);
-            return notify(params, hits);
-        });
-    }
 
-    return { dimensions, computeRegion, regionTracer, traceRay, traceMove };
+    return { dimensions, blockRegion, regionTracer, traceRay, traceMove };
 }
 
 export interface Seg {

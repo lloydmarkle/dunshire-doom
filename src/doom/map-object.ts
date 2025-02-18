@@ -282,7 +282,7 @@ const updateBlockMapPosition = (() => {
         const radius = mo.class === 'M' ? mo.info.radius - 1 : mo.info.radius;
 
         const rOld = mo.blockArea;
-        const rNew = blockMap.computeRegion(
+        const rNew = blockMap.blockRegion(
             mo.position.x - radius, mo.position.y - radius,
             mo.position.x + radius, mo.position.y + radius,
         );
@@ -294,10 +294,8 @@ const updateBlockMapPosition = (() => {
         }
 
         const noOverlap = (
-            rOld[0] > rNew[2]
-            || rOld[2] < rNew[0]
-            || rOld[1] > rNew[3]
-            || rOld[3] < rNew[1]);
+            rOld[0] > rNew[2] || rOld[2] < rNew[0] ||
+            rOld[1] > rNew[3] || rOld[3] < rNew[1]);
         if (noOverlap) {
             blockMap.regionTracer(rOld, block => block.mobjs.delete(mo));
             blockMap.regionTracer(rNew, block => {
@@ -352,7 +350,7 @@ const updateBlockMapPosition = (() => {
         });
 
         return sector;
-    }
+    };
 })();
 
 export const maxFloatSpeed = 4;

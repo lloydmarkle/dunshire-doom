@@ -1075,8 +1075,8 @@ export const isMonsterMoveBlocked = (() => {
     return (mobj: MapObject, position: Vector3) => {
         blocked = false;
         traceParams.start = position;
-        traceParams.radius = mobj.info.radius
-        traceParams.height = mobj.info.height
+        traceParams.radius = mobj.info.radius;
+        traceParams.height = mobj.info.height;
         mobj.map.data.traceMove(traceParams);
         return blocked;
     }
@@ -1105,12 +1105,9 @@ const applyTeleportAction =
 
     let triggered = false;
     def.targetFn(mobj, linedef, tp => {
-        if (mobj.isMonster) {
-            // monsters cannot teleport if a hittable mobj is blocking teleport landing
-            const blocked = isMonsterMoveBlocked(mobj, tp.position);
-            if (blocked) {
-                return false;
-            }
+        // monsters cannot teleport if a hittable mobj is blocking teleport landing
+        if (mobj.isMonster && isMonsterMoveBlocked(mobj, tp.position)) {
+            return false;
         }
 
         // teleport success so apply fog in old and new locations

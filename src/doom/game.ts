@@ -152,7 +152,7 @@ export class Game implements SoundEmitter {
                 const err: GameLogicFailure = {
                     code: 4,
                     details: { game: this, exception },
-                    message: 'Game logic failed',
+                    message: 'Logical error',
                 };
                 throw err;
             }
