@@ -11,7 +11,7 @@
     export let size: Size;
 
     const { health, weapon, inventory } = player;
-    const weaponLights = $inventory.weapons.map(e => e?.keynum);
+    $: weaponLights = $inventory.weapons.map(e => e?.keynum);
     const stbarGfx = player.map.game.wad.graphic('STBAR');
     const hudHeight = stbarGfx.height * 2; // why *2? Because we are scaling by 2 in a css transform below
     const stbar = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
