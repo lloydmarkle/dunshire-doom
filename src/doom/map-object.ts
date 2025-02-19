@@ -391,7 +391,6 @@ export class MapObject {
     tracerTarget: MapObject;
     lastPlayerCheck = 0;
 
-    readonly resurrect: () => void;
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
     readonly sectorChanged: (sector: Sector) => void;
     readonly positionChanged: () => void;
@@ -430,19 +429,6 @@ export class MapObject {
 
         if (this.info.flags & MFFlags.MF_SHADOW) {
             this.renderShadow.set(true);
-        }
-
-        this.resurrect = () => {
-            this.velocity.set(0, 0, 0);
-            this.setState(spec.mo.raisestate)
-            this.health.set(spec.mo.spawnhealth);
-            this.info.flags = spec.mo.flags;
-            if (map.game.settings.ghostMonsters.val) {
-                this.info.height *= 4;
-            } else {
-                this.info.height = spec.mo.height;
-                this.info.radius = spec.mo.radius;
-            }
         }
 
         // only players, monsters, and dropped things are moveable which affects how we choose zFloor and zCeil
@@ -538,7 +524,6 @@ export class MapObject {
         (this as any).applyPositionChanged = () => {};
     }
 
-    get spriteTics() { return states[this._state.index].tics; }
     get spriteTime() { return 1 / states[this._state.index].tics; }
     get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
 
@@ -563,6 +548,19 @@ export class MapObject {
             // friction (not z because gravity)
             this.velocity.x *= friction;
             this.velocity.y *= friction;
+        }
+    }
+
+    resurrect() {
+        this.velocity.set(0, 0, 0);
+        this.setState(this.spec.mo.raisestate)
+        this.health.set(this.spec.mo.spawnhealth);
+        this.info.flags = this.spec.mo.flags;
+        if (this.map.game.settings.ghostMonsters.val) {
+            this.info.height *= 4;
+        } else {
+            this.info.height = this.spec.mo.height;
+            this.info.radius = this.spec.mo.radius;
         }
     }
 
@@ -680,7 +678,7 @@ export class MapObject {
     }
 
     pickup(mobj: MapObject) {
-        // this is only imlemented by PlayerMapObject (for now)
+        // this is only implemented by PlayerMapObject (for now)
     }
 
     // kind of P_ZMovement

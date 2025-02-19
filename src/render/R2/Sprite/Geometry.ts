@@ -118,14 +118,14 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         const updateSprite = (sprite: Sprite) => {
             mesh.geometry.attributes.texN.array[n * 2] = sprite.state.spriteIndex;
 
-            // // rendering flags
+            // rendering flags
             mesh.geometry.attributes.texN.array[n * 2 + 1] = (
                 fixedSpriteFlags
                 | (sprite.fullbright ? 1 : 0)
                 | ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0)
                 | ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0)
                 | ((mo.info.flags & MFFlags.MF_INFLOAT) ? 16 : 0));
-                mesh.geometry.attributes.texN.needsUpdate = true;
+            mesh.geometry.attributes.texN.needsUpdate = true;
 
             // movement info for interpolation
             mesh.geometry.attributes.motion.array[n * 4 + 0] = sprite.ticks ? mo.info.speed / sprite.ticks : 0;

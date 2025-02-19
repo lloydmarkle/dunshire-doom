@@ -2,7 +2,7 @@ import { store, type Store } from "./store";
 import { Vector3 } from "three";
 import { MapObject } from "./map-object";
 import { AmanatidesWooTrace, centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Line, type Vertex } from "./math";
-import { MapObjectIndex, MFFlags } from "./doom-things-info";
+import { MFFlags } from "./doom-things-info";
 import { type Lump, int16, word, lumpString } from "../doom";
 import { readBspData } from "./wad/bsp-data";
 
