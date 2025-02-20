@@ -1,5 +1,5 @@
 import type { Action, ActionReturn } from 'svelte/action';
-import { MapRuntime, type Game, type Store, mapMusicTrack, type PlayerInventory, ticksPerSecond } from '../../doom';
+import { type Game, type Store, mapMusicTrack, type PlayerInventory, ticksPerSecond } from '../../doom';
 import { allWeapons, giveWeapon } from '../../doom/things/weapons';
 import { useAppContext } from '../DoomContext';
 import { get, type Writable } from 'svelte/store';
@@ -9,10 +9,11 @@ export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): Ac
 
     let cheatStrings: CheatCode[] = [];
     function keyup(ev: KeyboardEvent) {
-        let keyCode = ev.key.toLowerCase().charCodeAt(0);
+        let lowerKey = ev.key.toLowerCase();
+        let keyCode = lowerKey.charCodeAt(0);
         const isAlphaNumeric = (keyCode > 47 && keyCode < 58) || (keyCode > 96 && keyCode < 123);
         if (isAlphaNumeric) {
-            cheatStrings.forEach(cs => cs.handleKey(ev.key));
+            cheatStrings.forEach(cs => cs.handleKey(lowerKey));
         }
     }
     doc.addEventListener('keyup', keyup);

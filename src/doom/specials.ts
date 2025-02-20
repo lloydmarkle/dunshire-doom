@@ -39,7 +39,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
 
 const ignoreLines = new Set([
     // scrollers can be walked over but they don't do anything (they don't start/stop) so ignore them
-    48, 84, 255, 250, 251, 252, 253, 254
+    48, 85, 255, 250, 251, 252, 253, 254
 ]);
 
 // Push, Switch, Walk, Gun (shoot)
