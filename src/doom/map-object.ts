@@ -431,8 +431,8 @@ export class MapObject {
             this.renderShadow.set(true);
         }
 
-        // only players, monsters, and dropped things are moveable which affects how we choose zFloor and zCeil
         this.mover = (this.info.flags & MFFlags.MF_MISSILE) ? missileMover : bodyMover;
+        // only players, monsters, and dropped things are moveable which affects how we choose zFloor and zCeil
         const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_DROPPED) || spec.moType === MapObjectIndex.MT_PLAYER;
         const highestZFloor = !moveable
             ? (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor
