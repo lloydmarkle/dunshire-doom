@@ -157,7 +157,7 @@ export function giveWeapon(name: WeaponName) {
         let pickedup = false;
         player.inventory.update(inv => {
             if (weapon.ammoType !== 'none') {
-                // only give 1 clip for droped weapon
+                // only give 1 clip for dropped weapon
                 const clipCount = (mobj.info.flags & MFFlags.MF_DROPPED) ? 1 : 2;
                 pickedup = giveAmmo(player, inv, weapon.ammoType, clipCount);
             }

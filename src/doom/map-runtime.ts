@@ -637,14 +637,7 @@ class GameInput {
         } else {
             this.player.velocity.z -= playerSpeeds['gravity'] * dt;
         }
-
-        if (!this.player.reactiontime) {
-            this.player.xyMove();
-        }
-        // always send a position changed event so that the UI updates rotation too. (see the /Camera/*.svelte listening to position changed)
-        // We could add a "direction-changed" event but monsters update direction when they change sprite so we don't need it.
-        // This is really only for players
-        this.map.events.emit('mobj-updated-position', this.player);
+        this.player.xyMove();
 
         // attack
         this.player.attacking = this.input.attack;

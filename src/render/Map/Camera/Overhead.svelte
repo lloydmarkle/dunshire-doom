@@ -24,21 +24,20 @@
 
     const tz = tweened(0, { easing: quadOut });
     onDestroy(monitorMapObject(map, map.player, mo => {
-        $position.x = mo.position.x;
-        $position.y = mo.position.y;
-        $tz = mo.position.z;
-        $angle.z = mo.direction - HALF_PI;
+        $position.x = map.player.position.x;
+        $position.y = map.player.position.y;
+        $position.z = zoom + $tz;
+        $angle.z = map.player.direction - HALF_PI;
+
+        $tz = mo.position.z
     }));
-    $: $position.z = zoom + $tz;
 
     const threlte = useThrelte();
     const originalFog = threlte.scene.fog;
     // kind of cheap looking but fun to play with
     // NOTE: we can't simply use T.Fog because fog isn't an object, it's a property of the scene. Hmmm
     $: threlte.scene.fog = new FogExp2(skyColor, .00035);
-    onDestroy(() => {
-        threlte.scene.fog = originalFog;
-    })
+    onDestroy(() => threlte.scene.fog = originalFog);
 </script>
 
 <T.PerspectiveCamera

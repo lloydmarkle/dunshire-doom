@@ -4,6 +4,30 @@ import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
 import type { SpriteMaterial } from "./Materials";
 
+const int16BufferFrom = (items: number[], vertexCount: number) => {
+    const array = new Uint16Array(items.length * vertexCount);
+    for (let i = 0; i < vertexCount * items.length; i += items.length) {
+        for (let j = 0; j < items.length; j++) {
+            array[i + j] = items[j];
+        }
+    }
+    const attr = new InstancedBufferAttribute(array, items.length);
+    attr.gpuType = IntType;
+    return attr;
+}
+
+const floatBufferFrom = (items: number[], vertexCount: number) => {
+    const array = new Float32Array(items.length * vertexCount);
+    for (let i = 0; i < vertexCount * items.length; i += items.length) {
+        for (let j = 0; j < items.length; j++) {
+            array[i + j] = items[j];
+        }
+    }
+    const attr = new InstancedBufferAttribute(array, items.length);
+    attr.gpuType = FloatType;
+    return attr;
+}
+
 // temporary variables for positioning instanced geometry
 const mat = new Matrix4();
 const q = new Quaternion();
@@ -91,30 +115,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
     let env = { camera: '1p' };
 
     let thingsMeshes: InstancedMesh[] = [];
-    const int16BufferFrom = (items: number[], vertexCount: number) => {
-        const array = new Uint16Array(items.length * vertexCount);
-        for (let i = 0; i < vertexCount * items.length; i += items.length) {
-            for (let j = 0; j < items.length; j++) {
-                array[i + j] = items[j];
-            }
-        }
-        const attr = new InstancedBufferAttribute(array, items.length);
-        attr.gpuType = IntType;
-        return attr;
-    }
-
-    const floatBufferFrom = (items: number[], vertexCount: number) => {
-        const array = new Float32Array(items.length * vertexCount);
-        for (let i = 0; i < vertexCount * items.length; i += items.length) {
-            for (let j = 0; j < items.length; j++) {
-                array[i + j] = items[j];
-            }
-        }
-        const attr = new InstancedBufferAttribute(array, items.length);
-        attr.gpuType = FloatType;
-        return attr;
-    }
-
     const createChunk = () => {
         const geometry = new PlaneGeometry();
         if (env.camera !== 'bird') {

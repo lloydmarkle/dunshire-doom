@@ -93,7 +93,7 @@ const bodyMover: Mover = (() => {
                     // only players trigger specials during move, monsters trigger then as part of ai routines (A_Chase)
                     // NB: if we decide to change this, we'll need to be careful about things like MT_BLOOD
                     // triggering specials when you shoot a monsters
-                    if (hit.line.special && self instanceof PlayerMapObject) {
+                    if (hit.line.special && self.type === MapObjectIndex.MT_PLAYER) {
                         const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
                         const endSide = signedLineDistance(hit.line.v, vec) < 0 ? -1 : 1
                         if (startSide !== endSide) {
@@ -402,7 +402,6 @@ export class MapObject {
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
     readonly position: Vector3;
-    direction: number;
     readonly sprite = this._state.sprite;
     readonly velocity = new Vector3();
     readonly renderShadow = store(false);
@@ -421,7 +420,7 @@ export class MapObject {
     get onPickup() { return this.spec.onPickup; }
     get originalRadius() { return this.spec.mo.radius; }
 
-    constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex, direction: number) {
+    constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex, public direction: number) {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
         this.info = { ...spec.mo };
         this.health = store(this.info.spawnhealth);
@@ -481,8 +480,6 @@ export class MapObject {
                 this.positionChanged();
             }
         };
-
-        this.direction = direction;
 
         this.position = new Vector3(pos.x, pos.y, 0);
         this.positionChanged = () => {
@@ -604,9 +601,7 @@ export class MapObject {
     protected damageThrust(amount: number, inflictor?: MapObject, source?: MapObject) {
         const shouldApplyThrust = (inflictor
             && !(this.info.flags & MFFlags.MF_NOCLIP)
-            && (!source
-                || !(source instanceof PlayerMapObject)
-                || source.weapon.val.name !== 'chainsaw'));
+            && !(source instanceof PlayerMapObject && source.weapon.val.name === 'chainsaw'));
         if (shouldApplyThrust) {
             let angle = angleBetween(inflictor, this);
             // 12.5 is (100 * (1 << 16 >> 3)) / (1<<16) (see P_DamageMobj)
@@ -793,12 +788,8 @@ export class PlayerMapObject extends MapObject {
     }
 
     tick() {
-        this._isMoving = this.velocity.manhattanLength() > 0.01;
-        this._onGround = this.position.z <= this._zFloor;
-
-        this.applyFriction();
-        this.applyGravity();
-        this._state.tick();
+        this._positionChanged = false;
+        super.tick();
 
         this.reactiontime = Math.max(0, this.reactiontime - 1);
         this.damageCount.update(val => Math.max(0, val - 1));
@@ -898,7 +889,7 @@ export class PlayerMapObject extends MapObject {
         }
         this.damageCount.update(val => Math.min(val + amount, 100));
 
-        // NOTE: no inflictor to avoid damageThrust (it's already applied above)
+        // NOTE: inflictor is null to avoid damageThrust (it's already applied above)
         super.damage(amount, null, source);
         // TODO: haptic feedback for controllers?
     }
@@ -911,16 +902,21 @@ export class PlayerMapObject extends MapObject {
     kill(source?: MapObject) {
         super.kill(source);
         // when we die, we start processing moving at tick intervals so convert current velocity (in seconds) to ticks
-        // I don't really love how we evaluate player movement
+        // I don't love how we evaluate player movement but I do love handling input at higher than 35fps
         const time = this.map.game.time.delta;
         this.velocity.set(velocityPerTick(time, this.velocity.x), velocityPerTick(time, this.velocity.y), velocityPerTick(time, this.velocity.z));
 
-        // TODO: some map stats
         this.weapon.val.deactivate();
+        // TODO: some map stats
     }
 
     xyMove(): void {
+        if (this.reactiontime) {
+            return; // frozen from teleport so don't allow movement
+        }
         super.updatePosition();
+        // always send a position changed event so that the UI updates rotation too. (see the /Camera/*.svelte listening to position changed)
+        // We could add a "direction-changed" event but monsters update direction when they change sprite so we don't need it.
         this.applyPositionChanged();
     }
 
@@ -937,7 +933,6 @@ export class PlayerMapObject extends MapObject {
         }
         if (this._onGround && this.velocity.z <= stopVelocity) {
             this.hitFlat(this.zFloor);
-            this.applyPositionChanged();
         }
     }
 
@@ -946,12 +941,11 @@ export class PlayerMapObject extends MapObject {
         if (this.position.z < zVal) {
             this.viewHeightOffset -= zVal - this.position.z;
             // this means we change view height by 1, 2, or 3 depending on the step
-            // >> 3 is equivalent to divide by 8 but faster? Doom cleverly used integer math and I haven't tested the performance in JS
-            this.deltaViewHeight = (playerViewHeightDefault - this.viewHeightOffset) >> 3;
+            this.deltaViewHeight = (playerViewHeightDefault - this.viewHeightOffset) * .125;
         }
         // hit the ground so lower the screen
         if (this.position.z > zVal) {
-            this.deltaViewHeight = this.velocity.z >> 3;
+            this.deltaViewHeight = this.velocity.z * .125;
             // if we hit the ground hard, play a sound
             if (this.velocity.z < -8) {
                 this.map.game.playSound(SoundIndex.sfx_oof, this);
@@ -969,7 +963,7 @@ export class PlayerMapObject extends MapObject {
 
         if (this.isDead) {
             // Doom player falls 1 unit per tick (or 35 units per second) until 6 units above the ground so...
-            this.viewHeightOffset = Math.max(6, this.viewHeightOffset - 35 * time.delta);
+            this.viewHeightOffset = Math.max(6, this.viewHeightOffset - ticksPerSecond * time.delta);
             this.viewHeight.set(this.viewHeightOffset);
             return;
         }

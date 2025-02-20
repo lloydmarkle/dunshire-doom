@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { PlayerMapObject, type PlayerInventory, MapObject } from "./map-object";
+import type { PlayerMapObject, PlayerInventory, MapObject } from "./map-object";
 import type { DoomWad } from "./wad/doomwad";
 import { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";

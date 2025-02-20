@@ -9,7 +9,7 @@
 
     // TODO: most cameras (except ortho) only differ by how they set position and angle. We should consolidate
     const fov = useAppContext().settings.fov;
-    const { map, renderSectors, camera } = useDoomMap();
+    const { map, camera } = useDoomMap();
     const player = map.player;
     const { viewHeight } = player;
 
