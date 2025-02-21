@@ -226,6 +226,9 @@ const createDoorAction =
     for (const sector of sectors) {
         if (sector.specialData !== null) {
             if (def.trigger === 'P') {
+                if (mobj.isMonster && sector.specialData <= 0) {
+                    continue; // monsters don't close doors
+                }
                 // push doors can be interrupted:
                 // close->open doors should go back open
                 // open->close doors should close
