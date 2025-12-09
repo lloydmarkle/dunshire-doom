@@ -674,6 +674,9 @@ export class MapObject {
 
     pickup(mobj: MapObject) {
         // this is only implemented by PlayerMapObject (for now)
+        if (this.type === MapObjectIndex.MT_PLAYER) {
+            this.map.player.pickup(mobj);
+        }
     }
 
     // kind of P_ZMovement
@@ -709,7 +712,7 @@ export class MapObject {
 
     // kind of P_XYMovement
     protected updatePosition() {
-        if (!this._isMoving) {
+        if (!this._isMoving && !this._positionChanged) {
             return;
         }
         this.mover(this, this.velocity);
