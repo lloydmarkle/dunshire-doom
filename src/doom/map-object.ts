@@ -140,7 +140,7 @@ const bodyMover: Mover = (() => {
         traceParams.move = move = moveVec;
         traceParams.radius = mobj.info.radius;
         traceParams.height = mobj.info.height;
-        blockFlags = self.class === 'M' ? 0x0003 : 0x0001;
+        blockFlags = self.isMonster ? 0x0003 : 0x0001;
 
         blocker = 1 as any;
         hitCount += 1;
@@ -279,7 +279,7 @@ const updateBlockMapPosition = (() => {
         const blockMap = mo.map.data.blockMap;
         // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
         // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
-        const radius = mo.class === 'M' ? mo.info.radius - 1 : mo.info.radius;
+        const radius = mo.isMonster ? mo.info.radius - 1 : mo.info.radius;
 
         const rOld = mo.blockArea;
         const rNew = blockMap.blockRegion(
@@ -413,16 +413,19 @@ export class MapObject {
     protected _isMoving = false;
     protected _onGround = true;
     get onGround() { return this.position.z <= this._zFloor; }
-    get isMonster() { return this.spec.class === 'M'; }
-    get type() { return this.spec.moType; }
+    readonly isMonster;
+    readonly type;
     get description() { return this.spec.description; }
     get class() { return this.spec.class; }
     get onPickup() { return this.spec.onPickup; }
-    get originalRadius() { return this.spec.mo.radius; }
+    readonly originalRadius;
 
     constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex, public direction: number) {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
         this.info = { ...spec.mo };
+        this.originalRadius = spec.mo.radius;
+        this.type = spec.moType;
+        this.isMonster = this.spec.class === 'M';
         this.health = store(this.info.spawnhealth);
         this.reactiontime = map.game.skill === 5 ? 0 : this.info.reactiontime;
 
@@ -432,7 +435,7 @@ export class MapObject {
 
         this.mover = (this.info.flags & MFFlags.MF_MISSILE) ? missileMover : bodyMover;
         // only players, monsters, and dropped things are moveable which affects how we choose zFloor and zCeil
-        const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_DROPPED) || spec.moType === MapObjectIndex.MT_PLAYER;
+        const moveable = this.isMonster || (this.info.flags & MFFlags.MF_DROPPED) || spec.moType === MapObjectIndex.MT_PLAYER;
         const highestZFloor = !moveable
             ? (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor
             : (sector: Sector, zFloor: number) => {
