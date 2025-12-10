@@ -538,8 +538,8 @@ class GameInput {
                 }
             }),
             derived(
-                [this.map.game.settings.freelook, this.map.game.settings.cameraMode],
-                ([freelook, cameraMode]) => freelook && cameraMode !== 'bird' && cameraMode !== 'ortho'
+                [this.map.game.settings.freelook, this.map.game.settings.freeFly, this.map.game.settings.cameraMode],
+                ([freelook, freeFly, cameraMode]) => (freelook || freeFly) && cameraMode !== 'bird' && cameraMode !== 'ortho'
             ).subscribe(canPitch => {
                 if (canPitch) {
                     this.minPolarAngle = -HALF_PI;
