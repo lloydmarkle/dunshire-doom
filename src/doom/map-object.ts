@@ -45,6 +45,7 @@ const bodyMover: Mover = (() => {
     let blocker: TraceHit = 1 as any;
     let blockFlags = 0;
     const traceParams: TraceParams = {
+        objectHitLimit: 20,
         // these will be filled in before calling .traceMove()
         ...baseMoveTrace,
         hitObject: hit => {
@@ -715,6 +716,7 @@ export class MapObject {
 
     // kind of P_XYMovement
     protected updatePosition() {
+        // always evaluate position for players so that voodoo dolls pick up items
         if (!this._isMoving && !this._positionChanged) {
             return;
         }

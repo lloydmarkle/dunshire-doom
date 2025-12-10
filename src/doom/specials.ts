@@ -1436,6 +1436,10 @@ export function pusherAction(map: MapRuntime, linedef: LineDef) {
             for (let i = 0; i < mobjs.length; i++) {
                 specials.length = 0;
                 const blocker = findMoveBlocker(mobjs[i], movement, specials);
+                if (mobjs[i].type === MapObjectIndex.MT_PLAYER) {
+                    // players always update position so that voodoo dolls, even when stuck in a corner, still pick up items
+                    mobjs[i].positionChanged();
+                }
                 if (!blocker) {
                     mobjs[i].position.add(movement);
                     mobjs[i].positionChanged();

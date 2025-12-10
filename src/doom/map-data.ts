@@ -203,6 +203,7 @@ export interface TraceParams {
     hitLine?: HandleTraceHit<LineTraceHit>;
     hitFlat?: HandleTraceHit<SectorTraceHit>;
     hitObject?: HandleTraceHit<MapObjectTraceHit>;
+    objectHitLimit?: number;
 }
 export const baseMoveTrace: TraceParams = {
     start: null,
@@ -341,6 +342,10 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         // collide with things
         if (params.hitObject) {
             for (const mobj of block.mobjs) {
+                // MSCP MAP14 has voodoo dolls that sit on a BIG pile of cells. We have to limit objects scanned for per    formance
+                if (hits.length === params.objectHitLimit) {
+                    break;
+                }
                 if (mobj.blockHit === scanN) {
                     continue;
                 }
