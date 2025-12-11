@@ -11,7 +11,7 @@ export default defineConfig({
     visualizer({ filename: 'bundle-stats.html' }),
     viteStaticCopy({
       targets: [{
-        src: path.resolve(__dirname, 'node_modules', 'spessasynth_lib', 'synthetizer', 'worklet_processor.min.js'),
+        src: path.resolve(__dirname, 'node_modules', 'spessasynth_lib', 'dist', 'spessasynth_processor.min.js*'),
         dest: './synthetizer',
       }],
     }),

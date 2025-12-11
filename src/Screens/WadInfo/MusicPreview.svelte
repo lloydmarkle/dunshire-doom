@@ -2,7 +2,7 @@
     import { onDestroy } from "svelte";
     import { type Lump } from "../../doom";
     import { useAppContext } from "../../render/DoomContext";
-    import { Sequencer, Synthetizer, WORKLET_URL_ABSOLUTE } from 'spessasynth_lib';
+    import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
     import { MidiSampleStore } from "../../MidiSampleStore";
     import { defaultSF2Url, musicInfo } from "../../render/MusicPlayer.svelte";
 
@@ -23,13 +23,16 @@
     const sampleStore = new MidiSampleStore();
     let stopTheMusic: Promise<() => void>;
     async function spessaSynthPlayer(midi: ArrayBuffer) {
-        await audio.audioWorklet.addModule('./' + WORKLET_URL_ABSOLUTE); // add the worklet
         const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
-        const synth = new Synthetizer(musicGain, soundFontArrayBuffer);
-        const seq = new Sequencer([{ binary: midi, altName: lump.name }], synth);
-        seq.loop = true;
+        await audio.audioWorklet.addModule('./synthetizer/spessasynth_processor.min.js'); // add the worklet
+        const synth = new WorkletSynthesizer(audio);
+        synth.soundBankManager.addSoundBank(soundFontArrayBuffer, 'sf2');
+        synth.connect(musicGain);
+        const seq = new Sequencer(synth);
+        seq.loadNewSongList([{ binary: midi, fileName: lump.name }]);
+        seq.loopCount = -1;
         seq.play();
-        return () => seq?.stop();
+        return () => seq.pause();
     }
 
     async function mp3Player(music: ArrayBuffer) {
@@ -43,6 +46,7 @@
 
     let playing = false;
     function playMusic() {
+        playing = true;
         stopTheMusic = info.isMp3 ? mp3Player(info.music) : spessaSynthPlayer(info.music);
     }
 
@@ -50,15 +54,6 @@
         playing = false;
         if (stopTheMusic) {
             (await stopTheMusic)();
-        }
-    }
-
-    async function togglePlay() {
-        if (playing) {
-            await stopMusic();
-        } else {
-            playing = true;
-            await playMusic();
         }
     }
 
@@ -71,7 +66,7 @@
 
 <h3>Sound: {lump.name}</h3>
 <div class="flex gap-4 overflow-hidden">
-    <button class="btn btn-lg text-4xl" on:click={togglePlay}>
+    <button class="btn btn-lg text-4xl" on:click={playing ? stopMusic : playMusic}>
         {playing ? '⏸️' : '▶️'}
     </button>
 </div>

@@ -38,7 +38,7 @@
     import { MidiSampleStore } from "../MidiSampleStore";
     import WebAudioTinySynth from 'webaudio-tinysynth';
     import type { DoomWad, Lump } from "../doom";
-    import { Sequencer, Synthetizer, WORKLET_URL_ABSOLUTE } from 'spessasynth_lib';
+    import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
 
     export let audioRoot: AudioNode;
     export let wad: DoomWad;
@@ -81,13 +81,16 @@
     async function spessaSynthPlayer(midi: ArrayBuffer) {
         stopTheMusic();
 
-        await audio.audioWorklet.addModule('./' + WORKLET_URL_ABSOLUTE); // add the worklet
         const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
-        const synth = new Synthetizer(audioRoot, soundFontArrayBuffer);
-        const seq = new Sequencer([{ binary: midi, altName: trackName }], synth);
-        seq.loop = true;
+        await audio.audioWorklet.addModule('./synthetizer/spessasynth_processor.min.js'); // add the worklet
+        const synth = new WorkletSynthesizer(audio);
+        synth.soundBankManager.addSoundBank(soundFontArrayBuffer, 'sf2');
+        synth.connect(audioRoot);
+        const seq = new Sequencer(synth);
+        seq.loadNewSongList([{ binary: midi, fileName: trackName }]);
+        seq.loopCount = -1;
         seq.play();
-        return () => seq?.stop();
+        return () => seq.pause();
     }
 
     async function synthPlayer(midi: ArrayBufferLike) {
