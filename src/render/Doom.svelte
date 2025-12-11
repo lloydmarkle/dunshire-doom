@@ -21,11 +21,11 @@
     import { SpriteSheet } from "./R2/Sprite/SpriteAtlas";
 
     export let game: Game;
-    export let viewSize: Size;
     export let musicGain: GainNode;
     export let soundGain: GainNode;
     export let paused: boolean;
 
+    let viewSize = { width: 320, height: 200 };
     const doomContext = createGameContext(game, viewSize);
     setContext("doom-game-context", doomContext);
     const { settings, editor, error, pointerLock } = useAppContext();
@@ -154,7 +154,11 @@
 <svelte:window on:load={scrollBottom} on:keyup|preventDefault={keyup} />
 
 <WipeContainer key={intScreen ?? screenName}>
-    <div class="relative grid h-full w-full">
+    <div
+        class="relative grid h-full w-full"
+        bind:clientHeight={viewSize.height}
+        bind:clientWidth={viewSize.width}
+    >
     {#if $intermission}
         <!-- NOTE: be cautious with #key and bind: https://github.com/sveltejs/svelte/issues/7704 (until svelte5) -->
         <Intermission details={$intermission}

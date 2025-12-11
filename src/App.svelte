@@ -130,7 +130,6 @@
 
     const isPointerLocked = pointerLock.isPointerLocked;
     $: showMenu = !$isPointerLocked;
-    let viewSize = { width: 320, height: 200 };
 
     // keep url in sync with game
     $: map = game?.map;
@@ -173,18 +172,12 @@
             </div>
         {:else if screenName === 'game'}
             {#key game}
-                <div
-                    class="game-root"
-                    bind:clientHeight={viewSize.height}
-                    bind:clientWidth={viewSize.width}
-                >
-                    <Doom {viewSize} {game} {musicGain} {soundGain} paused={showMenu}>
-                        {#if showMenu}
-                            <Menu {game} {viewSize} />
-                        {/if}
-                        <DoomControllers {viewSize} {game} paused={showMenu} />
-                    </Doom>
-                </div>
+                <Doom {game} {musicGain} {soundGain} paused={showMenu}>
+                    {#if showMenu}
+                        <Menu />
+                    {/if}
+                    <DoomControllers paused={showMenu} />
+                </Doom>
             {/key}
         {:else}
             <WadScreen {wad} {wadStore} />
@@ -217,15 +210,5 @@
     .full {
         width: 100vw;
         height: 100vh;
-    }
-
-    .game-root {
-        user-select: none;
-        overflow: hidden;
-        position: relative;
-        display: grid;
-        width: 100vw;
-        height: 100vh;
-        background: #242424;
     }
 </style>

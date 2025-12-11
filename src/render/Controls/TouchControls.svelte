@@ -1,17 +1,16 @@
 <script lang="ts">
     import type { EventHandler } from "svelte/elements";
-    import { Game, type PlayerMapObject } from "../../doom";
+    import { type PlayerMapObject } from "../../doom";
     import RoundMenu from "../Components/RoundMenu.svelte";
     import type { Action, ActionReturn } from "svelte/action";
     import Picture from "../Components/Picture.svelte";
     import type { Size } from "@threlte/core";
-    import { useAppContext } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
 
-    export let game: Game;
-    export let viewSize: Size;
     export let player: PlayerMapObject = null;
     export let showDeadZone = false;
 
+    const { game, viewSize } = useDoom();
     $: hasSuperShotgun = Boolean(game.wad.spriteTextureData('SHT2A0'));
     $: tickN = game.time.tickN;
     $: inventory = player?.inventory;

@@ -40,23 +40,20 @@
 </script>
 <script lang="ts">
     import { fade, fly } from "svelte/transition";
-    import { useAppContext } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
     import MenuItem from "./MenuItem.svelte";
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { Game, data } from "../../doom";
+    import { type Game, data } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
     import TouchControlsMenu from "./TouchControlsMenu.svelte";
-    import type { Size } from "@threlte/core";
     import { Icon } from '@steeze-ui/svelte-icon'
     import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica } from '@steeze-ui/heroicons'
 
-    export let game: Game;
-    export let viewSize: Size;
-
+    const { game, viewSize } = useDoom();
     const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
     const { intermission, map } = game;
@@ -109,7 +106,7 @@
     class="absolute inset-0 opacity-50 bg-neutral pointer-events-none"
 />
 
-<div class="absolute top-0 left-0 bottom-0 grid">
+<div class="absolute top-0 left-0 bottom-0 grid select-none">
     <div transition:fly={{ x: "-100%" }} class="
         bg-honeycomb
         w-screen max-w-96 overflow-y-scroll overflow-x-hidden

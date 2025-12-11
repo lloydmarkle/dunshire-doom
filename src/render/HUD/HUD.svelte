@@ -94,6 +94,7 @@
     }
 
     .root {
+        user-select: none;
         place-self: center;
         width: 320px;
         height: 32px;
