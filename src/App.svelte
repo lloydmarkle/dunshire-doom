@@ -1,6 +1,7 @@
 <script lang="ts">
     import { DoomWad, Game, type MissingWads, type Skill, WadFile } from './doom';
     import Doom from './render/Doom.svelte';
+    import DoomControllers from './render/DoomControllers.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
     import TextureMapScene from './render/Debug/TextureMapScene.svelte';
     import AppInfo from './render/Components/AppInfo.svelte';
@@ -13,13 +14,7 @@
     import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
     import ENDOOM from './Screens/ENDOOM.svelte';
     import { fly } from 'svelte/transition';
-    import { keyboardControls } from "./render/Controls/KeyboardControls";
-    import { mouseControls } from "./render/Controls/MouseControls";
     import Menu from "./render/Menu/Menu.svelte";
-    import TouchControls from "./render/Controls/TouchControls.svelte";
-    import { keyboardCheatControls } from "./render/Controls/KeyboardCheatControls";
-    import { Icon } from '@steeze-ui/svelte-icon'
-    import { Bars3BottomLeft } from '@steeze-ui/heroicons'
 
     const wadStore = new WadStore();
     const availableWads = wadStore.wads;
@@ -33,8 +28,6 @@
 
     const { pointerLock } = context;
     const { musicVolume, soundVolume, muted, mainVolume } = context.settings;
-    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = context.settings;
-    const touchDevice = matchMedia('(hover: none)').matches;
 
     const mainGain = audio.createGain();
     mainGain.connect(audio.destination);
@@ -189,20 +182,7 @@
                         {#if showMenu}
                             <Menu {game} {viewSize} />
                         {/if}
-
-                        {#if !showMenu || $cameraMode === 'svg'}
-                        <div use:keyboardControls={{ input: game.input, keymap: $keymap }} />
-                        <div use:keyboardCheatControls={game} />
-                        {/if}
-                        {#if $isPointerLocked && !touchDevice}
-                        <div use:mouseControls={{ input: game.input, mouseSpeed: $mouseSensitivity, invertY: $mouseInvertY, swapButtons: $mouseSwitchLeftRightButtons }} />
-                        {/if}
-                        {#if touchDevice && !showMenu}
-                            <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
-                                <Icon class="swap-on fill-current opacity-60" src={Bars3BottomLeft} theme='solid' size="2rem"/>
-                            </button>
-                            <TouchControls {viewSize} {game} player={$map?.player} />
-                        {/if}
+                        <DoomControllers {viewSize} {game} paused={showMenu} />
                     </Doom>
                 </div>
             {/key}

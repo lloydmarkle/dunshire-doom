@@ -6,16 +6,19 @@
     import type { Size } from "@threlte/core";
     import HUDMessages from "./HUDMessages.svelte";
     import STNumber from "../Components/STNumber.svelte";
+    import { useAppContext } from "../DoomContext";
 
     export let player: PlayerMapObject;
     export let size: Size;
 
     const { health, weapon, inventory } = player;
     $: weaponLights = $inventory.weapons.map(e => e?.keynum);
-    const stbarGfx = player.map.game.wad.graphic('STBAR');
-    const hudHeight = stbarGfx.height * 2; // why *2? Because we are scaling by 2 in a css transform below
-    const stbar = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
-    const stbarOffsetX = (320 - stbarGfx.width) / 2;
+    const { maxHudScale } = useAppContext().settings;
+    const background = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
+    const gfx = player.map.game.wad.graphic('STBAR');
+    const offsetX = (320 - gfx.width) / 2;
+    $: scale = Math.min(size.width / gfx.width, size.height / gfx.height, $maxHudScale);
+    $: hudHeight = gfx.height * scale; // why *2? Because we are scaling by 2 in a css transform below
 </script>
 
 <HUDMessages {player} />
@@ -23,8 +26,9 @@
 <div
     class="root"
     style:--st-top="{size.height - hudHeight}px"
-    style:--st-bg="url({stbar})"
-    style:--st-bg-offsetx="{stbarOffsetX}px"
+    style:--st-bg="url({background})"
+    style:--st-bg-offsetx="{offsetX}px"
+    style:--st-scale="{scale}"
 >
     <!-- <Picture name={'STBAR'} /> -->
     <div class="ammo">
@@ -93,7 +97,7 @@
         place-self: center;
         width: 320px;
         height: 32px;
-        transform: scale(2);
+        transform: scale(var(--st-scale));
         transform-origin: top center;
         top: var(--st-top);
         background: var(--st-bg);

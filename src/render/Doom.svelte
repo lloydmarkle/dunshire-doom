@@ -26,7 +26,7 @@
     export let soundGain: GainNode;
     export let paused: boolean;
 
-    const doomContext = createGameContext(game);
+    const doomContext = createGameContext(game, viewSize);
     setContext("doom-game-context", doomContext);
     const { settings, editor, error, pointerLock } = useAppContext();
     const { cameraMode, showPlayerInfo, renderMode } = settings;

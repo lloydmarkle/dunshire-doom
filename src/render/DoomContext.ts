@@ -5,8 +5,7 @@ import { get, writable, type Writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
 import { createFullscreenControls } from './Controls/FullscreenControls';
-
-// TODO: so many "contexts". We should simplify
+import type { Size } from '@threlte/core';
 
 interface RangeSetting extends BaseSetting<number> {
     type: 'range';
@@ -109,6 +108,7 @@ export const createDefaultSettings = () => {
         ...soundSettings,
         ...touchControlSettings,
         ...controllerConfig,
+        maxHudScale: writable(4),
         simulate486: writable(false),
         showStats: writable(false),
         showPlayerInfo: store(false),
@@ -171,6 +171,7 @@ export const createAppContext = () => {
         toggle('advanced', settings.alwaysRun, 'Always run'),
         toggle('advanced', settings.freelook, 'Free look'),
         toggle('advanced', settings.pistolStart, 'Pistol start'),
+        range('advanced', settings.maxHudScale, 'Max status bar size', .5, 10, .1),
         range('advanced', settings.fov, 'Field of view (FOV)', 50, 120, 2),
         toggle('advanced', settings.interpolateMovement, 'Interpolate movement'),
         range('advanced', settings.timescale, 'Timescale', 0.1, 2, .1),
@@ -203,10 +204,10 @@ export const createAppContext = () => {
     return { settings, settingsMenu, editor, audio, pointerLock, fullscreen, error };
 }
 
-export const createGameContext = (game: Game) => {
+export const createGameContext = (game: Game, viewSize: Size) => {
     const textures = new MapTextures(game.wad);
     const wad = game.wad;
-    return { game, wad, textures };
+    return { game, wad, textures, viewSize };
 }
 
 export const useAppContext = (): ReturnType<typeof createAppContext> => getContext('doom-app-context');
