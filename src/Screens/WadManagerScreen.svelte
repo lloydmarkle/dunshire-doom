@@ -82,7 +82,7 @@
             <WadList wads={visibleWads} bind:selected={selectedPWads} multiSelect={false} />
         </div>
 
-        <div class="h-48">
+        <div class="h-48 mt-auto">
             <WadDropbox {wadStore} />
         </div>
     </div>

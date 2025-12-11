@@ -1,7 +1,12 @@
 <script lang="ts">
-    import { type WadFile, type Lump, DoomWad } from "../doom";
+    import { Icon } from "@steeze-ui/svelte-icon";
+    import { type WadFile, type Lump, DoomWad, SoundIndex } from "../doom";
     import type { WADInfo } from "../WadStore";
+    import ENDOOM from "./ENDOOM.svelte";
     import MapSection from './WadInfo/MapSection.svelte'
+    import SoundPreview from './WadInfo/SoundPreview.svelte'
+    import MusicPreview from './WadInfo/MusicPreview.svelte'
+    import { MagnifyingGlass } from "@steeze-ui/heroicons";
 
     // A SLADE inspired wad view. It's definitely not as complete and does not allow editing
     // but who knows... maybe someday?
@@ -26,8 +31,22 @@
         (n >> 10) > 0 ? (n / 1024).toFixed(1) + 'KB' :
         n + 'B';
 
+    let searchText = '';
+    $: lowerCaseSearchText = searchText.toUpperCase();
+    $: filteredLumps = wadFile.lumps.filter(wad => wad.name.includes(lowerCaseSearchText));
+
     let selectedLump: Lump = null;
     function lumpType(lump: Lump) {
+        if (lump.name === 'ENDOOM') {
+            return 'endoom';
+        } else if (lump.data.every(n => n >= 32 && n <= 127)) {
+            return 'text';
+        } else if (lump.name.startsWith('D_')) {
+            // is starting with D_ really enough??
+            return 'music';
+        } else if (lump.name.startsWith('DS') && Object.values(SoundIndex).includes('sfx_' + lump.name.substring(2).toLowerCase())) {
+            return 'sound';
+        }
         return 'n/a';
     }
 </script>
@@ -56,8 +75,12 @@
 
 <section>
     <h3 class="text-xl">All Lumps</h3>
-    <div class="flex">
-        <div class="bg-base-300 max-h-[calc(100vh-4rem)] overflow-y-scroll">
+    <div class="flex max-h-[calc(100vh-4rem)] gap-2">
+        <div class="bg-base-300 overflow-y-scroll max-w-xs">
+            <label class="input input-bordered input-sm flex items-center gap-2 ms-auto">
+                <input type="text" class="grow" placeholder="Search" bind:value={searchText} />
+                <Icon src={MagnifyingGlass} theme='outline' size=".5rem" />
+            </label>
             <table class="table table-xs">
                 <!-- head -->
                 <thead>
@@ -73,6 +96,7 @@
                     <tr
                         class="cursor-pointer"
                         class:bg-accent={selectedLump === lump}
+                        class:hidden={!filteredLumps.includes(lump)}
                         on:click={() => selectedLump = lump}
                     >
                         <th>{i}</th>
@@ -85,7 +109,22 @@
             </table>
         </div>
 
-        <div class="flex-grow relative">TODO: preview selected lump</div>
+        <div class="relative overflow-scroll flex-grow">
+            {#if selectedLump}
+                {@const type = lumpType(selectedLump)}
+                {#if type === 'text'}
+                    <pre class="px-2 bg-base-300">{String.fromCharCode(...Array.from(selectedLump.data))}</pre>
+                {:else if type === 'endoom'}
+                    <ENDOOM {wad} />
+                {:else if type === 'music'}
+                    <MusicPreview lump={selectedLump} />
+                {:else if type === 'sound'}
+                    <SoundPreview lump={selectedLump} />
+                {/if}
+            {:else}
+                TODO: preview selected lump
+            {/if}
+        </div>
     </div>
 </section>
 

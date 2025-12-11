@@ -1,3 +1,28 @@
+<script lang="ts" context="module">
+    export function createSoundBufferCache(audio: AudioContext, wad: DoomWad) {
+        const cache = new Map<string, AudioBuffer>();
+        return (name: string) => {
+            if (!cache.has(name)) {
+                const data = wad.lumpByName(name).data;
+                const buffer = createSoundBuffer(audio, data);
+                cache.set(name, buffer);
+            }
+            return cache.get(name);
+        };
+    }
+
+    export function createSoundBuffer(audio: AudioContext, buff: Uint8Array) {
+        const sampleRate = word(buff, 0x2);
+        const numSamples = dword(buff, 0x4) - 32;
+        // NB: Convert from unsigned int to float in range [-1,1] is CRITICAL to avoid popping/crackling sounds
+        // It took me _way_ too long to figure this out
+        const pcmData = Float32Array.from(buff.slice(0x18, 0x18 + numSamples), v => (v - 128) / 128);
+        // createBuffer cannot handle 0-length sounds (see magnolia.wad!)
+        const buffer = audio.createBuffer(1, Math.max(1, numSamples), sampleRate);
+        buffer.getChannelData(0).set(pcmData);
+        return buffer;
+    }
+</script>
 <script lang="ts">
     import { useAppContext } from "./DoomContext";
     import { MapObject, PlayerMapObject, SoundIndex, type Sector, type SoundEmitter, DoomWad, xyDistSqr, word, dword } from "../doom";
@@ -74,23 +99,7 @@
         });
     }
 
-    const soundBuffers = new Map<string, AudioBuffer>()
-    function soundBuffer(name: string) {
-        if (!soundBuffers.has(name)) {
-            const buff = wad.lumpByName(name).data;
-            const sampleRate = word(buff, 0x2);
-            const numSamples = dword(buff, 0x4) - 32;
-            // NB: Convert from unsigned int to float in range [-1,1] is CRITICAL to avoid popping/crackling sounds
-            // It took me _way_ too long to figure this out
-            const pcmData = Float32Array.from(buff.slice(0x18, 0x18 + numSamples), v => (v - 128) / 128);
-            // createBuffer cannot handle 0-length sounds (see magnolia.wad!)
-            const buffer = audio.createBuffer(1, Math.max(1, numSamples), sampleRate);
-            buffer.getChannelData(0).set(pcmData);
-            soundBuffers.set(name, buffer);
-        }
-        return soundBuffers.get(name);
-    }
-
+    const soundBuffer = createSoundBufferCache(audio, wad);
     const isSingletonSound = (snd: SoundIndex) => (
         snd === SoundIndex.sfx_pistol
         || snd === SoundIndex.sfx_sawup
