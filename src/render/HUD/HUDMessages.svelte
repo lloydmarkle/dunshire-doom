@@ -3,11 +3,12 @@
     import { tick } from "svelte";
     import type { PlayerMapObject } from "../../doom";
     import STText from "../Components/STText.svelte";
+    import { useAppContext } from "../DoomContext";
 
+    const { visibleHudMessages } = useAppContext().settings;
     export let player: PlayerMapObject;
     const hudMessage = player.hudMessage;
 
-    const visibleMessages = 3;
     const messageTimeMS = 4000;
 
     // A neat little hack (IMO). We don't need a list of messages but instead put each message into the DOM and let the
@@ -30,8 +31,8 @@
 
 <div
     bind:this={messageView}
-    class="messages"
-    style="--visible-messages:{visibleMessages}"
+    class="messages select-none"
+    style="--visible-messages:{$visibleHudMessages}"
 >
     {#key messageNumber}
         <div out:fly={{ y: -8, delay: messageTimeMS }}>
