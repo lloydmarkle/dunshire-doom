@@ -40,7 +40,6 @@
     // Fun! https://doomwiki.org/wiki/ENDOOM
     $: bytes = wad.lumpByName('ENDOOM').data;
     $: values = Array.from(bytes).map((_, i, arr) => i % 2 ? null : [arr[i], arr[i + 1]]).filter(e => e);
-    $: console.log('values',values)
 </script>
 
 <div

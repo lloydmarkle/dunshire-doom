@@ -13,18 +13,28 @@
     import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
     import ENDOOM from './Screens/ENDOOM.svelte';
     import { fly } from 'svelte/transition';
+    import { keyboardControls } from "./render/Controls/KeyboardControls";
+    import { mouseControls } from "./render/Controls/MouseControls";
+    import Menu from "./render/Menu/Menu.svelte";
+    import TouchControls from "./render/Controls/TouchControls.svelte";
+    import { keyboardCheatControls } from "./render/Controls/KeyboardCheatControls";
+    import { Icon } from '@steeze-ui/svelte-icon'
+    import { Bars3BottomLeft } from '@steeze-ui/heroicons'
 
     const wadStore = new WadStore();
     const availableWads = wadStore.wads;
 
     const context = createAppContext();
     setContext('doom-app-context', context);
-
     const { error, audio } = context;
     function enableSoundOnce() {
         audio.resume();
     }
+
+    const { pointerLock } = context;
     const { musicVolume, soundVolume, muted, mainVolume } = context.settings;
+    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = context.settings;
+    const touchDevice = matchMedia('(hover: none)').matches;
 
     const mainGain = audio.createGain();
     mainGain.connect(audio.destination);
@@ -125,6 +135,9 @@
         }
     }
 
+    const isPointerLocked = pointerLock.isPointerLocked;
+    $: showMenu = !$isPointerLocked;
+    let viewSize = { width: 320, height: 200 };
 
     // keep url in sync with game
     $: map = game?.map;
@@ -167,7 +180,31 @@
             </div>
         {:else if screenName === 'game'}
             {#key game}
-                <Doom {game} {musicGain} {soundGain} />
+                <div
+                    class="game-root"
+                    bind:clientHeight={viewSize.height}
+                    bind:clientWidth={viewSize.width}
+                >
+                    <Doom {viewSize} {game} {musicGain} {soundGain} paused={showMenu}>
+                        {#if showMenu}
+                            <Menu {game} {viewSize} />
+                        {/if}
+
+                        {#if !showMenu || $cameraMode === 'svg'}
+                        <div use:keyboardControls={{ input: game.input, keymap: $keymap }} />
+                        <div use:keyboardCheatControls={game} />
+                        {/if}
+                        {#if $isPointerLocked && !touchDevice}
+                        <div use:mouseControls={{ input: game.input, mouseSpeed: $mouseSensitivity, invertY: $mouseInvertY, swapButtons: $mouseSwitchLeftRightButtons }} />
+                        {/if}
+                        {#if touchDevice && !showMenu}
+                            <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
+                                <Icon class="swap-on fill-current opacity-60" src={Bars3BottomLeft} theme='solid' size="2rem"/>
+                            </button>
+                            <TouchControls {viewSize} {game} player={$map?.player} />
+                        {/if}
+                    </Doom>
+                </div>
             {/key}
         {:else}
             <WadScreen {wad} {wadStore} />
@@ -200,5 +237,15 @@
     .full {
         width: 100vw;
         height: 100vh;
+    }
+
+    .game-root {
+        user-select: none;
+        overflow: hidden;
+        position: relative;
+        display: grid;
+        width: 100vw;
+        height: 100vh;
+        background: #242424;
     }
 </style>

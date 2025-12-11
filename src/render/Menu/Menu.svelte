@@ -40,7 +40,7 @@
 </script>
 <script lang="ts">
     import { fade, fly } from "svelte/transition";
-    import { useAppContext, useDoom } from "../DoomContext";
+    import { useAppContext } from "../DoomContext";
     import MenuItem from "./MenuItem.svelte";
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
@@ -54,11 +54,11 @@
     import { Icon } from '@steeze-ui/svelte-icon'
     import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica } from '@steeze-ui/heroicons'
 
+    export let game: Game;
     export let viewSize: Size;
 
     const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
-    const { game } = useDoom();
     const { intermission, map } = game;
     const touchDevice = matchMedia('(hover: none)').matches;
     // a hack to allow a fullscreen menu for configuring touch controls
