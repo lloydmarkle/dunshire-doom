@@ -35,19 +35,19 @@
         return () => seq.pause();
     }
 
-    async function mp3Player(music: ArrayBuffer) {
-        const mp3 = audio.createBufferSource();
-        mp3.buffer = await audio.decodeAudioData(music);
-        mp3.connect(musicGain);
-        mp3.loop = true;
-        mp3.start();
-        return () => mp3.stop();
+    async function encodedMusicPlayer(music: ArrayBuffer) {
+        const source = audio.createBufferSource();
+        source.buffer = await audio.decodeAudioData(music);
+        source.connect(musicGain);
+        source.loop = true;
+        source.start();
+        return () => source.stop();
     }
 
     let playing = false;
     function playMusic() {
         playing = true;
-        stopTheMusic = info.isMp3 ? mp3Player(info.music) : spessaSynthPlayer(info.music);
+        stopTheMusic = info.isEncodedMusic ? encodedMusicPlayer(info.music) : spessaSynthPlayer(info.music);
     }
 
     async function stopMusic() {

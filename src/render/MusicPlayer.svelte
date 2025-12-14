@@ -6,16 +6,17 @@
 
     export function musicInfo(lump: Lump) {
         const musicBuffer = lump?.data;
-        const isMp3 = musicBuffer && (
+        const isEncodedMusic = musicBuffer && (
                 (musicBuffer[0] === 0xff && [0xfb, 0xf3, 0xf2].includes(musicBuffer[1]))
+                || (musicBuffer[0] === 0x4f && musicBuffer[1] === 0x67 && musicBuffer[2] === 0x67 && musicBuffer[3] === 0x53)
                 || (musicBuffer[0] === 0x49 && musicBuffer[1] === 0x44 && musicBuffer[2] === 0x33));
         const music = toMidi(musicBuffer).buffer;
-        return { isMp3, music };
+        return { isEncodedMusic, music };
 
         function toMidi(musicBuffer: Uint8Array): Buffer<ArrayBuffer> {
             try {
                 // some wads have mp3 files, not mus
-                if (isMp3) {
+                if (isEncodedMusic) {
                     return buff.from(musicBuffer);
                 }
                 // some wads have vanilla midi
@@ -50,7 +51,7 @@
     $: info = musicInfo(musicLump);
 
     $: musicStopper =
-        info.isMp3 ? mp3Player(info.music) :
+        info.isEncodedMusic ? encodedMusicPlayer(info.music) :
         $musicPlayback === 'soundfont' ? spessaSynthPlayer(info.music) :
         $musicPlayback === 'synth' ? synthPlayer(info.music) :
         noMusic();
@@ -66,15 +67,16 @@
         return () => {};
     }
 
-    async function mp3Player(music: ArrayBuffer) {
+    // mp3 or ogg
+    async function encodedMusicPlayer(music: ArrayBuffer) {
         stopTheMusic();
 
-        const mp3 = audio.createBufferSource();
-        mp3.buffer = await audio.decodeAudioData(music);
-        mp3.connect(audioRoot);
-        mp3.loop = true;
-        mp3.start();
-        return () => mp3.stop();
+        const source = audio.createBufferSource();
+        source.buffer = await audio.decodeAudioData(music);
+        source.connect(audioRoot);
+        source.loop = true;
+        source.start();
+        return () => source.stop();
     }
 
     const sampleStore = new MidiSampleStore();
