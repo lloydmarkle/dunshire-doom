@@ -32,8 +32,8 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * ~~Victory screens~~
 * ~~Automatic weapon switching on low ammo~~
 * ~~Shooting angle randomness isn't right (also Revenant rockets)~~
-* Sounds for crushers and moving floors (door sounds work!)
-* Crackling/popping sounds
+* ~~Sounds for crushers and moving floors (door sounds work!)~~
+* ~~Crackling/popping sounds~~
 * ~~Sound playback, in general, doesn't feel quite right (sounds are too soft or interrupted too often)~~
 * Holes in floor/ceiling geometry in some maps (eg. Doom2 MAP25~~, Plutonia MAP25 and MAP29~~)
 * Load/Save games
