@@ -47,10 +47,11 @@
     const { audio, settings } = useAppContext();
     const musicPlayback = settings.musicPlayback;
 
-    $: musicLump = wad.lumpByName(trackName);
+    $: musicLump = wad.optionalLump(trackName);
     $: info = musicInfo(musicLump);
 
     $: musicStopper =
+        info.music.byteLength === 0 ? noMusic() :
         info.isEncodedMusic ? encodedMusicPlayer(info.music) :
         $musicPlayback === 'soundfont' ? spessaSynthPlayer(info.music) :
         $musicPlayback === 'synth' ? synthPlayer(info.music) :
