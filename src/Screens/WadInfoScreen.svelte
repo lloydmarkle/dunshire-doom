@@ -1,11 +1,12 @@
 <script lang="ts">
     import { Icon } from "@steeze-ui/svelte-icon";
     import { type WadFile, type Lump, DoomWad, SoundIndex } from "../doom";
-    import type { WADInfo } from "../WadStore";
+    import { defaultPalette, type WADInfo } from "../WadStore";
     import ENDOOM from "./ENDOOM.svelte";
     import MapSection from './WadInfo/MapSection.svelte'
     import SoundPreview from './WadInfo/SoundPreview.svelte'
     import MusicPreview from './WadInfo/MusicPreview.svelte'
+    import GraphicPreview from './WadInfo/GraphicPreview.svelte'
     import { MagnifyingGlass } from "@steeze-ui/heroicons";
 
     // A SLADE inspired wad view. It's definitely not as complete and does not allow editing
@@ -14,7 +15,45 @@
     export let wadInfo: WADInfo;
     export let wadFile: WadFile;
 
-    $: wad = new DoomWad(wadInfo.name, [wadFile]);
+    let imageLumpRanges = [];
+    function isGraphic(lump: Lump, index: number) {
+        // FIXME: this is not a good function at all but I'm not feeling like improving it at the moment
+        return (false
+            || imageLumpRanges.some(range => index > range[0] && index < range[1])
+            || lump.name.startsWith('ST') // STBAR, STNUM, STG, STC... maybe too general?
+            || lump.name.startsWith('AMMNUM')
+            || lump.name.startsWith('M_')
+            || lump.name.startsWith('BRDR')
+            || lump.name.startsWith('WI')
+            || lump.name.startsWith('CWI')
+            || lump.name.startsWith('END')
+            || lump.name.startsWith('PFUB')
+            || ['TITLEPIC', 'HELP', 'CREDIT', 'BOSSBACK', 'INTERPIC', 'HELP1', 'VICTORY2'].includes(lump.name)
+        );
+    }
+
+    $: wad = initializeWad(wadInfo.name, wadFile);
+    function initializeWad(name: string, file: WadFile) {
+        const wad = new DoomWad(name, [file]);
+        // we need a default palette to render graphics
+        if (wad.palettes.length === 0) {
+            wad.palettes.push(defaultPalette);
+        }
+
+        let rangeStart = -1;
+        for (let i = 0; i < file.lumps.length; i++) {
+            if (file.lumps[i].name.endsWith('_START') && rangeStart === -1) {
+                rangeStart = i;
+            } else if (file.lumps[i].name.endsWith('_END') && rangeStart > 0) {
+                imageLumpRanges.push([rangeStart, i]);
+                rangeStart = -1;
+            }
+        }
+        console.log('ranges',imageLumpRanges)
+
+        return wad;
+    }
+
     $: wadComponents = [
         wad.mapNames.length ? [`Maps (${wad.mapNames.length})`, MapSection, false] : null,
         // wad.texturesNames.length ? ['Textures', ] : [],
@@ -36,16 +75,19 @@
     $: filteredLumps = wadFile.lumps.filter(wad => wad.name.includes(lowerCaseSearchText));
 
     let selectedLump: Lump = null;
-    function lumpType(lump: Lump) {
+    let selectedLumpIndex = 0;
+    function lumpType(lump: Lump, index: number) {
         if (lump.name === 'ENDOOM') {
             return 'endoom';
-        } else if (lump.data.every(n => n >= 32 && n <= 127)) {
-            return 'text';
         } else if (lump.name.startsWith('D_')) {
             // is starting with D_ really enough??
             return 'music';
         } else if (lump.name.startsWith('DS') && Object.values(SoundIndex).includes('sfx_' + lump.name.substring(2).toLowerCase())) {
             return 'sound';
+        } else if (isGraphic(lump, index)) {
+            return 'image'
+        } else if (lump.data.every(n => n >= 32 && n <= 127)) {
+            return 'text';
         }
         return 'n/a';
     }
@@ -97,12 +139,12 @@
                         class="cursor-pointer"
                         class:bg-accent={selectedLump === lump}
                         class:hidden={!filteredLumps.includes(lump)}
-                        on:click={() => selectedLump = lump}
+                        on:click={() => { selectedLump = lump; selectedLumpIndex = i}}
                     >
                         <th>{i}</th>
                         <td>{lump.name}</td>
                         <td>{printBytes(lump.data.byteLength)}</td>
-                        <td>{lumpType(lump)}</td>
+                        <td>{lumpType(lump, i)}</td>
                     </tr>
                     {/each}
                 </tbody>
@@ -111,7 +153,7 @@
 
         <div class="relative overflow-scroll flex-grow">
             {#if selectedLump}
-                {@const type = lumpType(selectedLump)}
+                {@const type = lumpType(selectedLump, selectedLumpIndex)}
                 {#if type === 'text'}
                     <pre class="px-2 bg-base-300">{String.fromCharCode(...Array.from(selectedLump.data))}</pre>
                 {:else if type === 'endoom'}
@@ -120,6 +162,8 @@
                     <MusicPreview lump={selectedLump} />
                 {:else if type === 'sound'}
                     <SoundPreview lump={selectedLump} />
+                {:else if type === 'image'}
+                    <GraphicPreview {wad} lump={selectedLump} />
                 {/if}
             {:else}
                 TODO: preview selected lump

@@ -121,6 +121,7 @@
         </div>
 
         {#if selectedIWad}
+
         <div out:fly={{ y: '-100%' }} in:fly={{ delay: 200, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2 z-30">
             <a class="btn btn-secondary w-48 shadow-xl" href={"#"}>❮ Select IWAD</a>
         </div>

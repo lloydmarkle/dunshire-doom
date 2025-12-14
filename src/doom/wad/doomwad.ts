@@ -247,7 +247,7 @@ export class DoomWad {
             return new PatchPicture(width, height, pics);
         }
 
-        // not patch, try a plan lump with that name
+        // not patch, try to load as a graphic
         const pic = this.graphic(uname);
         if (pic) {
             return pic;
@@ -316,6 +316,7 @@ export class DoomWad {
     }
 
     graphic(name: string): Picture {
+        // Some DOOM WADs have PNGs so... should we load those too?
         const uname = name.toUpperCase();
         const lump = this.lumpByName(uname);
         if (!lump) {

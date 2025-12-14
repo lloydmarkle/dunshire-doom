@@ -63,7 +63,7 @@
 
     $: gfx = wad.graphic(name);
     $: dataUrl = imageDataUrl(wad, name, type);
-    $: style = type !== 'sprite' ? '' : `transform: translate(0px, ${-gfx.yOffset + .5 * gfx.height}px)`;
+    $: style = type === 'sprite' ? `transform: translate(0px, ${-gfx.yOffset + .5 * gfx.height}px)` : '';
 </script>
 
 <img {style} src={dataUrl} alt={name} />
