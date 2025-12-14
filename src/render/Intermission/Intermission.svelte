@@ -4,7 +4,7 @@
     import VictoryCast from "./VictoryCast.svelte";
     import VictoryText, { hasVictoryText } from "./VictoryText.svelte";
     import Summary from "./Summary.svelte";
-    import { MapRuntime, type IntermissionScreen } from "../../doom";
+    import { type IntermissionScreen } from "../../doom";
     import WipeContainer from "../Components/WipeContainer.svelte";
 
     export let details: IntermissionScreen;
@@ -38,21 +38,20 @@
 </script>
 
 <WipeContainer key={screenName}>
-    <div
-        class="
-        absolute inset-0
-        flex justify-center items-center
-        "
-        style="transform:scale({scale});"
-    >
-        {#if screenName == 'summary'}
-            <Summary {details} bind:complete={summaryComplete}/>
-        {:else if screenName == 'text'}
-            <VictoryText {mapName} bind:complete={textComplete} />
-        {:else if screenName === 'art'}
-            <VictoryArt {mapName} bind:complete={artComplete} />
-        {:else if screenName === 'cast'}
-            <VictoryCast />
-        {/if}
+    <div class="absolute inset-0 overflow-hidden select-none">
+        <div
+            class="h-full w-full flex justify-center items-center"
+            style="transform:scale({scale});"
+        >
+            {#if screenName == 'summary'}
+                <Summary {details} bind:complete={summaryComplete}/>
+            {:else if screenName == 'text'}
+                <VictoryText {mapName} bind:complete={textComplete} />
+            {:else if screenName === 'art'}
+                <VictoryArt {mapName} bind:complete={artComplete} />
+            {:else if screenName === 'cast'}
+                <VictoryCast />
+            {/if}
+        </div>
     </div>
 </WipeContainer>

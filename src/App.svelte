@@ -163,10 +163,7 @@
         {:else if screenName === 'endoom'}
             <div class="absolute inset-0">
                 <ENDOOM {wad} />
-                <div
-                    transition:fly={{ y: '-100%', delay: 200 }}
-                    class="absolute top-0 bg-base-100 rounded-box shadow-xl"
-                >
+                <div class="absolute top-0 bg-base-100 rounded-box shadow-xl">
                     <a href="/#" class="btn btn-lg">Close</a>
                 </div>
             </div>
