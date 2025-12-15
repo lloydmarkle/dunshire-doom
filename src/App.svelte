@@ -13,7 +13,6 @@
     import ErrorScreen from './Screens/Errors/Root.svelte';
     import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
     import ENDOOM from './Screens/ENDOOM.svelte';
-    import { fly } from 'svelte/transition';
     import Menu from "./render/Menu/Menu.svelte";
 
     const wadStore = new WadStore();

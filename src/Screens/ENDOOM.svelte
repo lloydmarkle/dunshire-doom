@@ -6,7 +6,7 @@
     let viewSize = { width: 1024, height: 600 };
     // FIXME: this still needs some work for mobile screens in portrait orientation
     $: style = [
-        `transform: scale(${Math.min(viewSize.width / 800, viewSize.height / 400)})`,
+        `transform: scale(${Math.min(viewSize.width / 640, viewSize.height / 400)})`,
         `transform-origin: top`,
     ].join(';');
 

@@ -150,7 +150,7 @@
     }
 </script>
 
-<TouchControls {game} {viewSize} {showDeadZone} />
+<TouchControls {showDeadZone} />
 <div
     class="
         absolute w-full flex justify-between

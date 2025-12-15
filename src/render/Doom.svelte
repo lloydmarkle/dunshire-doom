@@ -31,51 +31,48 @@
     const { settings, editor, error, pointerLock } = useAppContext();
     const { cameraMode, showPlayerInfo, renderMode } = settings;
     const { map, intermission } = game;
-    // TODO: having a separate WipeContainer component is messy and so is tracking two screen states. I wonder if we could
-    // move to a single "screen" variable and manage it somehow in App.svelte?
-    // I'm pretty confident this can all be cleaned up... someday.
+
     // NOTE: add noise to map name so that idclev to same map does screen wipe
     $: screenName = ($map?.name ?? '') + Math.random();
     $: intScreen = $intermission ? 'summary' : null;
     let intermissionMusic: string;
 
-    let spriteSheet: SpriteSheet;
-    $: if ($cameraMode !== 'svg' && threlteCtx) {
-        // only create once
-        spriteSheet = spriteSheet ?? new SpriteSheet(game.wad, threlteCtx.renderer.capabilities.maxTextureSize);
-    }
-
+    // only create once
+    $: spriteSheet = ($cameraMode !== 'svg' && threlteCtx) ? (spriteSheet ?? new SpriteSheet(game.wad, threlteCtx.renderer.capabilities.maxTextureSize)) : spriteSheet;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
     $: settings.compassMove.set($cameraMode === "svg");
     $: mapMusicTrack = $map?.musicTrack;
 
+    let threlteCtx: ThrelteContext;
+    let frameTime: number;
+    let tscale: number;
+    // force render on screensize change
+    $: if (viewSize) threlteCtx?.advance();
+
     // A fun little hack to make the game feel like it used to on my 486sx25
     const { simulate486, timescale, pixelScale, fpsLimit } = settings;
-    let threlteCtx: ThrelteContext;
     // F5 low-res mode (it should be .5 but that looks to sharp IMO)
     // FIXME: starting the game with low pixel ratio and then increasing doesn't work... why?
     $: threlteCtx?.renderer?.setPixelRatio($simulate486 ? .2 : $pixelScale);
-    let frameTime: number;
-    let tscale: number;
-    $: if ($simulate486) {
-        const set486Params = () => {
-            if (!$simulate486) {
-                return;
-            }
-            // a real 486 would slow down if there was a lot of geometry or bad guys but this was simple and fun.
-            // This guy has some neat numbers though we're not strictly following it https://www.youtube.com/watch?v=rZcAo4oUc4o
-            frameTime = 1 / randomNorm(2, 18, 1.2);
-            // IIRC even game logic would slow down when the CPU was busy. We simulate that slowing down time (just a little)
-            tscale = 1 - frameTime * 2;
-            setTimeout(set486Params, randInt(200, 800));
+    const use486TimeParams = () => {
+        if (!$simulate486) {
+            return;
         }
-        set486Params();
-    } else {
-        frameTime = 1 / $fpsLimit;
-        tscale = $timescale;
+        setTimeout(use486TimeParams, randInt(200, 800));
+        // a real 486 would slow down if there was a lot of geometry or bad guys but this was simple and fun.
+        // This guy has some neat numbers though we're not strictly following it https://www.youtube.com/watch?v=rZcAo4oUc4o
+        frameTime = 1 / randomNorm(2, 18, 1.2);
+        // IIRC even game logic would slow down when the CPU was busy. We simulate that slowing down time (just a little)
+        tscale = 1 - frameTime * 2;
     }
+    const useNormalTimeParams = (fpsLimit: number, timescale: number) => {
+        console.log('normal time')
+        frameTime = 1 / fpsLimit;
+        tscale = timescale;
+    }
+    $: $simulate486 ? use486TimeParams() : useNormalTimeParams($fpsLimit, $timescale);
 
-    const updateFrame = (function() {
+    const { switchRAF, stopRAF } = (function() {
         let frameReq: number;
         let lastTickTime = 0;
         // use negative number so we always render first frame as fast as possible
@@ -87,7 +84,7 @@
 
         const menuFn: FrameRequestCallback = (time) => {
             time *= .001;
-            frameReq = requestAnimationFrame(obj.nextFn);
+            frameReq = requestAnimationFrame(nextFn);
             // update within 50ms on editor selection otherwise use 1fps
             let frameTime = $editor.selected ? .05 : 1;
             if (time - lastFrameTime > frameTime) {
@@ -99,7 +96,7 @@
 
         const gameFn: FrameRequestCallback = (time) => {
             time *= .001;
-            frameReq = requestAnimationFrame(obj.nextFn);
+            frameReq = requestAnimationFrame(nextFn);
             if (time - lastFrameTime > frameTime) {
                 threlteCtx?.advance();
                 lastFrameTime = time - (time % frameTime);
@@ -113,26 +110,20 @@
             }
         };
 
-        const obj = {
-            menuFn,
-            gameFn,
-            nextFn: gameFn,
-            stop: () => cancelAnimationFrame(frameReq),
-        }
-        return obj;
+        let nextFn = menuFn;
+        nextFn(0);
+        return {
+            switchRAF: (paused: boolean) => nextFn = paused ? menuFn : gameFn,
+            stopRAF: () => cancelAnimationFrame(frameReq),
+        };
     })();
-    $: updateFrame.nextFn = paused ? updateFrame.menuFn : updateFrame.gameFn;
-    // force render on screensize change
-    $: if (viewSize) threlteCtx?.advance();
+    $: switchRAF(paused);
+    onMount(() => stopRAF);
 
     const rendererParameters: WebGLRendererParameters = {
         // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
         logarithmicDepthBuffer: true,
     };
-    onMount(() => {
-        requestAnimationFrame(updateFrame.nextFn);
-        return updateFrame.stop;
-    });
 
     // Someday I hope to live in a world where I can use fullscreen API in safari on iPhone
     // https://forums.developer.apple.com/forums/thread/133248
