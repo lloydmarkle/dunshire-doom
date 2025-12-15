@@ -38,7 +38,7 @@
 
     const musicGain = audio.createGain();
     musicGain.connect(mainGain);
-    $: musicGain.gain.value = $musicVolume * .4;
+    $: musicGain.gain.value = $musicVolume * .7;
 
     let wad: DoomWad;
     let game: Game;
