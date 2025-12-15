@@ -188,6 +188,8 @@ const archvileActions: ActionMap = {
             }
 
             faceTarget(mobj, corpse);
+            // this isn't originally in DOOM 2 but it's a quick way to stop interpolation when resurrecting
+            mobj.movedir = MoveDirection.None;
             mobj.setState(StateIndex.S_VILE_HEAL1);
             mobj.map.game.playSound(SoundIndex.sfx_slop, corpse);
 
