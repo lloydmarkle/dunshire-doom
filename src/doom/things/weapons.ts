@@ -179,7 +179,7 @@ export function giveWeapon(name: WeaponName) {
 
 function chooseNewWeapon(player: PlayerMapObject) {
     const ammo = player.inventory.val.ammo;
-    const [ chainsaw, fist, pistol, superShotgun, shotgun, chaingun, rocketLauncher, plasma, bfg ] = player.inventory.val.weapons;
+    const [ chainsaw, fist, pistol, shotgun, superShotgun, chaingun, rocketLauncher, plasma, bfg ] = player.inventory.val.weapons;
     player.nextWeapon =
         (plasma && ammo.cells.amount) ? plasma :
         (superShotgun && ammo.shells.amount >= superShotgun.fn().ammoPerShot) ? superShotgun :

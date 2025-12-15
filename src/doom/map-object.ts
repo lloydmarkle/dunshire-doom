@@ -1048,7 +1048,7 @@ export interface PlayerInventory {
         computerMap: boolean,
         berserk: boolean,
     }
-    // weapons: chainsaw, fist, pistol, [super shotgun,] shotgun, machine gun, rocket launcher, plasma rifle, bfg
+    // weapons: chainsaw, fist, pistol, shotgun, [super shotgun,], machine gun, rocket launcher, plasma rifle, bfg
     weapons: InventoryWeapon[];
     // keys
     keys: string; // RYB or RY or B or...
