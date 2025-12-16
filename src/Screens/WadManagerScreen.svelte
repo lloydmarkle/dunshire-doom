@@ -34,12 +34,25 @@
     const loadWadFile = (wadInfo: WADInfo) =>
         wadStore.fetchWad(wadInfo.name).then(buff => new WadFile(wadInfo.name, buff));
     $: selectedWadFile = selectedPWads.length ? loadWadFile(selectedPWads[0]) : Promise.resolve();
+
+    $: if (selectedPWads.length) {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        params.set('inspect', selectedPWads[0].name);
+        window.location.hash = params.toString();
+    }
+    function parseUrlHash(hash: string) {
+        const params = new URLSearchParams(hash.substring(1));
+        const pwadName = params.get('inspect');
+        if (pwadName && pwadName !== selectedPWads?.[0]?.name) {
+            selectedPWads = [$wads.find(e => e.name === pwadName)];
+        }
+    }
+    $: parseUrlHash(window.location.hash);
 </script>
 
-<!-- TODO: would grid be better than flex here? Probably... -->
-<div class="flex max-h-[calc(100vh-4rem)] gap-2">
-    <!-- <WadList {wadStore} /> -->
+<svelte:window on:popstate={() => parseUrlHash(window.location.hash)} />
 
+<div class="grid grid-cols-[max-content_1fr] grid-rows-1 max-h-full overflow-y-scroll">
     <div class="flex flex-col relative max-w-sm">
         <div class="flex flex-wrap gap-4 p-2 items-center justify-start z-10 bg-base-300">
             <!-- <span class="text-xs">{selectedPWads.length} of {$wads.length} selected</span> -->
@@ -87,9 +100,9 @@
         </div>
     </div>
 
-    <div class="flex-grow max-h-[calc(100vh-4rem)] overflow-scroll bg-base-100 px-4">
+    <div class="max-h-full overflow-scroll bg-base-100 px-4 relative">
         {#await selectedWadFile}
-            <div class="flex justify-center">
+            <div class="flex justify-center pt-24">
                 <span class="loading loading-spinner loading-md"></span>
             </div>
         {:then wadFile}

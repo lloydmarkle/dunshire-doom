@@ -7,12 +7,12 @@
     import AppInfo from './render/Components/AppInfo.svelte';
     import { createAppContext } from './render/DoomContext';
     import { setContext } from 'svelte';
-    import WadScreen from './Screens/WadScreen.svelte';
+    import HomeScreen from './Screens/HomeScreen.svelte';
     import { WadStore } from './WadStore';
     import WipeContainer from './render/Components/WipeContainer.svelte';
     import ErrorScreen from './Screens/Errors/Root.svelte';
     import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
-    import ENDOOM from './Screens/ENDOOM.svelte';
+    import ENDOOM from './render/ENDOOM.svelte';
     import Menu from "./render/Menu/Menu.svelte";
 
     const wadStore = new WadStore();
@@ -25,18 +25,16 @@
         audio.resume();
     }
 
-    const { pointerLock } = context;
+    const { pointerLock, soundGain, musicGain } = context;
     const { musicVolume, soundVolume, muted, mainVolume } = context.settings;
 
     const mainGain = audio.createGain();
     mainGain.connect(audio.destination);
     $: mainGain.gain.value = $muted ? 0 : $mainVolume;
 
-    const soundGain = audio.createGain();
     soundGain.connect(mainGain);
     $: soundGain.gain.value = $soundVolume;
 
-    const musicGain = audio.createGain();
     musicGain.connect(mainGain);
     $: musicGain.gain.value = $musicVolume * .7;
 
@@ -107,6 +105,7 @@
         if (urlMapName && validUrlSkill && (!game || game.map.val?.name !== urlMapName)) {
             game = new Game(wad, difficulty, context.settings);
             showEndoom = true;
+            pointerLock.requestLock();
             game.startMap(urlMapName);
             loadOptionalUrlParams(game, params);
         }
@@ -140,7 +139,7 @@
         game ? 'game' :
         wad && showEndoom ? 'endoom':
         $error ? 'error' :
-        'root';
+        'home';
 </script>
 
 <svelte:window on:popstate={parseUrlParams} />
@@ -176,7 +175,7 @@
                 </Doom>
             {/key}
         {:else}
-            <WadScreen {wad} {wadStore} />
+            <HomeScreen {wad} {wadStore} />
         {/if}
     </WipeContainer>
 </main>

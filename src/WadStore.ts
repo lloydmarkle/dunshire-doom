@@ -43,8 +43,7 @@ export class WadStore {
             };
             dbRequest.onsuccess = ev => {
                 this.db = (ev.target as any).result;
-                this.updateWadList();
-                resolve();
+                this.updateWadList(resolve);
             };
             dbRequest.onerror = reject;
         });
@@ -104,7 +103,7 @@ export class WadStore {
         tr.oncomplete = () => this.updateWadList();
     }
 
-    private updateWadList() {
+    private updateWadList(resolve?: () => void) {
         const req = this.db.transaction('wad-info', 'readonly')
             .objectStore('wad-info')
             .getAll();
@@ -112,6 +111,7 @@ export class WadStore {
         req.onsuccess = ev => {
             const data: WADInfo[] = (ev.target as any).result;
             this.wads.set(data.sort((a, b) => a.name.localeCompare(b.name)));
+            resolve?.();
         }
     }
 }

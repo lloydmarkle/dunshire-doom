@@ -202,8 +202,10 @@ export const createAppContext = () => {
     const pointerLock = createPointerLockControls(settings.cameraMode);
     const fullscreen = createFullscreenControls();
     const audio = new AudioContext();
+    const soundGain = audio.createGain();
+    const musicGain = audio.createGain();
     const error = store<DoomError>(null);
-    return { settings, settingsMenu, editor, audio, pointerLock, fullscreen, error };
+    return { settings, settingsMenu, editor, audio, soundGain, musicGain, pointerLock, fullscreen, error };
 }
 
 export const createGameContext = (game: Game, viewSize: Size) => {

@@ -2,7 +2,7 @@
     import { Icon } from "@steeze-ui/svelte-icon";
     import { type WadFile, type Lump, DoomWad, SoundIndex } from "../doom";
     import { defaultPalette, type WADInfo } from "../WadStore";
-    import ENDOOM from "./ENDOOM.svelte";
+    import ENDOOM from "../render/ENDOOM.svelte";
     import MapSection from './WadInfo/MapSection.svelte'
     import SoundPreview from './WadInfo/SoundPreview.svelte'
     import MusicPreview from './WadInfo/MusicPreview.svelte'
@@ -49,7 +49,6 @@
                 rangeStart = -1;
             }
         }
-        console.log('ranges',imageLumpRanges)
 
         return wad;
     }
@@ -74,8 +73,6 @@
     $: lowerCaseSearchText = searchText.toUpperCase();
     $: filteredLumps = wadFile.lumps.filter(wad => wad.name.includes(lowerCaseSearchText));
 
-    let selectedLump: Lump = null;
-    let selectedLumpIndex = 0;
     function lumpType(lump: Lump, index: number) {
         if (lump.name === 'ENDOOM') {
             return 'endoom';
@@ -91,7 +88,30 @@
         }
         return 'n/a';
     }
+
+    let selectedLump: Lump = null;
+    let selectedLumpIndex = 0;
+    function select(lump: Lump, index: number) {
+        selectedLump = lump;
+        selectedLumpIndex = index;
+
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        params.set('lump', index.toString());
+        window.location.hash = params.toString();
+    }
+
+    function parseUrlHash(hash: string) {
+        const params = new URLSearchParams(hash.substring(1));
+        const lumpIndex = params.get('lump');
+        if (lumpIndex) {
+            const index = Number(lumpIndex);
+            select(wadFile.lumps[index], index);
+        }
+    }
+    $: parseUrlHash(window.location.hash);
 </script>
+
+<svelte:window on:popstate={() => parseUrlHash(window.location.hash)} />
 
 <section class="flex justify-between">
     <div>
@@ -106,7 +126,7 @@
     <div class="collapse collapse-arrow bg-base-200">
         <input type="checkbox" name="wad-content" on:change={() => wc[2] = !wc[2]} />
         <div class="collapse-title text-xl font-medium">{wc[0]}</div>
-        <div class="collapse-content">
+        <div class="collapse-content max-h-[32rem]">
             {#if wc[2]}
                 <svelte:component this={wc[1]} {wadFile} {wad} />
             {/if}
@@ -115,40 +135,42 @@
     {/each}
 </section>
 
-<section>
+<section class="">
     <h3 class="text-xl">All Lumps</h3>
-    <div class="flex max-h-[calc(100vh-4rem)] gap-2">
-        <div class="bg-base-300 overflow-y-scroll max-w-xs">
+    <div class="flex gap-2">
+        <div>
             <label class="input input-bordered input-sm flex items-center gap-2 ms-auto">
                 <input type="text" class="grow" placeholder="Search" bind:value={searchText} />
                 <Icon src={MagnifyingGlass} theme='outline' size=".5rem" />
             </label>
-            <table class="table table-xs">
-                <!-- head -->
-                <thead>
-                    <tr>
-                        <th></th>
-                        <th>Name</th>
-                        <th>Size</th>
-                        <th>Type</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each wadFile.lumps as lump, i}
-                    <tr
-                        class="cursor-pointer"
-                        class:bg-accent={selectedLump === lump}
-                        class:hidden={!filteredLumps.includes(lump)}
-                        on:click={() => { selectedLump = lump; selectedLumpIndex = i}}
-                    >
-                        <th>{i}</th>
-                        <td>{lump.name}</td>
-                        <td>{printBytes(lump.data.byteLength)}</td>
-                        <td>{lumpType(lump, i)}</td>
-                    </tr>
-                    {/each}
-                </tbody>
-            </table>
+            <div class="bg-base-300 max-w-xs max-h-[32rem] overflow-y-scroll">
+                <table class="table table-xs">
+                    <!-- head -->
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Name</th>
+                            <th>Size</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each wadFile.lumps as lump, i}
+                        <tr
+                            class="cursor-pointer"
+                            class:bg-accent={selectedLump === lump}
+                            class:hidden={!filteredLumps.includes(lump)}
+                            on:click={() => select(lump, i)}
+                        >
+                            <th>{i}</th>
+                            <td>{lump.name}</td>
+                            <td>{printBytes(lump.data.byteLength)}</td>
+                            <td>{lumpType(lump, i)}</td>
+                        </tr>
+                        {/each}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div class="relative overflow-scroll flex-grow">
@@ -174,6 +196,8 @@
 
 <style>
     section {
+        max-height: 40rem;
+        overflow-y: scroll;
         padding-block-start: 1rem;
     }
 </style>

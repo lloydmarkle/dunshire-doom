@@ -9,7 +9,7 @@
     let selectedMap = mapNames[0];
 </script>
 
-<div class="flex flex-col gap-2">
+<div class="flex flex-col gap-1">
     <label class="label max-w-sm">
         <span class="label-text">Preview</span>
         <select class="select w-full max-w-xs" bind:value={selectedMap}>

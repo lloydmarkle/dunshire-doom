@@ -43,11 +43,12 @@
 
     export let audioRoot: AudioNode;
     export let wad: DoomWad;
-    export let trackName: string;
+    export let trackName: string = null;
+    export let lump: Lump = null;
     const { audio, settings } = useAppContext();
     const musicPlayback = settings.musicPlayback;
 
-    $: musicLump = wad.optionalLump(trackName);
+    $: musicLump = lump ?? wad.optionalLump(trackName);
     $: info = musicInfo(musicLump);
 
     $: musicStopper =
