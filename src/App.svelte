@@ -26,17 +26,6 @@
     }
 
     const { pointerLock, soundGain, musicGain } = context;
-    const { musicVolume, soundVolume, muted, mainVolume } = context.settings;
-
-    const mainGain = audio.createGain();
-    mainGain.connect(audio.destination);
-    $: mainGain.gain.value = $muted ? 0 : $mainVolume;
-
-    soundGain.connect(mainGain);
-    $: soundGain.gain.value = $soundVolume;
-
-    musicGain.connect(mainGain);
-    $: musicGain.gain.value = $musicVolume * .7;
 
     let wad: DoomWad;
     let game: Game;

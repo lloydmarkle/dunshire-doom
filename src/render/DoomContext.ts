@@ -1,7 +1,7 @@
 import { getContext } from 'svelte'
 import { MapTextures, type RenderSector } from './RenderData';
 import { Game, MapRuntime, type GameSettings, store, type Store, type DoomError } from '../doom';
-import { get, writable, type Writable } from 'svelte/store';
+import { derived, get, writable, type Writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
 import { createFullscreenControls } from './Controls/FullscreenControls';
@@ -199,11 +199,21 @@ export const createAppContext = () => {
         toggle('experimental', settings.experimentalSoundHacks, 'Room accoustics (experimental)'),
     ];
 
-    const pointerLock = createPointerLockControls(settings.cameraMode);
-    const fullscreen = createFullscreenControls();
     const audio = new AudioContext();
     const soundGain = audio.createGain();
     const musicGain = audio.createGain();
+    const mainGain = audio.createGain();
+    mainGain.connect(audio.destination);
+    soundGain.connect(mainGain);
+    musicGain.connect(mainGain);
+    derived([settings.muted, settings.mainVolume],
+        ([muted, volume]) => muted ? 0 : volume)
+        .subscribe(volume => mainGain.gain.linearRampToValueAtTime(volume, audio.currentTime + .1));
+    settings.soundVolume.subscribe(volume => soundGain.gain.value = volume);
+    settings.musicVolume.subscribe(volume => musicGain.gain.value = volume * .4);
+
+    const pointerLock = createPointerLockControls(settings.cameraMode);
+    const fullscreen = createFullscreenControls();
     const error = store<DoomError>(null);
     return { settings, settingsMenu, editor, audio, soundGain, musicGain, pointerLock, fullscreen, error };
 }

@@ -18,14 +18,14 @@
     $: haveIWads = $wads.some(wad => wad.iwad);
     $: screens = haveIWads ? [
         ['Play', ''],
-        ['WADs', 't=wads'],
-        ['Settings', 't=settings'],
+        ['WADs', 'tab=wads'],
+        ['Settings', 'tab=settings'],
     ] : [];
     let screen = 'Play';
 
     function parseUrlHash(hash: string, scs: string[][]) {
         const params = new URLSearchParams(hash.substring(1));
-        const sc = params.get('t');
+        const sc = params.get('tab');
         screen = scs.find(e => e[1].split('=')[1] === sc)?.[0] ?? 'Play';
     }
     $: parseUrlHash(window.location.hash, screens ?? []);
@@ -79,19 +79,21 @@
         {:else if screen === 'WADs'}
             <WadManagerScreen {wadStore} />
         {:else if screen === 'Settings'}
-            <ul class="menu max-w-2xl mx-auto flex-nowrap pb-24">
+        <div class="max-w-2xl mx-auto ">
+            <ul class="menu bg-base-100 flex-nowrap pb-24">
                 {#each Object.entries(settings) as [category, values]}
-                <div class="divider sticky my-2 z-10 top-0 bg-honeycomb">{category}</div>
+                <div class="divider sticky my-2 z-10 top-0 bg-base-100">{category}</div>
                     {#each values as item}
                         <li><MenuItem {item} /></li>
                     {/each}
                 {/each}
             </ul>
+        </div>
         {/if}
     </div>
 
     {#if haveIWads && !wad}
-        <div class="btm-nav sm:hidden z-10">
+        <div class="btm-nav sm:hidden z-10 bg-base-300">
             {#each screens as [name, url]}
                 <a role="tab" class:active={screen === name} href="#{url}">{name}</a>
             {/each}

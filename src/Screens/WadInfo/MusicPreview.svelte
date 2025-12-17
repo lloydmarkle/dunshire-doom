@@ -2,87 +2,37 @@
     import { onDestroy } from "svelte";
     import { type Lump } from "../../doom";
     import { useAppContext } from "../../render/DoomContext";
-    import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
-    import { MidiSampleStore } from "../../MidiSampleStore";
-    import { defaultSF2Url, musicInfo } from "../../render/MusicPlayer.svelte";
+    import { createSpessaSequencer, debounce, encodedMusicPlayer, musicInfo, nullMusicPlayer, spessaSynthPlayer } from "../../render/MusicPlayer.svelte";
     import { fade } from "svelte/transition";
+    import type { Sequencer } from "spessasynth_lib";
 
     export let lump: Lump;
-    const { audio, settings } = useAppContext();
-    const { musicVolume, mainVolume } = settings;
+    const { audio, musicGain } = useAppContext();
 
-    const mainGain = audio.createGain();
-    mainGain.connect(audio.destination);
-    $: mainGain.gain.value = $mainVolume;
-    const musicGain = audio.createGain();
-    musicGain.connect(mainGain);
-    $: musicGain.gain.value = $musicVolume;
+    // create our own local gain node so we can interrupt sound playback more gracefully
+    const localGain = audio.createGain();
+    localGain.gain.value = 1;
+    localGain.connect(musicGain);
 
     $: player = loadPlayer(lump);
     $: if (player) stopMusic();
 
-    function loadPlayer(lump: Lump) {
+    let seq: Sequencer;
+    async function loadPlayer(lump: Lump) {
+        if (!seq) {
+            seq = await createSpessaSequencer(audio, localGain);
+        }
         stopMusic();
         lastProgress = playProgress = 0;
         let info = musicInfo(lump);
-        return info.isEncodedMusic ? encodedMusicPlayer(info.music) : spessaSynthPlayer(info.music);
+        return info.music.byteLength === 0 ? nullMusicPlayer() :
+            info.isEncodedMusic ? encodedMusicPlayer(audio, localGain, lump.name, info.music) :
+            spessaSynthPlayer(seq, lump.name, info.music);
     }
 
     let playProgress = 0;
     let lastProgress = 0;
     let startTime = 0;
-    const sampleStore = new MidiSampleStore();
-    async function spessaSynthPlayer(midi: ArrayBuffer) {
-        const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
-        await audio.audioWorklet.addModule('./synthetizer/spessasynth_processor.min.js');
-        const synth = new WorkletSynthesizer(audio);
-        synth.soundBankManager.addSoundBank(soundFontArrayBuffer, 'sf2');
-        synth.connect(musicGain);
-        const seq = new Sequencer(synth);
-        seq.loadNewSongList([{ binary: midi, fileName: lump.name }]);
-        seq.loopCount = Infinity;
-        const duration = (await seq.getMIDI()).duration;
-        return {
-            duration,
-            scrub: (n: number) => seq.currentTime = n * duration,
-            start: () => seq.play(),
-            stop: () => seq.pause(),
-        }
-    }
-
-    async function encodedMusicPlayer(music: ArrayBuffer) {
-        const buffer = await audio.decodeAudioData(music);
-        function createSource() {
-            let node = audio.createBufferSource();
-            node.buffer = buffer;
-            node.connect(musicGain);
-            node.loop = true;
-            return node;
-        }
-
-        let source = createSource();
-        let started = false;
-        return {
-            duration: source.buffer.duration,
-            scrub: (n: number) => {
-                if (started) {
-                    source.stop();
-                    source = createSource();
-                    source.start(audio.currentTime, n * buffer.duration);
-                }
-            },
-            start: () => {
-                started = true;
-                source.start();
-            },
-            stop: () => {
-                if (started) {
-                    source.stop();
-                }
-            },
-        }
-    }
-
     let playing = false;
     async function playMusic() {
         playing = true;
@@ -111,21 +61,13 @@
         (await player)?.stop();
     }
 
-    const debounce = (callback: () => void, wait: number) => {
-        let timeoutId = null;
-        return (...args: any[]) => {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => callback.apply(null, args), wait);
-        };
-    }
-
     const scrub2 = debounce(async () => {
         (await player)?.scrub(playProgress);
-        musicGain.gain.exponentialRampToValueAtTime($musicVolume, audio.currentTime + .2);
+        localGain.gain.exponentialRampToValueAtTime(1, audio.currentTime + .2);
     }, 200);
     function scrub() {
         lastProgress = playProgress;
-        musicGain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + .2);
+        localGain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + .2);
         scrub2();
     }
 

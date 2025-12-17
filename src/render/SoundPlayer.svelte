@@ -1,13 +1,14 @@
 <script lang="ts" context="module">
     export function createSoundBufferCache(audio: AudioContext, wad: DoomWad) {
-        const cache = new Map<string, AudioBuffer>();
-        return (name: string) => {
-            if (!cache.has(name)) {
+        const cache = new Map<SoundIndex, AudioBuffer>();
+        return (snd: SoundIndex) => {
+            if (!cache.has(snd)) {
+                const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
                 const data = wad.lumpByName(name).data;
                 const buffer = createSoundBuffer(audio, data);
-                cache.set(name, buffer);
+                cache.set(snd, buffer);
             }
-            return cache.get(name);
+            return cache.get(snd);
         };
     }
 
@@ -21,6 +22,30 @@
         const buffer = audio.createBuffer(1, Math.max(1, numSamples), sampleRate);
         buffer.getChannelData(0).set(pcmData);
         return buffer;
+    }
+
+    // we want these as small as possible so long as the audio doesn't pop or click on start and stop
+    // TODO: should these simply be audio.outputLatency?
+    const fadeInTime = 0.005;
+    const fadeOutTime = 0.005;
+    const minGain = 0.000000001;
+    const interruptFadeOut = .01;
+    export function configureGain(node: GainNode, t: number, value: number, buffer: AudioBuffer) {
+        // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
+        node.gain.setValueAtTime(minGain, t);
+        node.gain.exponentialRampToValueAtTime(value, t + fadeInTime);
+        node.gain.setValueAtTime(value, t + buffer.duration - fadeOutTime);
+        node.gain.exponentialRampToValueAtTime(minGain, t + buffer.duration);
+        return node;
+    }
+
+    export function stopSound(now: number, gainNode: GainNode, soundNode: AudioBufferSourceNode) {
+            soundNode.stop(now + interruptFadeOut);
+
+            const v = gainNode.gain.value;
+            gainNode.gain.cancelScheduledValues(0);
+            gainNode.gain.setValueAtTime(v, now);
+            gainNode.gain.exponentialRampToValueAtTime(minGain, now + interruptFadeOut);
     }
 </script>
 <script lang="ts">
@@ -44,20 +69,10 @@
     // https://web.archive.org/web/20211127055143/http://www.trilobite.org/doom/doom_metrics.html
     const verticalMeters = 0.03048;
 
-    // we want these as small as possible so long as the audio doesn't pop or click on start and stop
-    // TODO: should these simply be audio.outputLatency?
-    const fadeInTime = 0.005;
-    const fadeOutTime = 0.005;
-    const interruptFadeOut = .01;
-    const minGain = 0.000000001;
     function gainNode(t: number, value: number, buffer: AudioBuffer) {
         // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
         const node = audio.createGain();
-        node.gain.setValueAtTime(minGain, t);
-        node.gain.exponentialRampToValueAtTime(value, t + fadeInTime);
-        node.gain.setValueAtTime(value, t + buffer.duration - fadeOutTime);
-        node.gain.exponentialRampToValueAtTime(minGain, t + buffer.duration);
-        return node;
+        return configureGain(node, t, value, buffer);
     }
 
     const defaultPosition = new Vector3();
@@ -134,16 +149,15 @@
             const isSectorLocation = location && 'soundTarget' in location;
             const isPositional = player && location && location !== player;
 
-            const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
             this.soundNode = audio.createBufferSource();
-            this.soundNode.buffer = soundBuffer(name);
+            this.soundNode.buffer = soundBuffer(snd);
             this.soundNode.playbackRate.value = timescale;
             this.soundNode.addEventListener('ended', this.deactivate);
             // A controversial feature? https://doomwiki.org/wiki/Random_sound_pitch_removed
-            if (snd === SoundIndex.sfx_sawup || snd === SoundIndex.sfx_sawhit) {
+            if (snd >= SoundIndex.sfx_sawup && snd <= SoundIndex.sfx_sawhit) {
                 this.soundNode.detune.value = randInt(-8, 8) * 4;
             }
-            if (snd === SoundIndex.sfx_itemup || snd === SoundIndex.sfx_tink) {
+            else if (snd !== SoundIndex.sfx_itemup && snd !== SoundIndex.sfx_tink) {
                 this.soundNode.detune.value = randInt(-16, 16) * 4;
             }
 
@@ -222,12 +236,7 @@
                 // already near the end of the sound so just finish it
                 return;
             }
-            this.soundNode.stop(now + interruptFadeOut);
-
-            const v = this.gainNode.gain.value;
-            this.gainNode.gain.cancelScheduledValues(0);
-            this.gainNode.gain.setValueAtTime(v, now);
-            this.gainNode.gain.exponentialRampToValueAtTime(minGain, now + interruptFadeOut);
+            stopSound(now, this.gainNode, this.soundNode);
         }
     }
 

@@ -23,12 +23,104 @@
                 if ('MThd' === String.fromCharCode(...musicBuffer.subarray(0, 4))) {
                     return buff.from(musicBuffer);
                 }
+                if ('IMPM' === String.fromCharCode(...musicBuffer.subarray(0, 4))) {
+                    console.warn('IMPM files not supported (yet)')
+                    return buff.from([])
+                }
                 return mus2midi(buff.from(musicBuffer)) as Buffer<ArrayBuffer>;
             } catch {
                 console.warn('unabled to play midi', lump?.name)
             }
             return buff.from([]);
         }
+    }
+
+    export async function nullMusicPlayer() {
+        return {
+            duration: 0,
+            scrub: (n: number) => {},
+            start: () => {},
+            stop: () => {},
+        };
+    }
+
+    // TODO: having two functions here is pretty messy. There should be a better way...
+    export async function createSpessaSequencer(audio: AudioContext, gain: AudioNode) {
+        const sampleStore = new MidiSampleStore();
+        const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
+        await audio.audioWorklet.addModule('./synthetizer/spessasynth_processor.min.js');
+        const synth = new WorkletSynthesizer(audio);
+        synth.soundBankManager.addSoundBank(soundFontArrayBuffer, 'sf2');
+        const seq = new Sequencer(synth);
+        seq.synth.connect(gain);
+        return seq;
+    }
+    export async function spessaSynthPlayer(seq: Sequencer, name: string, midi: ArrayBuffer) {
+        seq.loadNewSongList([{ binary: midi, fileName: name }]);
+        seq.loopCount = Infinity;
+        const duration = (await seq.getMIDI()).duration;
+        return {
+            duration,
+            scrub: (n: number) => seq.currentTime = n * duration,
+            start: () => seq.play(),
+            stop: () => seq.pause(),
+        };
+    }
+
+    // mp3 or ogg
+    export async function encodedMusicPlayer(audio: AudioContext, gain: AudioNode, name: string, music: ArrayBuffer) {
+        const buffer = await audio.decodeAudioData(music);
+        function createSource() {
+            let node = audio.createBufferSource();
+            node.buffer = buffer;
+            node.connect(gain);
+            node.loop = true;
+            return node;
+        }
+
+        let source = createSource();
+        let started = false;
+        return {
+            duration: source.buffer.duration,
+            scrub: (n: number) => {
+                if (started) {
+                    source.stop();
+                    source = createSource();
+                    source.start(audio.currentTime, n * buffer.duration);
+                }
+            },
+            start: () => {
+                started = true;
+                source.start();
+            },
+            stop: () => {
+                if (started) {
+                    source.stop();
+                }
+            },
+        };
+    }
+
+    export async function synthPlayer(audio: AudioContext, gain: AudioNode, name: string, music: ArrayBufferLike) {
+        const synth = new WebAudioTinySynth();
+        synth.setAudioContext(audio, gain);
+        synth.loadMIDI(music);
+        synth.setLoop(1);
+        return {
+            duration: 0,
+            // does this actually work?
+            scrub: (n: number) => synth.locateMIDI(this.maxTick * n),
+            start: () => synth.playMIDI(),
+            stop: () => synth.stopMIDI(),
+        }
+    }
+
+    export function debounce(callback: () => void, wait: number) {
+        let timeoutId = null;
+        return (...args: any[]) => new Promise<void>(resolve => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => resolve(callback.apply(null, args)), wait);
+        });
     }
 </script>
 <script lang="ts">
@@ -48,65 +140,40 @@
     const { audio, settings } = useAppContext();
     const musicPlayback = settings.musicPlayback;
 
-    $: musicLump = lump ?? wad.optionalLump(trackName);
-    $: info = musicInfo(musicLump);
+    // create our own local gain node so we can interrupt sound playback more gracefully (with fade)
+    const localGain = audio.createGain();
+    localGain.gain.value = 1;
+    localGain.connect(audioRoot);
 
-    $: musicStopper =
-        info.music.byteLength === 0 ? noMusic() :
-        info.isEncodedMusic ? encodedMusicPlayer(info.music) :
-        $musicPlayback === 'soundfont' ? spessaSynthPlayer(info.music) :
-        $musicPlayback === 'synth' ? synthPlayer(info.music) :
-        noMusic();
-    onDestroy(stopTheMusic);
-    async function stopTheMusic() {
-        if (musicStopper) {
-            (await musicStopper)();
+    let seq: Sequencer;
+    let musicPlayer: Awaited<ReturnType<typeof nullMusicPlayer>>;
+    async function loadMusic(voice: string, musicLump: Lump, info: ReturnType<typeof musicInfo>) {
+        if (musicPlayer) {
+            await stopMusic();
         }
+        if (!seq) {
+            seq = await createSpessaSequencer(audio, localGain);
+        }
+        musicPlayer = await (
+            info.music.byteLength === 0 ? nullMusicPlayer() :
+            info.isEncodedMusic ? encodedMusicPlayer(audio, localGain, musicLump.name, info.music) :
+            voice === 'soundfont' ? spessaSynthPlayer(seq, musicLump.name, info.music) :
+            voice === 'synth' ? synthPlayer(audio, localGain, musicLump.name, info.music) :
+            nullMusicPlayer());
+        playMusic();
     }
+    $: musicLump = lump ?? wad.optionalLump(trackName);
+    $: loadMusic($musicPlayback, musicLump, musicInfo(musicLump));
 
-    async function noMusic() {
-        stopTheMusic();
-        return () => {};
+    async function playMusic() {
+        musicPlayer.start();
+        localGain.gain.linearRampToValueAtTime(1, audio.currentTime + .2);
     }
-
-    // mp3 or ogg
-    async function encodedMusicPlayer(music: ArrayBuffer) {
-        stopTheMusic();
-
-        const source = audio.createBufferSource();
-        source.buffer = await audio.decodeAudioData(music);
-        source.connect(audioRoot);
-        source.loop = true;
-        source.start();
-        return () => source.stop();
+    const stopAfterFade = debounce(() => musicPlayer.stop(), 200);
+    async function stopMusic() {
+        localGain.gain.cancelScheduledValues(audio.currentTime);
+        localGain.gain.exponentialRampToValueAtTime(0.00001, audio.currentTime + .2);
+        return stopAfterFade();
     }
-
-    const sampleStore = new MidiSampleStore();
-    async function spessaSynthPlayer(midi: ArrayBuffer) {
-        stopTheMusic();
-
-        const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
-        await audio.audioWorklet.addModule('./synthetizer/spessasynth_processor.min.js'); // add the worklet
-        const synth = new WorkletSynthesizer(audio);
-        synth.soundBankManager.addSoundBank(soundFontArrayBuffer, 'sf2');
-        synth.connect(audioRoot);
-        const seq = new Sequencer(synth);
-        seq.loadNewSongList([{ binary: midi, fileName: trackName }]);
-        seq.loopCount = -1;
-        seq.play();
-        return () => seq.pause();
-    }
-
-    async function synthPlayer(midi: ArrayBufferLike) {
-        stopTheMusic();
-
-        const synth = new WebAudioTinySynth();
-        synth.setAudioContext(audio, audioRoot);
-        synth.loadMIDI(midi);
-        synth.setLoop(1);
-        // actually, it would be really cool to use GENMIDI here to configure the oscillars WebAudioTinySynth creates.
-        // We can inject the OPL3 waveforms too via the synth.wave map by synth.wave['w-opl3-0'] = PeriodicWave(...), etc.
-        synth.playMIDI();
-        return () => synth.stopMIDI();
-    }
+    onDestroy(stopMusic);
 </script>

@@ -28,7 +28,7 @@
     let viewSize = { width: 320, height: 200 };
     const doomContext = createGameContext(game, viewSize);
     setContext("doom-game-context", doomContext);
-    const { settings, editor, error, pointerLock } = useAppContext();
+    const { settings, editor, error, pointerLock, audio } = useAppContext();
     const { cameraMode, showPlayerInfo, renderMode } = settings;
     const { map, intermission } = game;
 
@@ -66,7 +66,6 @@
         tscale = 1 - frameTime * 2;
     }
     const useNormalTimeParams = (fpsLimit: number, timescale: number) => {
-        console.log('normal time')
         frameTime = 1 / fpsLimit;
         tscale = timescale;
     }
