@@ -8,6 +8,7 @@
     export let multiSelect = true;
 
     $: activeOpacity = multiSelect ? .3 : .7;
+    // for non-small lists (50 items), this can be slow
     function toggleSelected(pwad: WADInfo) {
         if (!multiSelect) {
             selected = selected.includes(pwad) ? [] : [pwad];

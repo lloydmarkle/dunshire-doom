@@ -6,7 +6,6 @@
     import { Home, MagnifyingGlass } from "@steeze-ui/heroicons";
     import { Icon } from "@steeze-ui/svelte-icon";
     import WadList from "../render/Components/WadList.svelte";
-    import MusicPlayer from "../render/MusicPlayer.svelte";
     import { useAppContext } from "../render/DoomContext";
     import { configureGain, createSoundBufferCache } from "../render/SoundPlayer.svelte";
 
@@ -15,7 +14,7 @@
     $: iWads = wads.filter(wad => wad.iwad);
     $: pWads = wads.filter(wad => !wad.iwad);
 
-    const { audio, musicGain, soundGain, settings } = useAppContext();
+    const { audio, soundGain, settings, musicTrack } = useAppContext();
     const { maxSoundChannels } = settings;
     $: soundBuffer = loadSoundBuffers(wad);
     $: channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
@@ -58,7 +57,9 @@
 
     let selectedIWad: WADInfo;
     let selectedPWads: WADInfo[] = [];
+
     $: bgImage = selectedPWads.reduce<string>((img, pwad) => pwad.image ?? img, undefined) ?? selectedIWad?.image;
+    $: $musicTrack = wad ? (wad.optionalLump('D_DM2TTL') ?? wad.optionalLump('D_INTRO')) : null;
 
     // TODO: the url state management in this component is a mess. The whole component is a mess really. It works but
     // it feels like it could be written in a much cleaner and tidier way.
@@ -125,10 +126,6 @@
 </div>
 
 {#if selectedIWad}
-{#if wad && !goTime}
-<MusicPlayer {wad} audioRoot={musicGain} lump={wad.optionalLump('D_DM2TTL') ?? wad.optionalLump('D_INTRO')} />
-{/if}
-
 <div out:fly={{ y: '-100%' }} in:fly={{ delay: 200, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2 z-30">
     <a class="btn btn-secondary w-48 shadow-xl" href={"#"}><Icon src={Home} theme='solid' size="1rem"/> Home</a>
 </div>

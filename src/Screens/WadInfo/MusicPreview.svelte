@@ -2,33 +2,21 @@
     import { onDestroy } from "svelte";
     import { type Lump } from "../../doom";
     import { useAppContext } from "../../render/DoomContext";
-    import { createSpessaSequencer, debounce, encodedMusicPlayer, musicInfo, nullMusicPlayer, spessaSynthPlayer } from "../../render/MusicPlayer.svelte";
+    import { createMusicPlayer } from "../../render/MusicPlayer.svelte";
     import { fade } from "svelte/transition";
-    import type { Sequencer } from "spessasynth_lib";
 
     export let lump: Lump;
-    const { audio, musicGain } = useAppContext();
+    const { audio, musicGain, settings } = useAppContext();
+    const { musicPlayback } = settings;
 
-    // create our own local gain node so we can interrupt sound playback more gracefully
-    const localGain = audio.createGain();
-    localGain.gain.value = 1;
-    localGain.connect(musicGain);
-
-    $: player = loadPlayer(lump);
-    $: if (player) stopMusic();
-
-    let seq: Sequencer;
-    async function loadPlayer(lump: Lump) {
-        if (!seq) {
-            seq = await createSpessaSequencer(audio, localGain);
-        }
+    const player = createMusicPlayer(audio, musicGain);
+    function loadMusic(voice: string, lump: Lump) {
         stopMusic();
         lastProgress = playProgress = 0;
-        let info = musicInfo(lump);
-        return info.music.byteLength === 0 ? nullMusicPlayer() :
-            info.isEncodedMusic ? encodedMusicPlayer(audio, localGain, lump.name, info.music) :
-            spessaSynthPlayer(seq, lump.name, info.music);
+        return player.loadMusic(voice, lump);
     }
+    $: music = loadMusic($musicPlayback, lump);
+    onDestroy(player.stopMusic);
 
     let playProgress = 0;
     let lastProgress = 0;
@@ -38,39 +26,30 @@
         playing = true;
         startTime = audio.currentTime;
 
-        const musicPlayer = await player;
-        if (musicPlayer) {
-            musicPlayer.start();
-            const updateProgress = () => {
-                if (playing) {
-                    playProgress = lastProgress + ((audio.currentTime - startTime) / musicPlayer.duration);
-                    requestAnimationFrame(updateProgress);
-                }
-                if (playProgress > 1) {
-                    // we've reached the end and are looping so reset progress
-                    startTime = audio.currentTime;
-                    playProgress = lastProgress = 0;
-                }
-            };
-            requestAnimationFrame(updateProgress);
-        }
+        const duration = (await music).duration;
+        player.playMusic();
+        const updateProgress = () => {
+            if (playing) {
+                playProgress = lastProgress + ((audio.currentTime - startTime) / duration);
+                requestAnimationFrame(updateProgress);
+            }
+            if (playProgress > 1) {
+                // we've reached the end and are looping so reset progress
+                startTime = audio.currentTime;
+                playProgress = lastProgress = 0;
+            }
+        };
+        requestAnimationFrame(updateProgress);
     }
 
     async function stopMusic() {
         playing = false;
-        (await player)?.stop();
+        return player.stopMusic();
     }
-
-    const scrub2 = debounce(async () => {
-        (await player)?.scrub(playProgress);
-        localGain.gain.exponentialRampToValueAtTime(1, audio.currentTime + .2);
-    }, 200);
     function scrub() {
         lastProgress = playProgress;
-        localGain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + .2);
-        scrub2();
+        player.scrub(playProgress)
     }
-
     onDestroy(stopMusic);
 
     function formatSongLength(duration: number) {
@@ -88,7 +67,8 @@
     <button class="btn btn-lg text-4xl" on:click={playing ? stopMusic : playMusic}>
         {playing ? '⏸️' : '▶️'}
     </button>
-    {#await player}
+    {#if music}
+    {#await music}
         <div class="flex justify-center">
             <span class="loading loading-spinner loading-md"></span>
         </div>
@@ -112,6 +92,7 @@
             </div>
         </div>
     {/await}
+    {/if}
 </div>
 
 <style>

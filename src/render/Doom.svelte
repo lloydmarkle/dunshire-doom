@@ -1,18 +1,17 @@
 <script lang="ts">
     import { type Game, randomNorm } from "../doom";
-    import { onMount, setContext } from "svelte";
+    import { onDestroy, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
     import { buildRenderSectors } from "./RenderData";
-    import { Canvas, type Size, type ThrelteContext } from "@threlte/core";
+    import { Canvas, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
     import R1 from "./Map/Root.svelte";
     import R2 from "./R2/Root.svelte";
     import SvgMapRoot from "./Svg/Root.svelte";
     import MapContext from "./Map/Context.svelte";
     import Intermission from "./Intermission/Intermission.svelte";
-    import MusicPlayer from "./MusicPlayer.svelte";
     import SoundPlayer from "./SoundPlayer.svelte";
     import WipeContainer from "./Components/WipeContainer.svelte";
     import { randInt } from "three/src/math/MathUtils";
@@ -21,27 +20,28 @@
     import { SpriteSheet } from "./R2/Sprite/SpriteAtlas";
 
     export let game: Game;
-    export let musicGain: GainNode;
     export let soundGain: GainNode;
     export let paused: boolean;
 
     let viewSize = { width: 320, height: 200 };
     const doomContext = createGameContext(game, viewSize);
     setContext("doom-game-context", doomContext);
-    const { settings, editor, error, pointerLock, audio } = useAppContext();
+    const { settings, editor, error, pointerLock, musicTrack } = useAppContext();
     const { cameraMode, showPlayerInfo, renderMode } = settings;
     const { map, intermission } = game;
 
     // NOTE: add noise to map name so that idclev to same map does screen wipe
     $: screenName = ($map?.name ?? '') + Math.random();
     $: intScreen = $intermission ? 'summary' : null;
+
     let intermissionMusic: string;
+    $: mapMusicTrack = $map?.musicTrack;
+    $: $musicTrack = game.wad.optionalLump($mapMusicTrack ?? intermissionMusic);
 
     // only create once
     $: spriteSheet = ($cameraMode !== 'svg' && threlteCtx) ? (spriteSheet ?? new SpriteSheet(game.wad, threlteCtx.renderer.capabilities.maxTextureSize)) : spriteSheet;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
     $: settings.compassMove.set($cameraMode === "svg");
-    $: mapMusicTrack = $map?.musicTrack;
 
     let threlteCtx: ThrelteContext;
     let frameTime: number;
@@ -117,7 +117,7 @@
         };
     })();
     $: switchRAF(paused);
-    onMount(() => stopRAF);
+    onDestroy(stopRAF);
 
     const rendererParameters: WebGLRendererParameters = {
         // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
@@ -182,7 +182,6 @@
     </div>
 </WipeContainer>
 
-<MusicPlayer wad={game.wad} audioRoot={musicGain} trackName={$mapMusicTrack ?? intermissionMusic} />
 <SoundPlayer wad={game.wad} audioRoot={soundGain} soundEmitter={game} timescale={$timescale} player={$map?.player} />
 
 <slot />

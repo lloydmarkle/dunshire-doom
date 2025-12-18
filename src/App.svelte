@@ -4,7 +4,6 @@
     import DoomControllers from './render/DoomControllers.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
     import TextureMapScene from './render/Debug/TextureMapScene.svelte';
-    import AppInfo from './render/Components/AppInfo.svelte';
     import { createAppContext } from './render/DoomContext';
     import { setContext } from 'svelte';
     import HomeScreen from './Screens/HomeScreen.svelte';
@@ -14,13 +13,14 @@
     import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
     import ENDOOM from './render/ENDOOM.svelte';
     import Menu from "./render/Menu/Menu.svelte";
+    import MusicPlayer from './render/MusicPlayer.svelte';
 
     const wadStore = new WadStore();
     const availableWads = wadStore.wads;
 
     const context = createAppContext();
     setContext('doom-app-context', context);
-    const { error, audio } = context;
+    const { error, audio, musicTrack } = context;
     function enableSoundOnce() {
         audio.resume();
     }
@@ -156,7 +156,7 @@
             </div>
         {:else if screenName === 'game'}
             {#key game}
-                <Doom {game} {musicGain} {soundGain} paused={showMenu}>
+                <Doom {game} {soundGain} paused={showMenu}>
                     {#if showMenu}
                         <Menu />
                     {/if}
@@ -167,6 +167,10 @@
             <HomeScreen {wad} {wadStore} />
         {/if}
     </WipeContainer>
+
+    {#if wad && screenName !== 'endoom'}
+        <MusicPlayer audioRoot={musicGain} lump={$musicTrack} />
+    {/if}
 </main>
 
 <style>
