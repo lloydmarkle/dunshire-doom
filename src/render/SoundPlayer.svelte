@@ -29,7 +29,7 @@
     const fadeInTime = 0.005;
     const fadeOutTime = 0.005;
     const minGain = 0.000000001;
-    const interruptFadeOut = .01;
+    export const interruptFadeOut = .01;
     export function configureGain(node: GainNode, t: number, value: number, buffer: AudioBuffer) {
         // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
         node.gain.setValueAtTime(minGain, t);

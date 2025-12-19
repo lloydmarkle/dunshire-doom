@@ -1,13 +1,14 @@
 <script lang="ts">
     import { crossfade, fade, fly } from "svelte/transition";
-    import { data, randInt, SoundIndex, type DoomWad } from "../doom";
+    import { data, randInt, SoundIndex, tickTime, type DoomWad } from "../doom";
     import type { WADInfo } from "../WadStore";
     import Picture from "../render/Components/Picture.svelte";
     import { Home, MagnifyingGlass } from "@steeze-ui/heroicons";
     import { Icon } from "@steeze-ui/svelte-icon";
     import WadList from "../render/Components/WadList.svelte";
     import { useAppContext } from "../render/DoomContext";
-    import { configureGain, createSoundBufferCache } from "../render/SoundPlayer.svelte";
+    import { configureGain, createSoundBufferCache, interruptFadeOut, stopSound } from "../render/SoundPlayer.svelte";
+    import { onDestroy } from "svelte";
 
     export let wads: WADInfo[];
     export let wad: DoomWad = null;
@@ -18,7 +19,7 @@
     const { maxSoundChannels } = settings;
     $: soundBuffer = loadSoundBuffers(wad);
     $: channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
-    function loadSoundBuffers(wad: DoomWad) {
+    function loadSoundBuffers(wad: DoomWad): ReturnType<typeof createSoundBufferCache> {
         // keep the old sound cache around so we get more sounds on transitions
         // (even if the sounds are from a different wad, it still feels more consistent to me)
         if (!wad) {
@@ -32,7 +33,7 @@
         sb(SoundIndex.sfx_swtchx); // escape/close menu
         return sb;
     }
-    function playSound(snd: SoundIndex) {
+    function playSound(snd: SoundIndex): [AudioBufferSourceNode, GainNode] {
         if (!soundBuffer) {
             return;
         }
@@ -44,7 +45,34 @@
         soundNode.connect(gainNode).connect(soundGain);
         soundNode.detune.value = randInt(-16, 16) * 4;
         soundNode.start();
+        return [soundNode, gainNode];
     }
+
+    // actually, it may be better to manage this as a single sound channel where it only plays a single sound at a time
+    // instead of one channel per sound type
+    const singleSound = (snd: SoundIndex) => {
+        let startTime: number;
+        let interruptLast: () => void;
+        return () => {
+            if (interruptLast) {
+                interruptLast();
+            }
+
+            startTime = audio.currentTime;
+            const [soundNode, gainNode] = playSound(snd);
+            interruptLast = () => {
+                const now = audio.currentTime;
+                if(now - startTime + interruptFadeOut > soundNode.buffer.duration) {
+                    // already near the end of the sound so just finish it
+                    return;
+                }
+                stopSound(now, gainNode, soundNode);
+            };
+        }
+    };
+    const sfx_pstop = singleSound(SoundIndex.sfx_pstop);
+    const sfx_stnmov = singleSound(SoundIndex.sfx_stnmov);
+    const sfx_swtchx = singleSound(SoundIndex.sfx_swtchx);
 
     const [send, receive] = crossfade({
 		duration: 350,
@@ -66,6 +94,13 @@
     $: if (wad && selectedPWads && !startPlaying && !mapName) {
         window.location.href = '#' + [selectedIWad, ...selectedPWads].filter(p => p).map(p => `wad=${p.name}`).join('&');
     }
+
+    // menu skull changes every 8 tics
+    let selectedSkill = 3;
+    const skullImages = ['M_SKULL1', 'M_SKULL2'];
+    let skullImage = 0;
+    const skullChanger = setInterval(() => skullImage ^= 1, 1000 * tickTime * 8);
+    onDestroy(() => clearInterval(skullChanger));
 
     let lastPwadsCount = 0;
     let lastIWad = '';
@@ -155,9 +190,12 @@
                     <div class="divider divider-horizontal"></div>
                     {@const ep = parseInt(mapName[1])}
                     <a class="btn h-full relative overflow-hidden" href="#{wad.name}&play"
-                        on:click={() => playSound(SoundIndex.sfx_swtchx)}
+                        on:pointerenter={sfx_stnmov}
+                        on:click={sfx_swtchx}
                     >
-                        <span class="scale-[2]"><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                        <span class="scale-[1.2] hover:scale-[1.1] transition-transform">
+                            <Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} />
+                        </span>
                         <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
                     </a>
                 {/if}
@@ -170,9 +208,10 @@
                         {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
                             {#if mapNames.includes(`E${ep}M1`)}
                                 <a class="btn h-full relative overflow-hidden" href="#{wad.name}&map=E{ep}M1"
+                                    on:pointerenter={sfx_pstop}
                                     on:click={() => playSound(SoundIndex.sfx_pistol)}
                                 >
-                                    <span class="scale-[2]"><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                                    <span class="scale-[1.1] hover:scale-[1.2] transition-transform"><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
                                     <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
                                 </a>
                             {/if}
@@ -181,10 +220,15 @@
                 {:else}
                     <span class="divider"><Picture {wad} name="M_SKILL" /></span>
                     {#each data.skills as skill, i}
-                        <a class="btn no-animation pulse-on-hover" in:fly={{ y: '-100%', delay: i * 50 }}
+                        <a class="btn no-animation pulse-on-hover flex justify-start gap-4" in:fly={{ y: '-100%', delay: i * 50 }}
                             href="#{wad.name}&skill={i + 1}&map={mapName ?? 'MAP01'}"
+                            on:pointerenter={sfx_pstop}
+                            on:pointerenter={() => selectedSkill = i}
                             on:click={() => playSound(SoundIndex.sfx_pistol)}
                         >
+                            <span class="scale-125 opacity-0 transition-opacity" class:opacity-100={selectedSkill === i}>
+                                <Picture {wad} name={skullImages[skullImage]} />
+                            </span>
                             <Picture {wad} name={skill.pic} />
                         </a>
                     {/each}
@@ -251,5 +295,13 @@
     }
     .show-background::before {
         opacity: 0;
+    }
+
+    .pulse-on-hover:hover {
+        animation: pulse-saturate .5s infinite alternate-reverse;
+    }
+    @keyframes pulse-saturate {
+        0% { filter: saturate(1); }
+        100% { filter: saturate(1.5); }
     }
 </style>
