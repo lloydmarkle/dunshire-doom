@@ -10,10 +10,10 @@
 
     export let player: PlayerMapObject;
     export let size: Size;
+    const { maxHudScale, hudStyle } = useAppContext().settings;
 
     const { health, weapon, inventory } = player;
     $: weaponLights = $inventory.weapons.map(e => e?.keynum);
-    const { maxHudScale } = useAppContext().settings;
     const background = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
     const gfx = player.map.game.wad.graphic('STBAR');
     const offsetX = (320 - gfx.width) / 2;
@@ -25,7 +25,7 @@
 
 <div
     class="root"
-    style:--st-top="{size.height - hudHeight}px"
+    style:--st-top="{$hudStyle === 'bottom' ? size.height - hudHeight : 0}px"
     style:--st-bg="url({background})"
     style:--st-bg-offsetx="{offsetX}px"
     style:--st-scale="{scale}"

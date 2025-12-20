@@ -172,7 +172,6 @@
         document.querySelectorAll('label').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
         document.querySelectorAll('input[type="checkbox"]').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
         document.querySelectorAll('input[type="range"]').forEach(b => b.addEventListener('input', menuSounds.sfx.stnmov));
-        document.querySelectorAll('.dropdown').forEach(b => b.addEventListener('focusout', menuSounds.sfx.swtchx));
     })
 </script>
 
