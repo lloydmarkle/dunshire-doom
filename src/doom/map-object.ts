@@ -49,12 +49,13 @@ const bodyMover: Mover = (() => {
         // these will be filled in before calling .traceMove()
         ...baseMoveTrace,
         hitObject: hit => {
+            const canPickup = hit.mobj.info.flags & MFFlags.MF_SPECIAL;
             // kind of like PIT_CheckThing
             const ignoreHit = (false
                 || (hit.mobj === self) // don't collide with yourself
                 || (!(hit.mobj.info.flags & hittableThing)) // not hittable
                 || (hit.mobj.hitC === hitCount) // already hit this mobj
-                || (self.map.game.settings.moveChecksZ.val && (
+                || ((canPickup || self.map.game.settings.moveChecksZ.val) && (
                     (start.z + self.info.height < hit.mobj.position.z) || // passed under target
                     (start.z > hit.mobj.position.z + hit.mobj.info.height) // passed over target
                 ))
@@ -64,7 +65,7 @@ const bodyMover: Mover = (() => {
             }
             hit.mobj.hitC = hitCount;
 
-            if (hit.mobj.info.flags & MFFlags.MF_SPECIAL) {
+            if (canPickup) {
                 self.pickup(hit.mobj);
                 return true;
             }

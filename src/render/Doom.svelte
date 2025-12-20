@@ -145,7 +145,7 @@
 
 <WipeContainer key={intScreen ?? screenName}>
     <div
-        class="relative grid h-full w-full"
+        class="relative grid h-full w-full bg-black"
         bind:clientHeight={viewSize.height}
         bind:clientWidth={viewSize.width}
     >
