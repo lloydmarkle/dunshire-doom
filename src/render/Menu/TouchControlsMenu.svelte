@@ -1,18 +1,14 @@
 <script lang="ts">
     import { get, type Writable } from "svelte/store";
     import { createDefaultSettings, useAppContext, useDoom } from "../DoomContext";
-    import type { Size } from "@threlte/core";
-    import type { EventHandler } from "svelte/elements";
-    import type { Action, ActionReturn } from "svelte/action";
     import TouchControls from "../Controls/TouchControls.svelte";
     import { fly } from "svelte/transition";
 
     export let visible = false;
-    export let viewSize: Size;
+    const viewSize = useDoom().viewSize;
 
     const settings = useAppContext().settings;
-    const game = useDoom().game;
-    const { touchDeadZone, tapTriggerTime, touchLookSpeed, analogMovement, touchTargetHzPadding, touchTargetVPadding, touchTargetSize } = settings;
+    const { touchDeadZone, tapTriggerTime, touchLookSpeed, analogMovement, touchAreaSize } = settings;
 
     type SettingsKey = keyof typeof settings;
     const originalValues: { [key in SettingsKey]?: any } = {
@@ -20,9 +16,7 @@
         'tapTriggerTime': $tapTriggerTime,
         'touchLookSpeed': $touchLookSpeed,
         'analogMovement': $analogMovement,
-        'touchTargetHzPadding': $touchTargetHzPadding,
-        'touchTargetVPadding': $touchTargetVPadding,
-        'touchTargetSize': $touchTargetSize,
+        'touchAreaSize': $touchAreaSize,
     }
     function resetValues() {
         Object.keys(originalValues).forEach((key: SettingsKey) => (settings[key] as Writable<any>).set(originalValues[key]));
@@ -34,100 +28,11 @@
         $tapTriggerTime = get(defaults.tapTriggerTime);
         $touchLookSpeed = get(defaults.touchLookSpeed);
         $analogMovement = get(defaults.analogMovement);
-        $touchTargetHzPadding = get(defaults.touchTargetHzPadding);
-        $touchTargetVPadding = get(defaults.touchTargetVPadding);
-        $touchTargetSize = get(defaults.touchTargetSize);
-    }
-
-    function findTouch(tl: TouchList, id: number) {
-        for (let i = 0; i < tl.length; i++) {
-            if (tl[i].identifier === id) {
-                return tl[i];
-            }
-        }
-        return tl[0];
-    }
-
-    type Point = { x: number, y: number };
-    interface Params { viewSize: Size, controlSize: number, side: 'start' | 'end' }
-    interface Attributes {
-        'on:tdrag': EventHandler<CustomEvent<Point>>;
-        'on:tdrag-start': EventHandler;
-        'on:tdrag-stop': EventHandler;
-    }
-
-    const touchDragControls: Action<HTMLElement, Params, Attributes> = (node, params): ActionReturn<Params, Attributes> => {
-        let touchNum: number;
-        let point = { x: 0, y: 0 };
-        let boxInfo = { halfWidth: 0, halfHeight: 0 };
-        let side = params.side;
-        resize();
-
-        node.addEventListener('touchstart', touchstart);
-        node.addEventListener('touchmove', touchmove);
-        node.addEventListener('touchend', touchend);
-        node.addEventListener('touchcancel', touchend);
-        const update = (params: Params) => {
-            side = params.side;
-            resize();
-        };
-        const destroy = () => {
-            node.removeEventListener('touchstart', touchstart);
-            node.removeEventListener('touchmove', touchmove);
-            node.removeEventListener('touchend', touchend);
-            node.removeEventListener('touchcancel', touchend);
-        }
-        return { destroy, update };
-
-        function resize() {
-            let bounds = node.getBoundingClientRect();
-            boxInfo.halfWidth = bounds.width * .5;
-            boxInfo.halfHeight = bounds.height * .5;
-        }
-
-        function touchstart(ev: TouchEvent) {
-            ev.preventDefault();
-            touchNum = ev.changedTouches[0].identifier;
-            updateTouch(findTouch(ev.touches, touchNum));
-            node.dispatchEvent(new Event('tdrag-start'));
-        }
-
-        function touchmove(ev: TouchEvent) {
-            ev.preventDefault();
-            updateTouch(findTouch(ev.touches, touchNum));
-        }
-
-        function touchend(ev: TouchEvent) {
-            ev.preventDefault();
-            node.dispatchEvent(new Event('tdrag-stop'));
-        }
-
-        function updateTouch(t: Touch) {
-            point.x = side === 'start' ? t.clientX - boxInfo.halfWidth : t.clientX + boxInfo.halfWidth;
-            point.y = t.clientY + boxInfo.halfHeight;
-            node.dispatchEvent(new CustomEvent('tdrag', { detail: point }));
-        }
-    };
-
-    const clipDragPoint = (n: number, dimension: number, fontSize: number) =>
-        Math.min(dimension / fontSize * .5, Math.max(0, n / fontSize));
-    function dragPad(ev: CustomEvent<Point>) {
-        // Adjust hzPadding (distance from side of screen) and vPadding (distance from bottom)
-        const fs = window.getComputedStyle(ev.target as HTMLElement).fontSize;
-        const fontSize = fs.endsWith('px') ? parseFloat(fs) : 16;
-        $touchTargetHzPadding = clipDragPoint(ev.detail.x, viewSize.width, fontSize);
-        $touchTargetVPadding = clipDragPoint(viewSize.height - ev.detail.y, viewSize.height, fontSize);
-    }
-
-    function dragPad2(ev: CustomEvent<Point>) {
-        // Adjust hzPadding (distance from side of screen) and vPadding (distance from bottom)
-        const fs = window.getComputedStyle(ev.target as HTMLElement).fontSize;
-        const fontSize = fs.endsWith('px') ? parseFloat(fs) : 16;
-        $touchTargetHzPadding = clipDragPoint(viewSize.width - ev.detail.x, viewSize.width, fontSize);
-        $touchTargetVPadding = clipDragPoint(viewSize.height - ev.detail.y, viewSize.height, fontSize);
+        $touchAreaSize = get(defaults.touchAreaSize);
     }
 
     let showDeadZone = false;
+    $: defaultTouchZonePosition = { x: $viewSize.width * .25, y: $viewSize.height * .6 };
 
     // tap test
     let tapTestState: 'clear' | 'active' | 'hold' = 'clear';
@@ -150,42 +55,39 @@
     }
 </script>
 
-<TouchControls {showDeadZone} />
+<div class="pointer-events-none">
+    <TouchControls {showDeadZone} {defaultTouchZonePosition} />
+</div>
+
 <div
     class="
-        absolute w-full flex justify-between
-        text-center align-bottom pb-4
+        absolute inset-0 flex justify-between items-end
+        text-center align-bottom pb-12 px-4 bottom-0
+        pointer-events-none
     "
-    style="padding-inline:{$touchTargetHzPadding}rem; bottom: 0; --px:50%; --py:50%;"
+    style:--px="50%"
+    style:--py="50%"
 >
-    <div
-        use:touchDragControls={{ viewSize, controlSize: $touchTargetSize, side: 'start' }}
-        on:tdrag={dragPad}
-        style="padding-top:{$touchTargetSize}rem; width:{$touchTargetSize}rem;"
-    >
+    <div class="px-2">
         <p>Move</p>
         <p>Tap: use[*]</p>
     </div>
     <div
-        class="relative touch-none"
-        style="padding-top:{$touchTargetSize * .8 + $touchTargetVPadding * .5}rem; width:{$touchTargetSize}rem;"
+        class="relative"
+        style="padding-top:{$touchAreaSize * .8 + 4}rem; width:{$touchAreaSize}px;"
     >
         Weapon select
     </div>
-    <div
-        use:touchDragControls={{ viewSize, controlSize: $touchTargetSize, side: 'end' }}
-        on:tdrag={dragPad2}
-        style="padding-top:{$touchTargetSize}rem; width:{$touchTargetSize}rem;"
-    >
-        <p>Aim</p>
+    <div class="px-2">
+        <p>Turn</p>
         <p>Tap: shoot[*]</p>
     </div>
-    <div class="text-xs absolute bottom-0">[*] Double tap and hold to trigger the action continuously.</div>
+    <div class="text-xs absolute bottom-0">[*] Quick tap to trigger the action. Double tap and hold to trigger the action continuously.</div>
 </div>
 
 <div
     transition:fly={{ y: '-100%', delay: 200 }}
-    class="bg-base-100 rounded-box shadow-xl grid grid-rows-[minmax(0,1fr)_max-content] grid-cols-3 mx-2 gap-2"
+    class="bg-base-100 rounded-box shadow-xl grid grid-rows-[minmax(0,1fr)_max-content] grid-cols-3 mx-2 gap-2 relative"
 >
     <button class="btn btn-primary" on:click={() => visible = false}>Save</button>
     <button class="btn" on:click={resetDefaults}>Defaults</button>
@@ -200,8 +102,8 @@
             <input class="checkbox" type="checkbox" bind:checked={$analogMovement} />
         </label>
         <label class="label">
-            <span class="label-text text-xs">Size <span class="text-primary">[{$touchTargetSize}]</span></span>
-            <input type="range" class="range" bind:value={$touchTargetSize} min={4} max={20} />
+            <span class="label-text text-xs">Touch area <span class="text-primary">[{$touchAreaSize}]</span>px</span>
+            <input type="range" class="range" bind:value={$touchAreaSize} min={4} max={0.5 * Math.min($viewSize.height, $viewSize.width)} />
         </label>
         <label class="label"
             on:touchstart={() => showDeadZone = true}
@@ -209,11 +111,11 @@
             on:touchcancel={() => showDeadZone = false}
         >
             <span class="label-text text-xs">Dead zone <span class="text-primary">[{$touchDeadZone}]</span></span>
-            <input type="range" class="range" bind:value={$touchDeadZone} min={.1} max={1} step={0.05} />
+            <input type="range" class="range" bind:value={$touchDeadZone} min={0} max={1} step={0.05} />
         </label>
         <label class="label">
             <span class="label-text text-xs">Aim speed <span class="text-primary">[{$touchLookSpeed}]</span></span>
-            <input type="range" class="range" bind:value={$touchLookSpeed} min={4} max={64} step={4} />
+            <input type="range" class="range" bind:value={$touchLookSpeed} min={4} max={160} step={4} />
         </label>
         <div class="flex gap-2">
             <label class="label">

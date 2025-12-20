@@ -21,7 +21,7 @@
     $: hudHeight = gfx.height * scale; // why *2? Because we are scaling by 2 in a css transform below
 </script>
 
-<HUDMessages {player} />
+<HUDMessages topOffset={$hudStyle === 'top' ? hudHeight : 0} {player} />
 
 <div
     class="root"

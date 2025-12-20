@@ -11,7 +11,7 @@
 
     const { game } = useDoom();
     const { settings, pointerLock } = useAppContext();
-    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = settings;
+    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons, hudStyle } = settings;
     const touchDevice = matchMedia('(hover: none)').matches;
     const isPointerLocked = pointerLock.isPointerLocked;
 
@@ -26,7 +26,11 @@
 <div use:mouseControls={{ input: game.input, mouseSpeed: $mouseSensitivity, invertY: $mouseInvertY, swapButtons: $mouseSwitchLeftRightButtons }} />
 {/if}
 {#if touchDevice && !paused}
-    <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
+    <button
+        class="absolute top-12 left-4 text-4xl z-10"
+        class:top-4={$hudStyle === 'bottom'}
+        on:click={() => $isPointerLocked = false}
+    >
         <Icon class="swap-on fill-current opacity-60" src={Bars3BottomLeft} theme='solid' size="2rem"/>
     </button>
     <TouchControls player={$map?.player} />

@@ -1,23 +1,24 @@
 <script lang="ts">
     import type { EventHandler } from "svelte/elements";
     import { type PlayerMapObject } from "../../doom";
-    import RoundMenu from "../Components/RoundMenu.svelte";
     import type { Action, ActionReturn } from "svelte/action";
     import Picture from "../Components/Picture.svelte";
-    import type { Size } from "@threlte/core";
     import { useAppContext, useDoom } from "../DoomContext";
+    import { fade, fly } from "svelte/transition";
 
     export let player: PlayerMapObject = null;
+    export let defaultTouchZonePosition: Point = null;
     export let showDeadZone = false;
 
-    const { game, viewSize } = useDoom();
+    const { game } = useDoom();
     $: hasSuperShotgun = Boolean(game.wad.spriteTextureData('SHT2A0'));
     $: tickN = game.time.tickN;
     $: inventory = player?.inventory;
     $: playerWeapons = $inventory?.weapons;
 
     const { settings } = useAppContext();
-    const { touchDeadZone, tapTriggerTime, touchLookSpeed, analogMovement, touchTargetHzPadding, touchTargetVPadding, touchTargetSize } = settings;
+    const { touchDeadZone, tapTriggerTime, touchLookSpeed, analogMovement, touchAreaSize } = settings;
+    $: halfTouchSize = $touchAreaSize / 2;
     const nowTime = () => new Date().getTime() * 0.001;
     const weaponSprites: [string, number, number][] = [
         ['PUNGB0', 26, -5],
@@ -72,9 +73,13 @@
         return tl[0];
     }
 
-    type Params = { viewSize: Size, clipFn: (x: number) => number };
+    type Params = {
+        touchAreaSize: number;
+        clipFn: (x: number) => number;
+    };
     type Point = { x: number, y: number };
     interface Attributes {
+        'on:tzone-start': EventHandler<CustomEvent<Point>>;
         'on:tzone-point': EventHandler<CustomEvent<Point>>;
         'on:tzone-tap': EventHandler;
         'on:tzone-lock': EventHandler;
@@ -82,24 +87,21 @@
     }
 
     const touchZoneControls: Action<HTMLElement, Params, Attributes> = (node, params): ActionReturn<Params, Attributes> => {
-        let { clipFn } = params;
-
         let tapLock = false;
         let touchTime = 0;
         let touchNum: number;
         let touchActive = false;
-        let bounds: DOMRect;
-        let box = { midX: 0, midY: 0, halfWidth: 0, halfHeight: 0 };
+        let invTouchBoxSize = 1 / params.touchAreaSize;
+        let startPoint = { x: 0, y: 0 };
         let point = { x: 0, y: 0 };
-        resize();
 
+        // TODO: I wonder how hard it would be to rewrite this with pointer events? No need to fuss with touch ids?
         node.addEventListener('touchstart', touchstart);
         node.addEventListener('touchmove', touchmove);
         node.addEventListener('touchend', touchend);
         node.addEventListener('touchcancel', touchend);
         const update = (params: Params) => {
-            clipFn = params.clipFn;
-            resize();
+            invTouchBoxSize = 1 / params.touchAreaSize;
         };
         const destroy = () => {
             node.removeEventListener('touchstart', touchstart);
@@ -109,16 +111,9 @@
         }
         return { update, destroy };
 
-        function resize() {
-            bounds = node.getBoundingClientRect();
-            box.midX = (bounds.left + bounds.right) * .5;
-            box.midY = (bounds.top + bounds.bottom) * .5;
-            box.halfWidth = bounds.width * .5;
-            box.halfHeight = bounds.height * .5;
-        }
-
         function touchstart(ev: TouchEvent) {
             ev.preventDefault();
+            ev.timeStamp
             const now = nowTime();
             const elapsed = (now - touchTime);
             if (elapsed < 2 * $tapTriggerTime) {
@@ -133,7 +128,7 @@
                 requestAnimationFrame(onTick);
             }
             touchActive = true;
-            updateTouch(findTouch(ev.touches, touchNum));
+            initTouch(findTouch(ev.touches, touchNum));
         }
 
         function touchmove(ev: TouchEvent) {
@@ -152,9 +147,21 @@
             point.x = point.y = 0;
         }
 
+        function initTouch(t: Touch) {
+            const bounds = node.getBoundingClientRect();
+            const relativeStart = {
+                x: t.clientX - bounds.x,
+                y: t.clientY - bounds.y,
+            };
+            node.dispatchEvent(new CustomEvent('tzone-start', { detail: relativeStart }));
+
+            startPoint.x = point.x = t.clientX;
+            startPoint.y = point.y = t.clientY;
+            updateTouch(t);
+        }
         function updateTouch(t: Touch) {
-            point.x = clipFn((t.clientX - box.midX) / box.halfWidth);
-            point.y = clipFn((t.clientY - box.midY) / box.halfHeight);
+            point.x = params.clipFn((t.clientX - startPoint.x) * invTouchBoxSize);
+            point.y = params.clipFn((t.clientY - startPoint.y) * invTouchBoxSize);
         }
 
         function onTick() {
@@ -166,27 +173,27 @@
     };
 
     let showWeaponMenu = false;
-    function weaponWheelTouchMove(ev: TouchEvent) {
-        const btn = document.elementFromPoint(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY);
+    function weaponTouchMove(ev: PointerEvent) {
+        const btn = document.elementFromPoint(ev.clientX, ev.clientY);
         if (btn instanceof HTMLButtonElement && btn.getAttribute('class').includes('wbutton')) {
             btn.focus()
         }
     }
-
-    function weaponWheelTouchEnd(ev: TouchEvent) {
-        const btn = document.elementFromPoint(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY);
+    function weaponTouchEnd(ev: PointerEvent) {
+        const btn = document.elementFromPoint(ev.clientX, ev.clientY);
         if (btn instanceof HTMLButtonElement && btn.getAttribute('class').includes('wbutton')) {
             btn.click();
         }
         showWeaponMenu = false
     }
-
     const selectWeapon = (num: number) => () => {
+        showWeaponMenu = false;
         if (player.weapon.val.name !== playerWeapons[num].name) {
             player.nextWeapon = playerWeapons[num];
         }
     }
 
+    $: moveStartPoint = defaultTouchZonePosition;
     let movePoint = { x: 50, y: 50 };
     function touchMove(ev: CustomEvent<Point>) {
         movePoint.x = (ev.detail.x + 1) * 50;
@@ -195,79 +202,104 @@
         game.input.move.y = -ev.detail.y;
     }
 
+    $: lookStartPoint = defaultTouchZonePosition;
     let lookPoint = { x: 50, y: 50 };
     function touchLook(ev: CustomEvent<Point>) {
         lookPoint.x = (ev.detail.x + 1) * 50;
         lookPoint.y = (ev.detail.y + 1) * 50;
-        game.input.aim.x = $touchLookSpeed * ev.detail.x;
-        game.input.aim.y = $touchLookSpeed * ev.detail.y;
+        game.input.aim.x = $touchLookSpeed * Math.sign(ev.detail.x) * (ev.detail.x * ev.detail.x);
+        game.input.aim.y = $touchLookSpeed * Math.sign(ev.detail.x) * (ev.detail.y * ev.detail.y);
     }
 </script>
 
-<div
-    class="absolute w-full flex justify-between opacity-30"
-    style="
-        --deadZone:{$touchDeadZone * 100}%;
-        padding-inline:{$touchTargetHzPadding}rem;
-        bottom:{$touchTargetVPadding}rem;
-">
+<div class="absolute inset-0 overflow-hidden">
     <div
-        use:touchZoneControls={{ viewSize, clipFn: $analogMovement ? analogClip : dpadClip }}
-        on:tzone-tap={() => useButton = true}
-        on:tzone-lock={() => useLock = true}
-        on:tzone-unlock={() => useLock = false}
-        on:tzone-point={touchMove}
-        style="--px:{movePoint.x}%; --py:{movePoint.y}%; --size:{$touchTargetSize}rem;"
-        class="touchGradient border-2 border-accent border-opacity-40 rounded-full"
-        class:show-dead-zone={showDeadZone}
-        class:extra-active={useButton || useLock}
-        class:dpad-move={!$analogMovement}
-    />
-    <div
-        class="touchGradient rounded-full relative"
-        style="--px:50%; --py:50%; --size:{$touchTargetSize * .8}em; top:{$touchTargetVPadding * .5}rem;"
-        on:touchstart|preventDefault={() => showWeaponMenu = true}
-        on:touchmove|preventDefault={weaponWheelTouchMove}
-        on:touchend={weaponWheelTouchEnd}
-        on:touchcancel={() => showWeaponMenu = false}
-    />
-    <div
-        use:touchZoneControls={{ viewSize, clipFn: analogClip }}
-        on:tzone-tap={() => attackButton = true}
-        on:tzone-lock={() => attackLock = true}
-        on:tzone-unlock={() => attackLock = false}
-        on:tzone-point={touchLook}
-        style="--px:{lookPoint.x}%; --py:{lookPoint.y}%; --size:{$touchTargetSize}rem;"
-        class="touchGradient border-2 border-accent border-opacity-40 rounded-full"
-        class:show-dead-zone={showDeadZone}
-        class:extra-active={attackButton || attackLock}
-    />
-</div>
+        class="opacity-50 h-full flex justify-center items-end"
+        style:--deadZone="{$touchDeadZone * 100}%"
+    >
+        <div
+            class="absolute top-0 left-0 w-1/2 h-full"
+            use:touchZoneControls={{ touchAreaSize: $touchAreaSize, clipFn: $analogMovement ? analogClip : dpadClip }}
+            on:tzone-start={ev => moveStartPoint = ev.detail}
+            on:tzone-tap={() => useButton = true}
+            on:tzone-lock={() => useLock = true}
+            on:tzone-unlock={() => useLock = false}
+            on:tzone-point={touchMove}
+            on:touchend={() => moveStartPoint = null}
+        >
+            {#if moveStartPoint}
+            <div
+                transition:fade
+                style:--px="{movePoint.x}%"
+                style:--py="{movePoint.y}%"
+                style:--opx="{moveStartPoint.x - halfTouchSize}px"
+                style:--opy="{moveStartPoint.y - halfTouchSize}px"
+                style:--size="{$touchAreaSize}px"
+                class="touchGradient border-2 border-accent border-opacity-40 rounded-full"
+                class:show-dead-zone={showDeadZone}
+                class:extra-active={useButton || useLock}
+                class:dpad-move={!$analogMovement}
+            />
+            {/if}
+        </div>
 
-{#if showWeaponMenu && player}
-    <div class="absolute flex justify-center items-center w-full bottom-8">
-        <div class="absolute w-[30%] translate-y-[-75%] top-0">
-            <RoundMenu slices={weaponSprites.length - (hasSuperShotgun ? 0 : 1)} spanAngle={360} let:num let:rotation>
+        <div
+            class="absolute top-0 right-0 w-1/2 h-full"
+            use:touchZoneControls={{ touchAreaSize: $touchAreaSize, clipFn: analogClip }}
+            on:tzone-start={ev => lookStartPoint = ev.detail}
+            on:tzone-tap={() => attackButton = true}
+            on:tzone-lock={() => attackLock = true}
+            on:tzone-unlock={() => attackLock = false}
+            on:tzone-point={touchLook}
+            on:touchend={() => lookStartPoint = null}
+        >
+            {#if lookStartPoint}
+            <div
+                transition:fade
+                style:--px="{lookPoint.x}%"
+                style:--py="{lookPoint.y}%"
+                style:--opx="{lookStartPoint.x - halfTouchSize}px"
+                style:--opy="{lookStartPoint.y - halfTouchSize}px"
+                style:--size="{$touchAreaSize}px"
+                class="touchGradient border-2 border-accent border-opacity-40 rounded-full"
+                class:show-dead-zone={showDeadZone}
+                class:extra-active={attackButton || attackLock}
+            />
+            {/if}
+        </div>
+
+        <div
+            class="touchGradient rounded-full absolute"
+            style="--px:50%; --py:50%; --size:{$touchAreaSize * 1.2}px"
+            on:pointerdown={() => showWeaponMenu = true}
+            on:pointermove|preventDefault={weaponTouchMove}
+            on:pointerup={weaponTouchEnd}
+            on:pointercancel={() => showWeaponMenu = false}
+        />
+    </div>
+
+    {#if showWeaponMenu && player}
+        <div
+            class="absolute bottom-0 grid grid-cols-3 grid-rows-3 place-content-around gap-1 p-4"
+            transition:fly={{ y: '100%', duration: 100 }}
+        >
+            {#each weaponSprites as [spriteName], num}
+                {#if hasSuperShotgun || spriteName !== 'SHT2A0'}
                 {@const weaponNum = !hasSuperShotgun && num > 3 ? num + 1 : num}
                 <button
+                    class="wbutton btn no-animation w-full h-full opacity-80 overflow-hidden"
+                    class:opacity-0={!playerWeapons[weaponNum]}
                     disabled={!playerWeapons[weaponNum]}
-                    class="wbutton btn no-animation w-full h-full opacity-80"
-                    style="--btn-focus-scale:.9; --rotation:{rotation}deg;"
-                    on:click={selectWeapon(weaponNum)}
-                    on:touchend={() => showWeaponMenu = false}
+                    style="--btn-focus-scale:.9;"
+                    on:click={selectWeapon(num)}
                 >
-                    <span
-                        class="roundMenuItem"
-                        class:hidden={!playerWeapons[weaponNum]}
-                        style="--top-offset:{weaponSprites[weaponNum][1]}%; --right-offset:{weaponSprites[weaponNum][2]}%;"
-                    >
-                        <Picture name={weaponSprites[weaponNum][0]} />
-                    </span>
+                    <span class="scale-[1.5] translate-y-1/4 pointer-events-none"><Picture name={spriteName} /></span>
                 </button>
-            </RoundMenu>
+                {/if}
+            {/each}
         </div>
-    </div>
-{/if}
+    {/if}
+</div>
 
 <style>
     /* https://stackoverflow.com/questions/4472891 */
@@ -278,6 +310,7 @@
     .touchGradient {
         --grad-bg: transparent;
         --grad-size: 25%;
+        transform: translate(var(--opx), var(--opy));
         background-image: radial-gradient(
             circle at var(--px) var(--py),
             oklch(var(--a)), oklch(var(--a)) var(--grad-size), var(--grad-bg) calc(var(--grad-size) + 5%));
@@ -291,7 +324,6 @@
         /* background-color: oklch(var(--b1)); */
         border: none;
         border-radius: 0;
-        transform: scale(.8)
     }
 
     .extra-active {
@@ -307,13 +339,5 @@
 
     .wbutton:focus {
         --btn-color: var(--a);
-    }
-
-    .roundMenuItem {
-        position: absolute;
-        top: var(--top-offset);
-        right: var(--right-offset);
-        transform: rotate(calc(var(--rotation))) scale(.7);
-        pointer-events: none;
     }
 </style>

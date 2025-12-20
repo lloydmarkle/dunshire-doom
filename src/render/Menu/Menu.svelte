@@ -112,7 +112,7 @@
     import { Icon } from '@steeze-ui/svelte-icon'
     import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica } from '@steeze-ui/heroicons'
 
-    const { game, viewSize } = useDoom();
+    const { game } = useDoom();
     const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
     const { intermission, map } = game;
@@ -313,7 +313,7 @@
 >
     <div class="absolute inset-0 bg-honeycomb opacity-60 pointer-events-none" />
     <div class="relative w-full h-full">
-        <TouchControlsMenu {viewSize} bind:visible={showTouchControls} />
+        <TouchControlsMenu bind:visible={showTouchControls} />
     </div>
 </div>
 {/if}

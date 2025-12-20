@@ -5,10 +5,11 @@
     import STText from "../Components/STText.svelte";
     import { useAppContext } from "../DoomContext";
 
-    const { visibleHudMessages } = useAppContext().settings;
     export let player: PlayerMapObject;
+    export let topOffset: number;
     const hudMessage = player.hudMessage;
 
+    const { visibleHudMessages } = useAppContext().settings;
     const messageTimeMS = 4000;
 
     // A neat little hack (IMO). We don't need a list of messages but instead put each message into the DOM and let the
@@ -30,22 +31,25 @@
 </script>
 
 <div
-    bind:this={messageView}
-    class="messages select-none"
-    style="--visible-messages:{$visibleHudMessages}"
+    class="w-full absolute inset-0 overflow-hidden"
+    style="top:{topOffset}px"
 >
-    {#key messageNumber}
-        <div out:fly={{ y: -8, delay: messageTimeMS }}>
-            <div in:fly={{ y: -8 }}>
-                <STText text={message} />
+    <div
+        bind:this={messageView}
+        class="messages select-none"
+        style="--visible-messages:{$visibleHudMessages}"
+    >
+        {#key messageNumber}
+            <div out:fly={{ y: -8, delay: messageTimeMS }}>
+                <div in:fly={{ y: -8 }}>
+                    <STText text={message} />
+                </div>
             </div>
-        </div>
-    {/key}
+        {/key}
+    </div>
 </div>
-
 <style>
     .messages {
-        position: absolute;
         padding-bottom: 3.5px;
         top: -3px;
         left: 0;
@@ -53,6 +57,7 @@
         transform-origin: top left;
         display: flex;
         flex-direction: column;
+        flex-wrap: nowrap;
         gap: 1px;
         /* Only show n messages: n * (7px + gap) (2px gap because each message is a message + blank message) */
         max-height: calc(var(--visible-messages) * (7px + 2px));

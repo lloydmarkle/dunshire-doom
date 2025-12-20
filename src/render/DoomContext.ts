@@ -86,20 +86,18 @@ export const createDefaultSettings = () => {
         }),
     };
     const touchControlSettings = {
-        touchLookSpeed: writable(32),
-        touchDeadZone: writable(0.2),
+        touchLookSpeed: writable(96),
+        touchDeadZone: writable(0.1),
         tapTriggerTime: writable(0.2),
         analogMovement: writable(false),
-        touchTargetSize: writable(10),
-        touchTargetHzPadding: writable(1),
-        touchTargetVPadding: writable(4),
+        touchAreaSize: writable(140),
     };
     const soundSettings = {
         musicPlayback: writable<'synth' | 'soundfont' | 'off'>('soundfont'),
-        musicVolume: writable(.4),
-        soundVolume: writable(.5),
-        mainVolume: writable(.5),
         muted: writable(false),
+        mainVolume: writable(.4),
+        musicVolume: writable(.5),
+        soundVolume: writable(.5),
         maxSoundChannels: writable(32),
         experimentalSoundHacks: writable(false),
     }
@@ -210,7 +208,7 @@ export const createAppContext = () => {
     musicGain.connect(mainGain);
     derived([settings.muted, settings.mainVolume],
         ([muted, volume]) => muted ? 0 : volume)
-        .subscribe(volume => mainGain.gain.linearRampToValueAtTime(volume, audio.currentTime + .1));
+        .subscribe(volume => mainGain.gain.value = volume);
     settings.soundVolume.subscribe(volume => soundGain.gain.value = volume);
     settings.musicVolume.subscribe(volume => musicGain.gain.value = volume * .4);
 
@@ -221,7 +219,7 @@ export const createAppContext = () => {
     return { settings, settingsMenu, editor, audio, soundGain, musicGain, pointerLock, fullscreen, error, musicTrack };
 }
 
-export const createGameContext = (game: Game, viewSize: Size) => {
+export const createGameContext = (game: Game, viewSize: Store<Size>) => {
     const textures = new MapTextures(game.wad);
     const wad = game.wad;
     return { game, wad, textures, viewSize };

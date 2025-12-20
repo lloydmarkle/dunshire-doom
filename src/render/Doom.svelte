@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { type Game, randomNorm } from "../doom";
+    import { type Game, randomNorm, store } from "../doom";
     import { onDestroy, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
@@ -23,7 +23,7 @@
     export let soundGain: GainNode;
     export let paused: boolean;
 
-    let viewSize = { width: 320, height: 200 };
+    let viewSize = store({ width: 320, height: 200 });
     const doomContext = createGameContext(game, viewSize);
     setContext("doom-game-context", doomContext);
     const { settings, editor, error, pointerLock, musicTrack } = useAppContext();
@@ -146,13 +146,13 @@
 <WipeContainer key={intScreen ?? screenName}>
     <div
         class="relative grid h-full w-full bg-black"
-        bind:clientHeight={viewSize.height}
-        bind:clientWidth={viewSize.width}
+        bind:clientHeight={$viewSize.height}
+        bind:clientWidth={$viewSize.width}
     >
     {#if $intermission}
         <!-- NOTE: be cautious with #key and bind: https://github.com/sveltejs/svelte/issues/7704 (until svelte5) -->
         <Intermission details={$intermission}
-            size={viewSize}
+            size={$viewSize}
             bind:musicTrack={intermissionMusic}
             bind:screenName={screenName} />
     {/if}
@@ -160,7 +160,7 @@
     <MapContext map={$map} {renderSectors}>
         {#if $cameraMode === 'svg'}
         <SvgMapRoot
-            size={viewSize}
+            size={$viewSize}
             map={$map}
         />
         {:else}
@@ -172,7 +172,7 @@
             {/if}
         </Canvas>
         {/if}
-        <HUD size={viewSize} player={$map.player} />
+        <HUD size={$viewSize} player={$map.player} />
 
         {#if $showPlayerInfo}
         <PlayerInfo player={$map.player} interactive={paused} />
