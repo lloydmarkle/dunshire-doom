@@ -37,6 +37,65 @@
         Debug: settingsMenu.filter(e => e.cat === "debug"),
         Experimental: settingsMenu.filter(e => e.cat === "experimental"),
     });
+
+    export function menuSoundPlayer(audio: AudioContext, audioRoot: AudioNode, soundCache: ReturnType<typeof createSoundBufferCache>) {
+        // 16 is more than a reasonable max number of simultaneous sounds
+        let channelGain = (1 / 20 * Math.sqrt(Math.log(16)));
+        const playSound = (snd: SoundIndex): [AudioBufferSourceNode, GainNode] => {
+            if (!soundCache) {
+                return;
+            }
+            const soundNode = audio.createBufferSource();
+            soundNode.buffer = soundCache(snd);
+
+            const gainNode = audio.createGain();
+            configureGain(gainNode, audio.currentTime, channelGain, soundNode.buffer);
+            soundNode.connect(gainNode).connect(audioRoot);
+            soundNode.detune.value = randInt(-16, 16) * 4;
+            soundNode.start();
+            return [soundNode, gainNode];
+        };
+
+        const singleSound = (snd: SoundIndex, minDuration = 0) => {
+            if (!soundCache) {
+                return () => {}
+            }
+
+            let startTime: number;
+            let interruptLast: () => void;
+            return () => {
+                const now = audio.currentTime;
+                if (interruptLast && (now - startTime) < minDuration) {
+                    return;
+                }
+                if (interruptLast) {
+                    interruptLast();
+                }
+
+                startTime = now;
+                const [soundNode, gainNode] = playSound(snd);
+                soundNode.onended = () => interruptLast = null;
+                interruptLast = () => {
+                    const now = audio.currentTime;
+                    if(now - startTime + interruptFadeOut > soundNode.buffer.duration) {
+                        // already near the end of the sound so just finish it
+                        return;
+                    }
+                    stopSound(now, gainNode, soundNode);
+                };
+            }
+        };
+
+        const sfx = {
+            pstop: singleSound(SoundIndex.sfx_pstop, 0.2),
+            pistol: singleSound(SoundIndex.sfx_pistol),
+            stnmov: singleSound(SoundIndex.sfx_stnmov, 0.2),
+            swtchn: singleSound(SoundIndex.sfx_swtchn),
+            swtchx: singleSound(SoundIndex.sfx_swtchx),
+        }
+
+        return { channelGain, playSound, singleSound, sfx };
+    }
 </script>
 <script lang="ts">
     import { fade, fly } from "svelte/transition";
@@ -45,7 +104,7 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { type Game, data } from "../../doom";
+    import { type Game, SoundIndex, data, randInt } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
@@ -57,6 +116,8 @@
     const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
     const { intermission, map } = game;
+
+    const transitionDuration = 200;
     const touchDevice = matchMedia('(hover: none)').matches;
     // a hack to allow a fullscreen menu for configuring touch controls
     let showTouchControls = false;
@@ -96,18 +157,37 @@
     function resumeGame() {
         pointerLock.requestLock();
     }
+
+    import { configureGain, createSoundBufferCache, interruptFadeOut, stopSound } from "../SoundPlayer.svelte";
+    import { onMount } from "svelte";
+    const { audio, soundGain } = useAppContext();
+    const { maxSoundChannels } = useAppContext().settings;
+    $: soundCache = createSoundBufferCache(audio, game.wad);
+    $: menuSounds = menuSoundPlayer(audio, soundGain, soundCache);
+    $: menuSounds.channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
+    onMount(() => {
+        document.querySelectorAll('.btn').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
+        document.querySelectorAll('.dropdown .btn').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
+        document.querySelectorAll('select').forEach(b => b.addEventListener('change', menuSounds.sfx.swtchn));
+        document.querySelectorAll('label').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
+        document.querySelectorAll('input[type="checkbox"]').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
+        document.querySelectorAll('input[type="range"]').forEach(b => b.addEventListener('input', menuSounds.sfx.stnmov));
+        document.querySelectorAll('.dropdown').forEach(b => b.addEventListener('focusout', menuSounds.sfx.swtchx));
+    })
 </script>
 
 <svelte:window on:keyup|preventDefault={keyup} />
 
 <div
-    transition:fade
+    transition:fade={{ duration: transitionDuration }}
+    on:introstart={menuSounds.sfx.swtchn}
+    on:outrostart={menuSounds.sfx.swtchx}
     class:hidden={$editor.active}
     class="absolute inset-0 opacity-50 bg-neutral pointer-events-none"
 />
 
 <div class="absolute top-0 left-0 bottom-0 grid select-none">
-    <div transition:fly={{ x: "-100%" }} class="
+    <div transition:fly={{ x: "-100%", duration: transitionDuration}} class="
         bg-honeycomb
         w-screen max-w-96 overflow-y-scroll overflow-x-hidden
         flex flex-col gap-2
@@ -135,12 +215,11 @@
         {#if !shared}
             <button class="btn" on:click={share}>Share</button>
         {:else}
-            <span class="text-center" transition:fly>Url copied to clipboard</span>
+            <span class="text-center" transition:fly={{ duration: transitionDuration }}>Url copied to clipboard</span>
         {/if}
         <!-- TODO: someday... get save/load working-->
         <!-- <button class="btn" disabled>Load</button>
         <button class="btn" disabled>Save</button> -->
-
 
         <div class="divider" />
         <div class="flex mx-auto join">
@@ -231,7 +310,7 @@
 {#if showTouchControls}
 <div
     class="absolute inset-0 z-30"
-    transition:fly={{ y: '-100%' }}
+    transition:fly={{ y: '-100%', duration: transitionDuration }}
 >
     <div class="absolute inset-0 bg-honeycomb opacity-60 pointer-events-none" />
     <div class="relative w-full h-full">

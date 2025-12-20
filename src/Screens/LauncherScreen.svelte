@@ -1,14 +1,15 @@
 <script lang="ts">
     import { crossfade, fade, fly } from "svelte/transition";
-    import { data, randInt, SoundIndex, tickTime, type DoomWad } from "../doom";
+    import { data, tickTime, type DoomWad } from "../doom";
     import type { WADInfo } from "../WadStore";
     import Picture from "../render/Components/Picture.svelte";
     import { Home, MagnifyingGlass } from "@steeze-ui/heroicons";
     import { Icon } from "@steeze-ui/svelte-icon";
     import WadList from "../render/Components/WadList.svelte";
     import { useAppContext } from "../render/DoomContext";
-    import { configureGain, createSoundBufferCache, interruptFadeOut, stopSound } from "../render/SoundPlayer.svelte";
+    import { createSoundBufferCache } from "../render/SoundPlayer.svelte";
     import { onDestroy } from "svelte";
+    import { menuSoundPlayer } from "../render/Menu/Menu.svelte";
 
     export let wads: WADInfo[];
     export let wad: DoomWad = null;
@@ -17,62 +18,9 @@
 
     const { audio, soundGain, settings, musicTrack } = useAppContext();
     const { maxSoundChannels } = settings;
-    $: soundBuffer = loadSoundBuffers(wad);
-    $: channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
-    function loadSoundBuffers(wad: DoomWad): ReturnType<typeof createSoundBufferCache> {
-        // keep the old sound cache around so we get more sounds on transitions
-        // (even if the sounds are from a different wad, it still feels more consistent to me)
-        if (!wad) {
-            return soundBuffer;
-        }
-        const sb = createSoundBufferCache(audio, wad);
-        sb(SoundIndex.sfx_pistol); // go forward/select
-        sb(SoundIndex.sfx_pstop); // change menu line
-        sb(SoundIndex.sfx_stnmov); // slider
-        sb(SoundIndex.sfx_swtchn); // open menu
-        sb(SoundIndex.sfx_swtchx); // escape/close menu
-        return sb;
-    }
-    function playSound(snd: SoundIndex): [AudioBufferSourceNode, GainNode] {
-        if (!soundBuffer) {
-            return;
-        }
-        const soundNode = audio.createBufferSource();
-        soundNode.buffer = soundBuffer(snd);
-
-        const gainNode = audio.createGain();
-        configureGain(gainNode, audio.currentTime, channelGain, soundNode.buffer);
-        soundNode.connect(gainNode).connect(soundGain);
-        soundNode.detune.value = randInt(-16, 16) * 4;
-        soundNode.start();
-        return [soundNode, gainNode];
-    }
-
-    // actually, it may be better to manage this as a single sound channel where it only plays a single sound at a time
-    // instead of one channel per sound type
-    const singleSound = (snd: SoundIndex) => {
-        let startTime: number;
-        let interruptLast: () => void;
-        return () => {
-            if (interruptLast) {
-                interruptLast();
-            }
-
-            startTime = audio.currentTime;
-            const [soundNode, gainNode] = playSound(snd);
-            interruptLast = () => {
-                const now = audio.currentTime;
-                if(now - startTime + interruptFadeOut > soundNode.buffer.duration) {
-                    // already near the end of the sound so just finish it
-                    return;
-                }
-                stopSound(now, gainNode, soundNode);
-            };
-        }
-    };
-    const sfx_pstop = singleSound(SoundIndex.sfx_pstop);
-    const sfx_stnmov = singleSound(SoundIndex.sfx_stnmov);
-    const sfx_swtchx = singleSound(SoundIndex.sfx_swtchx);
+    $: menuSounds = menuSoundPlayer(audio, soundGain, wad ? createSoundBufferCache(audio, wad) : null);
+    $: msfx = menuSounds.sfx;
+    $: menuSounds.channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
 
     const [send, receive] = crossfade({
 		duration: 350,
@@ -85,27 +33,19 @@
 
     let selectedIWad: WADInfo;
     let selectedPWads: WADInfo[] = [];
-
-    $: bgImage = selectedPWads.reduce<string>((img, pwad) => pwad.image ?? img, undefined) ?? selectedIWad?.image;
+    let bgImage = '';
     $: $musicTrack = wad ? (wad.optionalLump('D_DM2TTL') ?? wad.optionalLump('D_INTRO')) : null;
 
-    // TODO: the url state management in this component is a mess. The whole component is a mess really. It works but
-    // it feels like it could be written in a much cleaner and tidier way.
-    $: if (wad && selectedPWads && !startPlaying && !mapName) {
-        window.location.href = '#' + [selectedIWad, ...selectedPWads].filter(p => p).map(p => `wad=${p.name}`).join('&');
-    }
-
-    // menu skull changes every 8 tics
     let selectedSkill = 3;
-    const skullImages = ['M_SKULL1', 'M_SKULL2'];
     let skullImage = 0;
+    const skullImages = ['M_SKULL1', 'M_SKULL2'];
+    // menu skull changes every 8 tics
     const skullChanger = setInterval(() => skullImage ^= 1, 1000 * tickTime * 8);
     onDestroy(() => clearInterval(skullChanger));
 
     let lastPwadsCount = 0;
     let lastIWad = '';
     let startPlaying = false;
-    let goTime = false;
     let mapName: string;
     $: mapNames = wad?.mapNames ?? [];
     function parseUrlHash(hash: string, iwads: WADInfo[]) {
@@ -114,12 +54,13 @@
         const wads = params.getAll('wad');
         selectedIWad = iwads.find(e => e.name === wads[0]);
         selectedPWads = wads.map(p => pWads.find(e => e.name === p)).filter(e => e);
+        bgImage = selectedPWads.reduce<string>((img, pwad) => pwad.image ?? img, undefined) ?? selectedIWad?.image;
 
         if (selectedIWad?.name !== lastIWad) {
-            playSound(lastIWad ? SoundIndex.sfx_swtchx : SoundIndex.sfx_pistol);
+            (lastIWad ? msfx.swtchx : msfx.pistol)();
         }
         if (lastPwadsCount !== selectedPWads.length) {
-            playSound(lastPwadsCount - selectedPWads.length > 0 ? SoundIndex.sfx_swtchx : SoundIndex.sfx_swtchn);
+            (lastPwadsCount - selectedPWads.length > 0 ? msfx.swtchx : msfx.swtchn)();
         }
         lastIWad = selectedIWad?.name ?? '';
         lastPwadsCount = selectedPWads.length;
@@ -127,16 +68,20 @@
         let play = startPlaying;
         startPlaying = params.has('play') || params.has('map');
         if (play !== startPlaying) {
-            playSound(play ? SoundIndex.sfx_swtchx : SoundIndex.sfx_pistol);
+            (play ? msfx.swtchx : msfx.pistol)();
         }
         const urlMapName = params.get('map');
         if (urlMapName !== mapName) {
             mapName = urlMapName;
         }
-
-        goTime = params.has('wad') && params.has('map') && params.has('skill');
     }
     $: parseUrlHash(window.location.hash, iWads);
+
+    // TODO: the url state management in this component is a mess. The whole component is a mess really. It works but
+    // it feels like it could be written in a much cleaner and tidier way.
+    $: if (wad && selectedPWads && !startPlaying && !mapName) {
+        window.location.href = '#' + [selectedIWad, ...selectedPWads].filter(p => p).map(p => `wad=${p.name}`).join('&');
+    }
 </script>
 
 <svelte:window on:popstate={() => parseUrlHash(window.location.hash, iWads)} />
@@ -190,8 +135,8 @@
                     <div class="divider divider-horizontal"></div>
                     {@const ep = parseInt(mapName[1])}
                     <a class="btn h-full relative overflow-hidden" href="#{wad.name}&play"
-                        on:pointerenter={sfx_stnmov}
-                        on:click={sfx_swtchx}
+                        on:pointerenter={msfx.stnmov}
+                        on:click={msfx.swtchx}
                     >
                         <span class="scale-[1.2] hover:scale-[1.1] transition-transform">
                             <Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} />
@@ -208,10 +153,12 @@
                         {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
                             {#if mapNames.includes(`E${ep}M1`)}
                                 <a class="btn h-full relative overflow-hidden" href="#{wad.name}&map=E{ep}M1"
-                                    on:pointerenter={sfx_pstop}
-                                    on:click={() => playSound(SoundIndex.sfx_pistol)}
+                                    on:pointerenter={msfx.pstop}
+                                    on:click={msfx.pistol}
                                 >
-                                    <span class="scale-[1.1] hover:scale-[1.2] transition-transform"><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                                    <span class="scale-[1.1] hover:scale-[1.2] transition-transform">
+                                        <Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} />
+                                    </span>
                                     <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
                                 </a>
                             {/if}
@@ -222,9 +169,9 @@
                     {#each data.skills as skill, i}
                         <a class="btn no-animation pulse-on-hover flex justify-start gap-4" in:fly={{ y: '-100%', delay: i * 50 }}
                             href="#{wad.name}&skill={i + 1}&map={mapName ?? 'MAP01'}"
-                            on:pointerenter={sfx_pstop}
+                            on:pointerenter={msfx.pstop}
                             on:pointerenter={() => selectedSkill = i}
-                            on:click={() => playSound(SoundIndex.sfx_pistol)}
+                            on:click={msfx.pistol}
                         >
                             <span class="scale-125 opacity-0 transition-opacity" class:opacity-100={selectedSkill === i}>
                                 <Picture {wad} name={skullImages[skullImage]} />
