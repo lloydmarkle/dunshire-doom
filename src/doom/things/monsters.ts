@@ -269,8 +269,8 @@ export function propagateSound(emitter: MapObject) {
     propagateSoundRecursive(emitter, soundPropagateCount++, emitter.sector);
 }
 
-function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sector, depth = 0) {
-    for (const seg of sector.portalSegs) {
+function propagateSoundRecursive(emitter: MapObject, count: number, originSector: Sector, pastBlocks = 0) {
+    for (const seg of originSector.portalSegs) {
         const sector = (seg.direction ? seg.linedef.right : seg.linedef.left).sector;
         // already visited sector
         if (sector.soundC === count) {
@@ -284,15 +284,17 @@ function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sect
         if (gap <= 0) {
             continue;
         }
-        sector.soundTarget = emitter;
-        sector.soundC = count;
 
         // Sound block doesn't work as I'd expect. See Doom2 MAP01:
         // https://doomwiki.org/wiki/Sound_propagation and https://www.doomworld.com/forum/topic/109773-block-sound-not-working/
-        if (seg.linedef.flags & 0x0040 && depth > 0) {
+        const soundBlocked = (seg.linedef.flags & 0x0040) ? 1 : 0;
+        if (soundBlocked && pastBlocks) {
             continue;
         }
-        propagateSoundRecursive(emitter, count, sector, depth + 1);
+
+        sector.soundTarget = emitter;
+        sector.soundC = count;
+        propagateSoundRecursive(emitter, count, sector, pastBlocks + soundBlocked);
     }
 }
 
