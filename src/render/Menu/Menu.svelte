@@ -122,6 +122,9 @@
     // a hack to allow a fullscreen menu for configuring touch controls
     let showTouchControls = false;
 
+    // Someday I hope to live in a world where I can use fullscreen API in safari on iPhone
+    // https://forums.developer.apple.com/forums/thread/133248
+    // https://caniuse.com/fullscreen
     $: isFullscreen = fullscreen.isFullscreen;
     const toggleFullscreen = () => $isFullscreen
         ? fullscreen.releaseFullscreen()
@@ -224,22 +227,22 @@
         <div class="flex mx-auto join">
             <label class="swap btn btn-lg join-item">
                 <input type="checkbox" bind:checked={$isFullscreen} on:click={toggleFullscreen} />
-                <Icon class="swap-on fill-current" src={ArrowsPointingIn} theme='solid' size="2rem"/>
-                <Icon class="swap-off fill-current" src={ArrowsPointingOut} theme='solid' size="2rem"/>
+                <Icon class="swap-on fill-current" src={ArrowsPointingIn} theme='solid' size="32px"/>
+                <Icon class="swap-off fill-current" src={ArrowsPointingOut} theme='solid' size="32px"/>
             </label>
             <div class="dropdown dropdown-bottom">
-                <div tabindex="0" role="button" class="btn btn-lg join-item"><Icon src={VideoCamera} theme='solid' size="2rem"/></div>
+                <div tabindex="0" role="button" class="btn btn-lg join-item"><Icon src={VideoCamera} theme='solid' size="32px"/></div>
                 <ul tabindex="-1" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                    <li><button on:click={() => $cameraMode = '1p'}><Icon src={Eye} theme='solid' size="1.5rem"/>First person</button></li>
-                    <li><button on:click={() => $cameraMode = '3p'}><Icon src={User} theme='solid' size="1.5rem"/>Third person</button></li>
-                    <li><button on:click={() => $cameraMode = 'ortho'}><Icon src={Cube} theme='solid' size="1.5rem"/>Isometric</button></li>
-                    <li><button on:click={() => $cameraMode = 'bird'}><Icon src={GlobeEuropeAfrica} theme='solid' size="1.5rem"/>Overhead</button></li>
+                    <li><button on:click={() => $cameraMode = '1p'}><Icon src={Eye} theme='solid' size="24px"/>First person</button></li>
+                    <li><button on:click={() => $cameraMode = '3p'}><Icon src={User} theme='solid' size="24px"/>Third person</button></li>
+                    <li><button on:click={() => $cameraMode = 'ortho'}><Icon src={Cube} theme='solid' size="24px"/>Isometric</button></li>
+                    <li><button on:click={() => $cameraMode = 'bird'}><Icon src={GlobeEuropeAfrica} theme='solid' size="24px"/>Overhead</button></li>
                 </ul>
             </div>
             <label class="swap btn btn-lg join-item">
                 <input type="checkbox" bind:checked={$muted} />
-                <Icon class="swap-on fill-current" src={SpeakerXMark} theme='solid' size="2rem"/>
-                <Icon class="swap-off fill-current" src={SpeakerWave} theme='solid' size="2rem"/>
+                <Icon class="swap-on fill-current" src={SpeakerXMark} theme='solid' size="32px"/>
+                <Icon class="swap-off fill-current" src={SpeakerWave} theme='solid' size="32px"/>
             </label>
             <label class="swap btn btn-lg join-item">
                 <input type="checkbox" bind:checked={$simulate486} />

@@ -11,7 +11,7 @@
     export let showDeadZone = false;
 
     const { game } = useDoom();
-    $: hasSuperShotgun = Boolean(game.wad.spriteTextureData('SHT2A0'));
+    const hasSuperShotgun = Boolean(game.wad.spriteTextureData('SHT2A0'));
     $: tickN = game.time.tickN;
     $: inventory = player?.inventory;
     $: playerWeapons = $inventory?.weapons;
@@ -208,7 +208,7 @@
         lookPoint.x = (ev.detail.x + 1) * 50;
         lookPoint.y = (ev.detail.y + 1) * 50;
         game.input.aim.x = $touchLookSpeed * Math.sign(ev.detail.x) * (ev.detail.x * ev.detail.x);
-        game.input.aim.y = $touchLookSpeed * Math.sign(ev.detail.x) * (ev.detail.y * ev.detail.y);
+        game.input.aim.y = $touchLookSpeed * Math.sign(ev.detail.y) * (ev.detail.y * ev.detail.y);
     }
 </script>
 

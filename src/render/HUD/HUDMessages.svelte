@@ -6,6 +6,7 @@
     import { useAppContext } from "../DoomContext";
 
     export let player: PlayerMapObject;
+    export let scale: number;
     export let topOffset: number;
     const hudMessage = player.hudMessage;
 
@@ -33,6 +34,7 @@
 <div
     class="w-full absolute inset-0 overflow-hidden"
     style="top:{topOffset}px"
+    style:--hud-scale={scale}
 >
     <div
         bind:this={messageView}
@@ -53,7 +55,7 @@
         padding-bottom: 3.5px;
         top: -3px;
         left: 0;
-        transform: scale(2);
+        transform: scale(var(--hud-scale));
         transform-origin: top left;
         display: flex;
         flex-direction: column;

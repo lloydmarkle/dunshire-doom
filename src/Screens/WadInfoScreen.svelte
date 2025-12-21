@@ -141,7 +141,7 @@
         <div>
             <label class="input input-bordered input-sm flex items-center gap-2 ms-auto">
                 <input type="text" class="grow" placeholder="Search" bind:value={searchText} />
-                <Icon src={MagnifyingGlass} theme='outline' size=".5rem" />
+                <Icon src={MagnifyingGlass} theme='outline' size="8px" />
             </label>
             <div class="bg-base-300 max-w-xs max-h-[32rem] overflow-y-scroll">
                 <table class="table table-xs">

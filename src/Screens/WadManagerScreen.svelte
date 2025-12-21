@@ -64,12 +64,12 @@
             />
 
             <button class="btn" class:btn-disabled={!selectedPWads.length || confirmDelete} on:click={() => confirmDelete = true}>
-                <Icon src={Trash} theme='outline' size=".8rem" />
+                <Icon src={Trash} theme='outline' size="12px" />
             </button>
 
             <label class="input input-bordered input-sm flex items-center gap-2 ms-auto">
                 <input type="text" class="grow" placeholder="Search" bind:value={searchText} />
-                <Icon src={MagnifyingGlass} theme='outline' size=".5rem" />
+                <Icon src={MagnifyingGlass} theme='outline' size="8px" />
             </label>
         </div>
 
@@ -78,7 +78,7 @@
             transition:fly={{ y:'-4rem' }}
             class="alert alert-warning flex absolute top-16"
         >
-            <span><Icon src={ExclamationTriangle} theme='outline' size="1.5rem" /></span>
+            <span><Icon src={ExclamationTriangle} theme='outline' size="24px" /></span>
             <span>Remove {selectedPWads.length} wad{selectedPWads.length === 1 ? '' : 's'}?</span>
             <div class="flex gap-2 ms-auto">
                 <button class="btn" on:click={removeSelectedPWads}>Yes</button>

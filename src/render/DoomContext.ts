@@ -86,11 +86,11 @@ export const createDefaultSettings = () => {
         }),
     };
     const touchControlSettings = {
-        touchLookSpeed: writable(96),
-        touchDeadZone: writable(0.1),
+        touchLookSpeed: writable(110),
+        touchDeadZone: writable(0.2),
         tapTriggerTime: writable(0.2),
-        analogMovement: writable(false),
-        touchAreaSize: writable(140),
+        analogMovement: writable(true),
+        touchAreaSize: writable(80),
     };
     const soundSettings = {
         musicPlayback: writable<'synth' | 'soundfont' | 'off'>('soundfont'),
@@ -106,7 +106,7 @@ export const createDefaultSettings = () => {
         ...soundSettings,
         ...touchControlSettings,
         ...controllerConfig,
-        maxHudScale: writable(4),
+        maxHudScale: writable(3),
         hudStyle: writable<'bottom' | 'top' | 'left' | 'right'>('bottom'),
         visibleHudMessages: writable(1),
         simulate486: writable(false),
@@ -132,6 +132,14 @@ export const createAppContext = () => {
         active: false,
         selected: null,
     });
+
+    const touchDevice = matchMedia('(hover: none)').matches;
+    if (touchDevice) {
+        // set some different default settings for touch devices
+        settings.xyAimAssist.set(true);
+        settings.fov.set(90);
+        settings.hudStyle.set('top');
+    }
 
     function loadSettings() {
         try {

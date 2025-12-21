@@ -107,7 +107,7 @@
 
 {#if selectedIWad}
 <div out:fly={{ y: '-100%' }} in:fly={{ delay: 200, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2 z-30">
-    <a class="btn btn-secondary w-48 shadow-xl" href={"#"}><Icon src={Home} theme='solid' size="1rem"/> Home</a>
+    <a class="btn btn-secondary w-48 shadow-xl" href={"#"}><Icon src={Home} theme='solid' size="16px"/> Home</a>
 </div>
 
 {@const selectedWadName = selectedIWad.name}
@@ -219,7 +219,7 @@
                                 <button class="btn btn-sm" on:click={() => selectedPWads = []}>Clear selection</button>
                                 <label class="input input-bordered input-sm flex items-center gap-2 ms-auto">
                                     <input type="text" class="grow" placeholder="Search" bind:value={searchText} />
-                                    <Icon src={MagnifyingGlass} theme='outline' size=".5rem" />
+                                    <Icon src={MagnifyingGlass} theme='outline' size="8px" />
                                 </label>
                             </div>
                             <WadList wads={filteredWads} bind:selected={selectedPWads} />

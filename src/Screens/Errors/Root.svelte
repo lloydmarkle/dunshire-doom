@@ -32,11 +32,11 @@
 
 <div class="w-screen h-screen flex flex-col red-honeycomb overflow-scroll">
     <a class="link link-primary max-w-32" href="/">
-        <span><Icon src={Home} theme='solid' size="3rem"/></span>
+        <span><Icon src={Home} theme='solid' size="48px"/></span>
     </a>
     <div class="flex flex-col gap-4 p-20">
         <h1 class="text-7xl flex gap-2">
-            <span><Icon src={ExclamationCircle} theme='solid' size="5rem"/></span>
+            <span><Icon src={ExclamationCircle} theme='solid' size="80px"/></span>
             <span>Error</span>
         </h1>
         <div>{error.message}</div>
@@ -55,7 +55,7 @@
             <ul class="pb-4">
                 {#each error.details.failedWads as [name, err]}
                     <li class="pt-2 flex gap-4 items-center">
-                        <Icon src={XCircle} theme="solid" size="2rem" />
+                        <Icon src={XCircle} theme="solid" size="32px" />
                         {err}
                         <!--
                         future?
@@ -66,7 +66,7 @@
                 {/each}
                 {#each error.details.succeededWads as name}
                     <li class="pt-2 flex gap-4 items-center">
-                        <Icon src={CheckCircle} theme="solid" size="2rem" />
+                        <Icon src={CheckCircle} theme="solid" size="32px" />
                         {name}
                     </li>
                 {/each}

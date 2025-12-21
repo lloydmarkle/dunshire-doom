@@ -124,13 +124,6 @@
         logarithmicDepthBuffer: true,
     };
 
-    // Someday I hope to live in a world where I can use fullscreen API in safari on iPhone
-    // https://forums.developer.apple.com/forums/thread/133248
-    // https://caniuse.com/fullscreen
-    function scrollBottom() {
-        setTimeout(() => window.scrollTo(0, 1), 50);
-    }
-
     function keyup(ev: KeyboardEvent) {
         switch (ev.code) {
             // show menu, we don't need to catch "escape" because pointer lock handles that
@@ -141,7 +134,7 @@
     }
 </script>
 
-<svelte:window on:load={scrollBottom} on:keyup|preventDefault={keyup} />
+<svelte:window on:keyup|preventDefault={keyup} />
 
 <WipeContainer key={intScreen ?? screenName}>
     <div
