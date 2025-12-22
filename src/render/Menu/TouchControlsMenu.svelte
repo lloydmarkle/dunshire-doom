@@ -4,7 +4,7 @@
     import TouchControls from "../Controls/TouchControls.svelte";
     import { fly } from "svelte/transition";
 
-    export let visible = false;
+    export let subMenu: string;
     const viewSize = useDoom().viewSize;
 
     const settings = useAppContext().settings;
@@ -20,7 +20,7 @@
     }
     function resetValues() {
         Object.keys(originalValues).forEach((key: SettingsKey) => (settings[key] as Writable<any>).set(originalValues[key]));
-        visible = false;
+        subMenu = '';
     }
     function resetDefaults() {
         const defaults = createDefaultSettings();
@@ -86,11 +86,11 @@
 </div>
 
 <div
-    transition:fly={{ y: '-100%', delay: 200 }}
+    transition:fly={{ x: '100%', delay: 200 }}
     class="bg-base-100 rounded-box shadow-xl grid grid-rows-[minmax(0,1fr)_max-content] grid-cols-3 mx-2 gap-2 relative"
 >
-    <button class="btn btn-primary" on:click={() => visible = false}>Save</button>
-    <button class="btn" on:click={resetDefaults}>Defaults</button>
+    <button class="btn btn-primary" on:click={() => subMenu = ''}>Save</button>
+    <button class="btn btn-accent" on:click={resetDefaults}>Defaults</button>
     <button class="btn" on:click={resetValues}>Cancel</button>
     <div class="
         col-span-3 justify-self-center text-xs p-2

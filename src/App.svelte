@@ -179,20 +179,6 @@
         --honeycomb-size: 40px;
         background: var(--honeycomb-gradient);
         background-size: var(--honeycomb-size-x) var(--honeycomb-size-y);
-        width: 100vw;
-        height: 100vh;
-    }
-
-    /*
-        safari hack to make sure we can scroll to hide the address bar...
-        See also the note in Doom.svelte
-    */
-    @supports (-webkit-touch-callout: none) {
-        @media only screen and (orientation: landscape) {
-            main {
-                padding-top: 60px;
-            }
-        }
     }
 
     .full {

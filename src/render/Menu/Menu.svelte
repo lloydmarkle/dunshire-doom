@@ -116,11 +116,13 @@
     const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
     const { intermission, map } = game;
+    const settings = menuCategories(settingsMenu);
 
     const transitionDuration = 200;
     const touchDevice = matchMedia('(hover: none)').matches;
     // a hack to allow a fullscreen menu for configuring touch controls
-    let showTouchControls = false;
+    $: showTouchControls = touchDevice && subMenu === 'controls';
+    const menuFlyDirection = touchDevice ? '100%' : '-100%';
 
     // Someday I hope to live in a world where I can use fullscreen API in safari on iPhone
     // https://forums.developer.apple.com/forums/thread/133248
@@ -145,12 +147,14 @@
         shared = true;
     }
 
-    const settings = menuCategories(settingsMenu);
-
     function keyup(ev: KeyboardEvent) {
         switch (ev.code) {
             case "Backquote":
             case "Escape":
+                if (subMenu) {
+                    subMenu = '';
+                    return;
+                }
                 resumeGame();
                 ev.stopImmediatePropagation();
                 break;
@@ -161,8 +165,12 @@
         pointerLock.requestLock();
     }
 
+    let subMenu = '';
+    let subMenuNode: HTMLElement;
+    const toggleSubmenu = (menu: string) => () => subMenu = subMenu === menu ? '' : menu;
+
     import { configureGain, createSoundBufferCache, interruptFadeOut, stopSound } from "../SoundPlayer.svelte";
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     const { audio, soundGain } = useAppContext();
     const { maxSoundChannels } = useAppContext().settings;
     $: soundCache = createSoundBufferCache(audio, game.wad);
@@ -170,12 +178,20 @@
     $: menuSounds.channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
     onMount(() => {
         document.querySelectorAll('.btn').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
-        document.querySelectorAll('.dropdown .btn').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
-        document.querySelectorAll('select').forEach(b => b.addEventListener('change', menuSounds.sfx.swtchn));
         document.querySelectorAll('label').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
         document.querySelectorAll('input[type="checkbox"]').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
-        document.querySelectorAll('input[type="range"]').forEach(b => b.addEventListener('input', menuSounds.sfx.stnmov));
-    })
+    });
+    $: if (subMenuNode) {
+        (!subMenu ? menuSounds.sfx.swtchx : menuSounds.sfx.swtchn)();
+        tick().then(() => {
+            subMenuNode.querySelectorAll('.btn').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
+            subMenuNode.querySelectorAll('select').forEach(b => b.addEventListener('change', menuSounds.sfx.swtchn));
+            subMenuNode.querySelectorAll('li').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
+            subMenuNode.querySelectorAll('.btn').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
+            subMenuNode.querySelectorAll('input[type="checkbox"]').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
+            subMenuNode.querySelectorAll('input[type="range"]').forEach(b => b.addEventListener('input', menuSounds.sfx.stnmov));
+        });
+    }
 </script>
 
 <svelte:window on:keyup|preventDefault={keyup} />
@@ -189,12 +205,12 @@
 />
 
 <div class="absolute top-0 left-0 bottom-0 grid select-none">
-    <div transition:fly={{ x: "-100%", duration: transitionDuration}} class="
+    <div transition:fly={{ x: "-100%", duration: transitionDuration }} class="
         bg-honeycomb
-        w-screen max-w-96 overflow-y-scroll overflow-x-hidden
+        w-screen max-w-96 overflow-y-scroll overflow-x-hidden md:z-10
         flex flex-col gap-2
     "
-    class:hidden={showTouchControls}
+    class:hidden={showTouchControls && subMenu === 'controls'}
     >
         <div class="self-center pt-2"><a href="#{game.wad.name}&endoom"><Picture name="M_DOOM" /></a></div>
         <div class="px-2">
@@ -209,7 +225,7 @@
             <MapStats map={$map} />
         </div>
         <div class="divider" />
-        <button class="btn btn-primary uppercase z-20 sticky top-0" on:click={resumeGame}>Resume</button>
+        <button class="btn btn-primary uppercase" on:click={resumeGame}>Resume</button>
 
         {#if hasNextEpisode}
         <button on:click={startNextEpisode} class="btn btn-secondary">Next episode</button>
@@ -251,78 +267,70 @@
             </label>
         </div>
 
-        <div class="dropdown md:static">
-            <div tabindex="0" role="button" class="btn w-full">Settings</div>
-            <div tabindex="-1" class="
-                dropdown-content z-10 shadow bg-base-100 w-screen max-w-96 rounded-box
-                overflow-y-scroll top-12 bottom-0
-                pb-80 md:top-0 md:pb-10 md:left-96
-            ">
-                <ul class="menu">
-                    {#each Object.entries(settings) as [category, values]}
-                        <div class="divider sticky my-2 z-10 top-0 bg-base-100">{category}</div>
-                        {#each values as item}
-                            <li><MenuItem {item} /></li>
-                        {/each}
-                    {/each}
-
-                    <div class="divider sticky my-2 z-10 top-0 bg-base-100">Other</div>
-                    <li>
-                        <label class="label cursor-pointer">
-                            <span class="label-text">Inspector</span>
-                            <input type="checkbox" class="checkbox" bind:checked={$editor.active} on:change={() => ($editor.selected = null)} />
-                        </label>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="dropdown md:static" on:focusin={() => showTouchControls = touchDevice}>
-            <div tabindex="0" role="button" class="btn w-full">Controls</div>
-            <div tabindex="-1" class="
-                dropdown-content z-10 shadow bg-base-100 w-screen max-w-96 rounded-box
-                overflow-y-scroll top-12 bottom-0
-                pb-80 md:top-0 md:pb-10 md:left-96
-            ">
-                {#if !showTouchControls}
-                <KeyboardControlsMenu />
-                {/if}
-            </div>
-        </div>
-
-        {#if $map}
-        <div class="dropdown md:static">
-            <div tabindex="0" role="button" class="btn w-full">Cheats</div>
-            <div tabindex="-1" class="
-            dropdown-content z-10 shadow bg-base-100 w-screen max-w-96 rounded-box
-            overflow-y-scroll top-12 bottom-0
-            pb-80 md:top-0 md:pb-10 md:left-96
-        ">
-                <CheatsMenu player={$map.player} />
-            </div>
-        </div>
-        {/if}
+        <button class="btn w-full"
+            class:submenu-selected={subMenu === 'settings'}
+            on:click={toggleSubmenu('settings')}>Settings</button>
+        <button class="btn w-full"
+            class:submenu-selected={subMenu === 'controls'}
+            on:click={toggleSubmenu('controls')}>Controls</button>
+        <button class="btn w-full"
+            class:submenu-selected={subMenu === 'cheats'}
+            on:click={toggleSubmenu('cheats')}>Cheats</button>
 
         <div class="fixed bottom-4 px-2">
             <AppInfo />
         </div>
     </div>
+
+    {#if subMenu && !showTouchControls}
+    <div bind:this={subMenuNode} class="
+        absolute bg-base-100 shadow w-screen max-w-96 rounded-box
+        overflow-y-scroll bottom-0 top-0
+        pb-80 md:pb-10 md:left-96
+        "
+        transition:fly|global={{ x: menuFlyDirection, duration: transitionDuration }}
+    >
+        <button class="btn btn-secondary w-full sticky top-0 z-20 md:hidden" on:click={() => subMenu = ''}>Back</button>
+        {#if subMenu === 'settings'}
+            <ul class="menu">
+                {#each Object.entries(settings) as [category, values]}
+                    <div class="divider sticky my-2 z-10 top-12 md:top-0 bg-base-100">{category}</div>
+                    {#each values as item}
+                        <li><MenuItem {item} /></li>
+                    {/each}
+                {/each}
+
+                <div class="divider sticky my-2 z-10 top-0 bg-base-100">Other</div>
+                <li>
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Inspector</span>
+                        <input type="checkbox" class="checkbox" bind:checked={$editor.active} on:change={() => ($editor.selected = null)} />
+                    </label>
+                </li>
+            </ul>
+        {:else if subMenu === 'controls'}
+            <KeyboardControlsMenu />
+        {:else if subMenu === 'cheats'}
+            <CheatsMenu player={$map.player} />
+        {/if}
+    </div>
+    {/if}
 </div>
 
-{#if showTouchControls}
-<div
-    class="absolute inset-0 z-30"
-    transition:fly={{ y: '-100%', duration: transitionDuration }}
->
-    <div class="absolute inset-0 bg-honeycomb opacity-60 pointer-events-none" />
-    <div class="relative w-full h-full">
-        <TouchControlsMenu bind:visible={showTouchControls} />
+{#if subMenu === 'controls' && showTouchControls}
+    <div
+        class="absolute inset-0 z-30"
+        transition:fly={{ x: menuFlyDirection, duration: transitionDuration }}
+    >
+        <div class="absolute inset-0 bg-honeycomb opacity-60 pointer-events-none" />
+        <div class="relative w-full h-full">
+            <TouchControlsMenu bind:subMenu={subMenu} />
+        </div>
     </div>
-</div>
 {/if}
 
 <style>
-    .dropdown .btn:focus {
+    .submenu-selected {
         background: oklch(var(--b1));
     }
 </style>

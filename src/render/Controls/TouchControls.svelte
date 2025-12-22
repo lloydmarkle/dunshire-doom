@@ -15,6 +15,7 @@
     $: tickN = game.time.tickN;
     $: inventory = player?.inventory;
     $: playerWeapons = $inventory?.weapons;
+    $: currentWeaponNum = (playerWeapons ?? []).findIndex(p => p?.name === player?.weapon?.val?.name);
 
     const { settings } = useAppContext();
     const { touchDeadZone, tapTriggerTime, touchLookSpeed, analogMovement, touchAreaSize } = settings;
@@ -268,29 +269,25 @@
             {/if}
         </div>
 
-        <div
+        <button
             class="touchGradient rounded-full absolute"
             style="--px:50%; --py:50%; --size:{$touchAreaSize * 1.2}px"
-            on:pointerdown={() => showWeaponMenu = true}
-            on:pointermove|preventDefault={weaponTouchMove}
-            on:pointerup={weaponTouchEnd}
-            on:pointercancel={() => showWeaponMenu = false}
+            on:click={() => showWeaponMenu = !showWeaponMenu}
         />
     </div>
 
     {#if showWeaponMenu && player}
-        <div
-            class="absolute bottom-0 grid grid-cols-3 grid-rows-3 place-content-around gap-1 p-4"
-            transition:fly={{ y: '100%', duration: 100 }}
-        >
+        <div class="absolute bottom-0 grid grid-cols-3 grid-rows-3 place-content-around gap-1 p-4">
             {#each weaponSprites as [spriteName], num}
                 {#if hasSuperShotgun || spriteName !== 'SHT2A0'}
                 {@const weaponNum = !hasSuperShotgun && num > 3 ? num + 1 : num}
                 <button
-                    class="wbutton btn no-animation w-full h-full opacity-80 overflow-hidden"
+                    transition:fly|global={{ y: '100%', duration: 100, delay: num * 20 }}
+                    class="btn no-animation w-full h-full overflow-hidden"
+                    class:selected-weapon={currentWeaponNum === num}
                     class:opacity-0={!playerWeapons[weaponNum]}
+                    class:opacity-80={playerWeapons[weaponNum]}
                     disabled={!playerWeapons[weaponNum]}
-                    style="--btn-focus-scale:.9;"
                     on:click={selectWeapon(num)}
                 >
                     <span class="scale-[1.5] translate-y-1/4 pointer-events-none"><Picture name={spriteName} /></span>
@@ -337,7 +334,7 @@
         --grad-size: var(--deadZone);
     }
 
-    .wbutton:focus {
+    .selected-weapon {
         --btn-color: var(--a);
     }
 </style>

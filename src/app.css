@@ -32,4 +32,8 @@
         background: var(--honeycomb-gradient);
         background-size: var(--honeycomb-size-x) var(--honeycomb-size-y);
     }
+
+    html, body {
+        overscroll-behavior: none;
+    }
 }
