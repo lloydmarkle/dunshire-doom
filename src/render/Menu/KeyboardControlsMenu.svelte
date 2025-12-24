@@ -19,7 +19,7 @@
                 return;
             }
 
-            ev.target.removeEventListener('keyup', captureKey);
+            ev.target.removeEventListener('keydown', captureKey);
             if (kev.code === 'Backspace') {
                 mappedKey.keys[index] = undefined;
             } else {
@@ -29,7 +29,7 @@
             $keymap = $keymap;
         }
         remapping = true;
-        ev.target.addEventListener('keyup', captureKey);
+        ev.target.addEventListener('keydown', captureKey);
     }
 
     function resetDefaults() {

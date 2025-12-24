@@ -42,7 +42,7 @@
     </li>
     <li>
         <label class="label cursor-pointer flex gap-2">
-            <div class="label-text">free fly</div>
+            <div class="label-text">free <em>fly</em></div>
             <input type="checkbox" class="checkbox" bind:checked={$freeFly} />
         </label>
     </li>

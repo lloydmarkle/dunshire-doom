@@ -96,11 +96,21 @@
 
         return { channelGain, playSound, singleSound, sfx };
     }
+
+    export function applySoundsToDOM(root: HTMLElement, sounds: ReturnType<typeof menuSoundPlayer>) {
+        root.querySelectorAll('.btn').forEach(b => b.addEventListener('click', sounds.sfx.pistol));
+        root.querySelectorAll('select').forEach(b => b.addEventListener('change', sounds.sfx.pistol));
+        root.querySelectorAll('li').forEach(b => b.addEventListener('pointerenter', sounds.sfx.pstop));
+        root.querySelectorAll('.btn').forEach(b => b.addEventListener('pointerenter', sounds.sfx.pstop));
+        root.querySelectorAll('input[type="checkbox"]').forEach(b => b.addEventListener('click', sounds.sfx.pistol));
+        root.querySelectorAll('input[type="range"]').forEach(b => b.addEventListener('input', sounds.sfx.stnmov));
+    }
 </script>
 <script lang="ts">
     import { fade, fly } from "svelte/transition";
     import { useAppContext, useDoom } from "../DoomContext";
     import MenuItem from "./MenuItem.svelte";
+    import CommandPalette from "./CommandPalette.svelte";
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
@@ -148,9 +158,12 @@
     }
 
     function keyup(ev: KeyboardEvent) {
+        if (paletteActive) {
+            return;
+        }
         switch (ev.code) {
-            case "Backquote":
-            case "Escape":
+            case 'Backquote':
+            case 'Escape':
                 if (subMenu) {
                     subMenu = '';
                     return;
@@ -165,7 +178,10 @@
         pointerLock.requestLock();
     }
 
+    let paletteActive = false;
+
     let subMenu = '';
+    $: if (paletteActive) subMenu = '';
     let subMenuNode: HTMLElement;
     const toggleSubmenu = (menu: string) => () => subMenu = subMenu === menu ? '' : menu;
 
@@ -183,14 +199,7 @@
     });
     $: if (subMenuNode) {
         (!subMenu ? menuSounds.sfx.swtchx : menuSounds.sfx.swtchn)();
-        tick().then(() => {
-            subMenuNode.querySelectorAll('.btn').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
-            subMenuNode.querySelectorAll('select').forEach(b => b.addEventListener('change', menuSounds.sfx.swtchn));
-            subMenuNode.querySelectorAll('li').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
-            subMenuNode.querySelectorAll('.btn').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
-            subMenuNode.querySelectorAll('input[type="checkbox"]').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
-            subMenuNode.querySelectorAll('input[type="range"]').forEach(b => b.addEventListener('input', menuSounds.sfx.stnmov));
-        });
+        tick().then(() => applySoundsToDOM(subMenuNode, menuSounds));
     }
 </script>
 
@@ -208,74 +217,86 @@
     <div transition:fly={{ x: "-100%", duration: transitionDuration }} class="
         bg-honeycomb
         w-screen max-w-96 overflow-y-scroll overflow-x-hidden md:z-10
-        flex flex-col gap-2
     "
     class:hidden={showTouchControls && subMenu === 'controls'}
     >
-        <div class="self-center pt-2"><a href="#{game.wad.name}&endoom"><Picture name="M_DOOM" /></a></div>
-        <div class="px-2">
-            <div class="flex gap-4 items-center pb-2">
-                {#if $intermission}
-                    <span>Intermission</span>
-                {:else if $map}
-                    <span><MapNamePic name={$map.name} /></span>
-                {/if}
-                <span><Picture name={data.skills.find((sk) => sk.num === game.skill).pic}/></span>
+        <div class="flex flex-col gap-2 transition-transform"
+            class:menu-go-up={paletteActive}
+        >
+            <div class="self-center pt-2"><a href="#{game.wad.name}&endoom"><Picture name="M_DOOM" /></a></div>
+            <div class="px-2">
+                <div class="flex gap-4 items-center pb-2">
+                    {#if $intermission}
+                        <span>Intermission</span>
+                    {:else if $map}
+                        <span><MapNamePic name={$map.name} /></span>
+                    {/if}
+                    <span><Picture name={data.skills.find((sk) => sk.num === game.skill).pic}/></span>
+                </div>
+                <MapStats map={$map} />
             </div>
-            <MapStats map={$map} />
-        </div>
-        <div class="divider" />
-        <button class="btn btn-primary uppercase" on:click={resumeGame}>Resume</button>
 
-        {#if hasNextEpisode}
-        <button on:click={startNextEpisode} class="btn btn-secondary">Next episode</button>
-        {/if}
-        {#if !shared}
-            <button class="btn" on:click={share}>Share</button>
-        {:else}
-            <span class="text-center" transition:fly={{ duration: transitionDuration }}>Url copied to clipboard</span>
-        {/if}
-        <!-- TODO: someday... get save/load working-->
-        <!-- <button class="btn" disabled>Load</button>
-        <button class="btn" disabled>Save</button> -->
+            <div class="divider" />
+            <button class="btn btn-primary uppercase" on:click={resumeGame}>Resume</button>
 
-        <div class="divider" />
-        <div class="flex mx-auto join">
-            <label class="swap btn btn-lg join-item">
-                <input type="checkbox" bind:checked={$isFullscreen} on:click={toggleFullscreen} />
-                <Icon class="swap-on fill-current" src={ArrowsPointingIn} theme='solid' size="32px"/>
-                <Icon class="swap-off fill-current" src={ArrowsPointingOut} theme='solid' size="32px"/>
-            </label>
-            <div class="dropdown dropdown-bottom">
-                <div tabindex="0" role="button" class="btn btn-lg join-item"><Icon src={VideoCamera} theme='solid' size="32px"/></div>
-                <ul tabindex="-1" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                    <li><button on:click={() => $cameraMode = '1p'}><Icon src={Eye} theme='solid' size="24px"/>First person</button></li>
-                    <li><button on:click={() => $cameraMode = '3p'}><Icon src={User} theme='solid' size="24px"/>Third person</button></li>
-                    <li><button on:click={() => $cameraMode = 'ortho'}><Icon src={Cube} theme='solid' size="24px"/>Isometric</button></li>
-                    <li><button on:click={() => $cameraMode = 'bird'}><Icon src={GlobeEuropeAfrica} theme='solid' size="24px"/>Overhead</button></li>
-                </ul>
+            {#if hasNextEpisode}
+            <button on:click={startNextEpisode} class="btn btn-secondary">Next episode</button>
+            {/if}
+            {#if !shared}
+                <button class="btn" on:click={share}>Share</button>
+            {:else}
+                <span class="text-center" transition:fly={{ duration: transitionDuration }}>Url copied to clipboard</span>
+            {/if}
+            <!-- TODO: someday... get save/load working-->
+            <!-- <button class="btn" disabled>Load</button>
+            <button class="btn" disabled>Save</button> -->
+
+            <div class="divider" />
+            <div class="flex mx-auto join">
+                <label class="swap btn btn-lg join-item">
+                    <input type="checkbox" bind:checked={$isFullscreen} on:click={toggleFullscreen} />
+                    <Icon class="swap-on fill-current" src={ArrowsPointingIn} theme='solid' size="32px"/>
+                    <Icon class="swap-off fill-current" src={ArrowsPointingOut} theme='solid' size="32px"/>
+                </label>
+                <div class="dropdown dropdown-bottom">
+                    <div tabindex="0" role="button" class="btn btn-lg join-item"><Icon src={VideoCamera} theme='solid' size="32px"/></div>
+                    <ul tabindex="-1" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                        <li><button on:click={() => $cameraMode = '1p'}><Icon src={Eye} theme='solid' size="24px"/>First person</button></li>
+                        <li><button on:click={() => $cameraMode = '3p'}><Icon src={User} theme='solid' size="24px"/>Third person</button></li>
+                        <li><button on:click={() => $cameraMode = 'ortho'}><Icon src={Cube} theme='solid' size="24px"/>Isometric</button></li>
+                        <li><button on:click={() => $cameraMode = 'bird'}><Icon src={GlobeEuropeAfrica} theme='solid' size="24px"/>Overhead</button></li>
+                    </ul>
+                </div>
+                <label class="swap btn btn-lg join-item">
+                    <input type="checkbox" bind:checked={$muted} />
+                    <Icon class="swap-on fill-current" src={SpeakerXMark} theme='solid' size="32px"/>
+                    <Icon class="swap-off fill-current" src={SpeakerWave} theme='solid' size="32px"/>
+                </label>
+                <label class="swap btn btn-lg join-item">
+                    <input type="checkbox" bind:checked={$simulate486} />
+                    <span class="swap-on text-xs">486ish</span>
+                    <span class="swap-off text-xs">Normal</span>
+                </label>
             </div>
-            <label class="swap btn btn-lg join-item">
-                <input type="checkbox" bind:checked={$muted} />
-                <Icon class="swap-on fill-current" src={SpeakerXMark} theme='solid' size="32px"/>
-                <Icon class="swap-off fill-current" src={SpeakerWave} theme='solid' size="32px"/>
-            </label>
-            <label class="swap btn btn-lg join-item">
-                <input type="checkbox" bind:checked={$simulate486} />
-                <span class="swap-on text-xs">486ish</span>
-                <span class="swap-off text-xs">Normal</span>
-            </label>
+
+            <button class="btn w-full"
+                class:submenu-selected={subMenu === 'settings'}
+                on:click={toggleSubmenu('settings')}>Settings</button>
+            <button class="btn w-full"
+                class:submenu-selected={subMenu === 'controls'}
+                on:click={toggleSubmenu('controls')}>Controls</button>
+            <button class="btn w-full"
+                class:submenu-selected={subMenu === 'cheats'}
+                on:click={toggleSubmenu('cheats')}>Cheats</button>
         </div>
 
-        <button class="btn w-full"
-            class:submenu-selected={subMenu === 'settings'}
-            on:click={toggleSubmenu('settings')}>Settings</button>
-        <button class="btn w-full"
-            class:submenu-selected={subMenu === 'controls'}
-            on:click={toggleSubmenu('controls')}>Controls</button>
-        <button class="btn w-full"
-            class:submenu-selected={subMenu === 'cheats'}
-            on:click={toggleSubmenu('cheats')}>Cheats</button>
+        {#if !touchDevice}
+        <div class="pt-2 transition-transform"
+            class:palette-top={paletteActive}
+        >
+            <CommandPalette bind:active={paletteActive} />
+        </div>
+        {/if}
 
         <div class="fixed bottom-4 px-2">
             <AppInfo />
@@ -332,5 +353,12 @@
 <style>
     .submenu-selected {
         background: oklch(var(--b1));
+    }
+
+    .palette-top {
+        transform: translate(0, -38rem);
+    }
+    .menu-go-up {
+        transform: translate(0, -100%);
     }
 </style>

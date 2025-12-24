@@ -62,6 +62,10 @@ export const keyboardControls: Action<HTMLElement, Params> =
 
     function keydown(ev: KeyboardEvent) {
         const fn = keyMapping[ev.code];
+        if (ev.code === 'Slash') {
+            // on firefox, slash opens up a quick find and we don't want that during gameplay
+            ev.preventDefault();
+        }
         if (!fn) {
             return;
         } else if (fn[0] === 'm') {
