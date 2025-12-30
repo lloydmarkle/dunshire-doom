@@ -6,6 +6,12 @@
     export let wads: WADInfo[];
     export let selected: WADInfo[] = [];
     export let multiSelect = true;
+    export let highlightIndex = -1;
+
+    $: if (highlightIndex > -1) {
+        const element = document.querySelectorAll('.wad-box').item(highlightIndex);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
     $: activeOpacity = multiSelect ? .3 : .7;
     // for non-small lists (50 items), this can be slow
@@ -24,7 +30,7 @@
 </script>
 
 <ul class="flex flex-col gap-1 menu">
-    {#each wads as wad (wad.name)}
+    {#each wads as wad, i (wad.name)}
         {@const checked = selected.includes(wad)}
         <li
             transition:fly={{ y:'-4rem' }}
@@ -34,6 +40,7 @@
             <label
                 class="wad-box px-6 label cursor-pointer"
                 class:active={checked}
+                class:pulse-highlight={i === highlightIndex}
                 style:--tw-bg-opacity={activeOpacity}
                 style:--wad-bg="url({wad.image})"
             >
@@ -52,6 +59,14 @@
 <style>
     .wad-box {
         padding-block: var(--wadlist-boxHeight, 1.5rem);
+    }
+
+    .pulse-highlight {
+        animation: pulse-brightness .4s infinite alternate-reverse;
+    }
+    @keyframes pulse-brightness {
+        0% { filter: brightness(1.6); }
+        100% { filter: brightness(2); }
     }
 
     .wad-box:before {
