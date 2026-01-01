@@ -120,7 +120,7 @@
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
     import TouchControlsMenu from "./TouchControlsMenu.svelte";
     import { Icon } from '@steeze-ui/svelte-icon'
-    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica } from '@steeze-ui/heroicons'
+    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica, MagnifyingGlass } from '@steeze-ui/heroicons'
 
     const { game } = useDoom();
     const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
@@ -279,9 +279,12 @@
                 </label>
             </div>
 
-            <button class="btn w-full"
+            <button class="btn w-full relative"
                 class:submenu-selected={subMenu === 'settings'}
-                on:click={toggleSubmenu('settings')}>Settings</button>
+                on:click={toggleSubmenu('settings')}>
+                Settings
+                <kbd class="absolute right-4 kbd">/</kbd>
+            </button>
             <button class="btn w-full"
                 class:submenu-selected={subMenu === 'controls'}
                 on:click={toggleSubmenu('controls')}>Controls</button>
@@ -291,9 +294,7 @@
         </div>
 
         {#if !touchDevice}
-        <div class="pt-2 transition-transform"
-            class:palette-top={paletteActive}
-        >
+        <div class:palette-active={paletteActive}>
             <CommandPalette bind:active={paletteActive} />
         </div>
         {/if}
@@ -355,8 +356,11 @@
         background: oklch(var(--b1));
     }
 
-    .palette-top {
-        transform: translate(0, -38rem);
+    .palette-active {
+        position: absolute;
+        top: 1rem;
+        width: 100%;
+        padding-inline: .5rem;
     }
     .menu-go-up {
         transform: translate(0, -100%);

@@ -43,7 +43,6 @@
     }
     $: lcSearchText = searchText.toLocaleLowerCase();
     $: menuItems = searchText ? settingsIndex.filter(e => e.searchText.includes(lcSearchText)) : recentlyUsed;
-    let searchBox: HTMLInputElement;
 
     const sounds = menuSoundPlayer(audio, soundGain, createSoundBufferCache(audio, wad));
     $: (active ? sounds.sfx.swtchn : sounds.sfx.swtchx)();
@@ -85,12 +84,14 @@
         'Return': () => tap(menuItems[activeItem]),
     };
 
+    let searchBox: HTMLInputElement;
     function keydown(ev: KeyboardEvent) {
         if (ev.code === 'Slash') {
             if (!active) {
                 ev.preventDefault();
             }
-            searchBox.focus();
+            active = true;
+            tick().then(() => searchBox.focus());
         }
         if (keys[ev.code] && !ev.metaKey && !ev.altKey && !ev.ctrlKey) {
             if (active) {
@@ -105,7 +106,7 @@
         }
         switch (ev.code) {
             case 'Escape':
-                searchBox.blur();
+                active = false;
                 ev.preventDefault();
                 ev.stopImmediatePropagation();
                 break;
@@ -123,8 +124,7 @@
 >
     <label
         class="input input-bordered flex items-center gap-2 text-sm"
-        on:focusin={() => active = true}
-        on:focusout={() => active = false}
+        class:hidden={!active}
     >
         <Icon src={MagnifyingGlass} theme='outline' size="12px" />
         <input
