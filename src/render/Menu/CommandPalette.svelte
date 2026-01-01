@@ -139,7 +139,7 @@
 
     <div class="menu cp-menu">
         {#if !searchText && recentlyUsed.length}
-            <div class="divider my-2 z-10 top-12 md:top-0">Recently used</div>
+            <div class="divider my-2 top-12 md:top-0">Recently used</div>
         {/if}
         {#each menuItems as item, i}
             <li><MenuItem {item} active={i === activeItem} /></li>

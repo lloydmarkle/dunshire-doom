@@ -33,7 +33,7 @@
 
 <svelte:window on:popstate={() => parseUrlHash(window.location.hash, screens)} />
 
-<div class="grid grid-cols-1 grid-rows-[min-content_1fr] h-full">
+<div class="grid grid-cols-1 grid-rows-[min-content_1fr] h-full bg-honeycomb">
     <div class="navbar bg-base-100 hidden sm:flex">
         <div class="navbar-start">
             <a class="btn btn-ghost text-xl" href={'#'}>Dunshire DOOM</a>

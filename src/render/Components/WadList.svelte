@@ -35,7 +35,7 @@
         <li
             transition:fly={{ y:'-4rem' }}
             animate:flip={{ duration: 300 }}
-            class="relative rounded-lg overflow-hidden"
+            class="relative rounded-lg overflow-hidden z-10"
         >
             <label
                 class="wad-box px-6 label cursor-pointer"
@@ -69,7 +69,7 @@
         100% { filter: brightness(2); }
     }
 
-    .wad-box:before {
+    .wad-box:after {
         content:'';
         position: absolute;
         inset: 0;

@@ -14,6 +14,7 @@
     import ENDOOM from './render/ENDOOM.svelte';
     import Menu from "./render/Menu/Menu.svelte";
     import MusicPlayer from './render/MusicPlayer.svelte';
+    import { recentlyUsedGames } from './Screens/LauncherScreen.svelte';
 
     const wadStore = new WadStore();
     const availableWads = wadStore.wads;
@@ -47,6 +48,7 @@
         // maybe a wad was added and now we can load the map?
         parseUrlParams();
     }
+    $: recentlyUsed = recentlyUsedGames($availableWads);
 
     async function parseUrlParams2() {
         const params = new URLSearchParams(window.location.hash.substring(1));
@@ -97,6 +99,7 @@
             pointerLock.requestLock();
             game.startMap(urlMapName);
             loadOptionalUrlParams(game, params);
+            recentlyUsed.push(game.wad.name, urlMapName, game.skill);
         }
 
         // mostly here for testing intermission screens
@@ -121,6 +124,7 @@
     // keep url in sync with game
     $: map = game?.map;
     $: if ($map && urlMapName !== $map.name) {
+        recentlyUsed.push(game.wad.name, $map.name, game.skill);
         history.pushState(null, null, `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`);
     }
 

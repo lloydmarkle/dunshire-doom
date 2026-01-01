@@ -17,10 +17,10 @@ export * from './doom/error'
 
 export const data = {
     skills: [
-        { num: 1, pic: 'M_JKILL', name: "I'm too young to die." },
-        { num: 2, pic: 'M_ROUGH', name: "Hey, not too rough." },
-        { num: 3, pic: 'M_HURT', name: "Hurt me plenty." },
-        { num: 4, pic: 'M_ULTRA', name: "Ultra Violence." },
-        { num: 5, pic: 'M_NMARE', name: "Nightmare!" },
+        { num: 1, pic: 'M_JKILL', name: "I'm too young to die.", alias: 'ITYTD' },
+        { num: 2, pic: 'M_ROUGH', name: "Hey, not too rough.", alias: 'HNTR' },
+        { num: 3, pic: 'M_HURT', name: "Hurt me plenty.", alias: 'HMP' },
+        { num: 4, pic: 'M_ULTRA', name: "Ultra Violence.", alias: 'UV' },
+        { num: 5, pic: 'M_NMARE', name: "Nightmare!", alias: 'NM' },
     ],
 }

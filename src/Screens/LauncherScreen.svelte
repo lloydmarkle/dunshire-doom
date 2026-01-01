@@ -1,3 +1,50 @@
+<script lang="ts" context="module">
+    interface RecentlyUsedGame {
+        wad: string;
+        map: string;
+        skill: number;
+        image: string;
+    }
+
+    const settingsKey = 'doom-lru-wads';
+    const recentlyUsedLimit = 10;
+    // nifty! https://stackoverflow.com/questions/34698905
+    const simplifyItem = (item: RecentlyUsedGame) => (({ image, ...o }) => o)(item);
+
+    export const recentlyUsedGames = (wads: WADInfo[]) => {
+        const wadImage = (wadNames: string) => {
+            const wadList = wadNames.split('&').map(e => e.split('=')[1]).flat();
+            return wadList.reverse().map(w => wads.find(e => e.name === w)).find(e => e && e.image)?.image ?? '';
+        };
+
+        let items: RecentlyUsedGame[] = [];
+        const push = (wad: string, map: string, skill: number) => {
+            items.splice(0, 0, { wad, map, skill, image: wadImage(wad) });
+            // remove any other entries for the same wad (assume we don't want multiple skill/maps on recently used)
+            for (let i = 1; i < items.length; i++) {
+                if (items[i].wad === wad) {
+                    items.splice(i, 1);
+                    i -= 1;
+                }
+            }
+            while (items.length > recentlyUsedLimit) {
+                items.pop();
+            }
+            localStorage.setItem(settingsKey, JSON.stringify(items.map(simplifyItem)));
+        }
+
+        try {
+            items = JSON.parse(localStorage.getItem(settingsKey)) ?? [];
+            // try to restore image
+            for (const item of items) {
+                item.image = wadImage(item.wad);
+            }
+        } catch {
+            console.warn('failed to restore recently used wads, using defaults');
+        }
+        return { push, items };
+    }
+</script>
 <script lang="ts">
     import { crossfade, fade, fly } from "svelte/transition";
     import { data, store, tickTime, type DoomWad } from "../doom";
@@ -22,6 +69,7 @@
     $: menuSounds = menuSoundPlayer(audio, soundGain, wad ? createSoundBufferCache(audio, wad) : null);
     $: msfx = menuSounds.sfx;
     $: menuSounds.channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
+    $: recentlyUsed = recentlyUsedGames(wads);
 
     const nullTransition = () => ({ duration: 0 });
     const [send, receive] = crossfade({
@@ -92,51 +140,60 @@
         selectedIWad && wad ? 'select-wads' :
         'select-iwad';
 
-    // the keyboard controls became almost an exercise in code golf so I'm not sure how readable they are...
+    // keyboard controls became almost an exercise in code golf so I'm not sure how readable this is...
     let rootNode: HTMLDivElement;
-    const [cursor, keyboardController] = (() => {
-        const gridInfo = { rows: 0, cols: 0, cells: 0, buttons: null };
-        const measureGrid = (selector: string) => {
-            const obs = new ResizeObserver(() => {
-                const grid = rootNode?.querySelector(selector);
+    const [cursor, section, keyboardControllers] = (() => {
+        const gridMover = (name: string, selector: string) => {
+            const info = { rows: 0, cols: 0, cells: 0, buttons: null as NodeListOf<HTMLElement> };
+            const measure = () => {
+                const grid = rootNode?.querySelector<HTMLElement>(selector);
                 if (grid) {
-                    gridInfo.cells = grid.childElementCount;
-                    gridInfo.buttons = grid.querySelectorAll('.btn');
+                    info.cells = grid.childElementCount;
+                    info.buttons = grid.querySelectorAll('.btn');
                     // Based on https://stackoverflow.com/questions/49506393
                     const style = getComputedStyle(grid);
-                    gridInfo.rows = style.gridTemplateRows.split(' ').length;
-                    gridInfo.cols = style.gridTemplateColumns.split(' ').length;
+                    info.rows = style.gridTemplateRows.split(' ').length;
+                    info.cols = style.gridTemplateColumns.split(' ').length;
+
+                    // const element = info.buttons.item($cursor);
+                    // element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
-            });
-            if (rootNode) {
+            }
+            tick().then(() => measure());
+
+            const monitor = () => {
+                const obs = new ResizeObserver(measure);
                 obs.observe(rootNode);
-            }
-            return () => obs.disconnect();
-        };
-        const gridMove = (ev: KeyboardEvent) => {
-            const min = Math.floor(cursor.val / gridInfo.cols) * gridInfo.cols;
-            const max = Math.min(gridInfo.cells, min + gridInfo.cols);
-            if (ev.code === 'ArrowUp') {
-                cursor.update(n => wrapAround(n - gridInfo.cols, gridInfo.cells));
-            } else if (ev.code === 'ArrowDown') {
-                cursor.update(n => wrapAround(n + gridInfo.cols, gridInfo.cells));
-            } else if (ev.code === 'ArrowLeft') {
-                cursor.update(n => wrapAround(n - 1, max, min));
-            } else if (ev.code === 'ArrowRight') {
-                cursor.update(n => wrapAround(n + 1, max, min));
-            } else if (ev.code === 'Enter' || ev.code === 'Return') {
-                gridInfo.buttons.item(cursor.val).click();
-                ev.preventDefault();
-            }
+                return () => obs.disconnect();
+            };
+            const move = (ev: KeyboardEvent) => {
+                const min = Math.floor(cursor.val / info.cols) * info.cols;
+                const max = Math.min(info.cells, min + info.cols);
+                // clamp instead of wrap?
+                if (ev.code === 'ArrowUp') {
+                    cursor.update(n => wrapAround(n - info.cols, info.cells));
+                } else if (ev.code === 'ArrowDown') {
+                    cursor.update(n => wrapAround(n + info.cols, info.cells));
+                } else if (ev.code === 'ArrowLeft') {
+                    cursor.update(n => wrapAround(n - 1, max, min));
+                } else if (ev.code === 'ArrowRight') {
+                    cursor.update(n => wrapAround(n + 1, max, min));
+                } else if (ev.code === 'Enter' || ev.code === 'Return') {
+                    info.buttons.item(cursor.val).click();
+                    ev.preventDefault();
+                }
+            };
+            return { name, info, move, monitor };
         };
 
         let cursor = store(0);
+        let section = store('');
         let resetCursor = () => {};
         let resetState: any = () => {};
         const captureCursor = (n: number, fn: KeyboardEventHandler<Window>, init = resetState) => {
-            resetState();
             let localCursor = n;
             return () => {
+                resetState();
                 tick().then(() => resetState = init() ?? resetState);
                 resetCursor();
                 cursor.set(localCursor);
@@ -146,14 +203,56 @@
         };
         const wrapAround = (n: number, max: number, min = 0) => n > max - 1 ? min : n < min ? max - 1 : n;
 
+        const episodeGrid = gridMover('episode', '.card-actions .grid');
         const episode = captureCursor(0, ev => {
-            gridMove(ev);
+            episodeGrid.move(ev);
             if (ev.code === 'Escape') {
                 rootNode.querySelector<HTMLElement>('.card-title a').click();
             }
-        }, () => measureGrid('.card-actions .grid'));
+        }, episodeGrid.monitor);
 
-        const root = captureCursor(0, gridMove, () => measureGrid('.grid'));
+        const root = (): KeyboardEventHandler<Window> => {
+            if (recentlyUsed.items.length) {
+                const stackedGrid =
+                    (before: ReturnType<typeof gridMover>, main: ReturnType<typeof gridMover>, after: ReturnType<typeof gridMover>) =>
+                    () => {
+                        resetState();
+                        resetState = main.monitor();
+                        return ev => {
+                            if (ev.code === 'ArrowUp') {
+                                if (cursor.val - main.info.cols < 0) {
+                                    cursor.update(v => before.info.cols * (before.info.rows - 1) + (v % before.info.cols))
+                                    return section.set(before.name);
+                                }
+                                cursor.update(n => wrapAround(n - main.info.cols, main.info.cells));
+                            } else if (ev.code === 'ArrowDown') {
+                                if (cursor.val + main.info.cols >= main.info.cells) {
+                                    cursor.update(v => v % after.info.cols);
+                                    return section.set(after.name);
+                                }
+                                cursor.update(n => wrapAround(n + main.info.cols, main.info.cells));
+                            } else {
+                                main.move(ev);
+                            }
+                            const element = main.info.buttons.item($cursor);
+                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        };
+                    };
+
+                const recentGrid = gridMover('recent', '.recent-grid');
+                const gameGrid = gridMover('game', '.game-grid');
+                const recentGridHandler = stackedGrid(gameGrid, recentGrid, gameGrid);
+                const gameGridHandler = stackedGrid(recentGrid, gameGrid, recentGrid);
+                let currentHandler: KeyboardEventHandler<Window>;
+                if (!section.val.length) {
+                    section.set('recent');
+                }
+                section.subscribe(val => currentHandler = (val === 'game' ? gameGridHandler() : recentGridHandler()));
+                return ev => currentHandler(ev);
+            }
+            const gameGrid = gridMover('game', '.grid');
+            return captureCursor(0, gameGrid.move, gameGrid.monitor);
+        };
 
         const skill = captureCursor(3, ev => {
             if (ev.code === 'ArrowUp') {
@@ -205,13 +304,18 @@
             }
         };
 
-        return [cursor, { episode, skill, wads, root, }];
+        return [cursor, section, { episode, skill, wads, root, }];
     })();
+    const cursorSection = (section: string, num: number) => () => {
+        $section = section;
+        $cursor = num;
+    };
     $: if ($cursor >= 0) msfx.pstop();
-    $: keyController = screen === 'select-episode' ? keyboardController.episode() :
-        screen === 'select-skill' ? keyboardController.skill() :
-        screen === 'select-wads' ? keyboardController.wads() :
-        keyboardController.root();
+    $: keyController = rootNode && (
+        screen === 'select-episode' ? keyboardControllers.episode() :
+        screen === 'select-skill' ? keyboardControllers.skill() :
+        screen === 'select-wads' ? keyboardControllers.wads() :
+        keyboardControllers.root());
 </script>
 
 <svelte:window
@@ -219,30 +323,61 @@
     on:keydown={keyController}
 />
 
-<div class="px-4 py-2 sm:px-8 mx-auto" bind:this={rootNode}>
-{#if screen === 'select-iwad'}
-    <div class="
+<div class="px-4 py-2 pb-24 sm:px-8 mx-auto" bind:this={rootNode}>
+    {#if recentlyUsed.items.length}
+        <div class="divider">Recent Games</div>
+        <div class="recent-grid
+            grid grid-cols-2 gap-4 place-content-start
+            md:grid-cols-3 lg:grid-cols-4 sm:gap-8"
+        >
+            {#each recentlyUsed.items as info, i (info.wad)}
+                <a
+                    class="btn h-auto no-animation p-0 overflow-hidden shadow-2xl relative"
+                    href="#{info.wad}&skill={info.skill}&map={info.map}"
+                    class:pulse-highlight={i === $cursor && 'recent' === $section}
+                    class:btn-outline={i === $cursor && 'recent' === $section}
+                    on:pointerenter={cursorSection('recent', i)}
+                >
+                    <img width="320" height="200" src={info.image} alt={info.wad} />
+                    <div
+                        class="absolute bottom-2 left-2 p-2 flex items-end text-secondary bg-black rounded-lg"
+                        style:--tw-bg-opacity={.4}
+                    >
+                        <span>{info.map}:</span>
+                        <span>{data.skills[info.skill - 1].alias}</span>
+                    </div>
+                </a>
+            {/each}
+        </div>
+        <div class="divider">Games</div>
+    {/if}
+    <div class="game-grid
         grid grid-cols-2 gap-4 place-content-start
         md:grid-cols-3 lg:grid-cols-4 sm:gap-8"
     >
         {#each iWads as iwad, i (iwad.name)}
+            {#if iwad !== selectedIWad}
             <a
                 class="btn h-auto no-animation p-0 overflow-hidden shadow-2xl"
                 href="#wad={iwad.name}"
-                class:pulse-highlight={i === $cursor}
-                class:btn-outline={i === $cursor}
-                on:pointerenter={() => $cursor = i}
-                in:receive|global={{ key: iwad.name }}
-                out:send|global={{ key: iwad.name }}
+                in:receive={{ key: iwad.name }}
+                out:send={{ key: iwad.name }}
+                class:pulse-highlight={i === $cursor && 'game' === $section}
+                class:btn-outline={i === $cursor && 'game' === $section}
+                on:pointerenter={cursorSection('game', i)}
             >
                 <img width="320" height="200" src={iwad.image} alt={iwad.name} />
             </a>
+            {/if}
         {/each}
     </div>
-{:else}
-    <div out:fly={{ y: '-100%' }} in:fly={{ delay: 200, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2 z-30">
-        <a class="btn btn-secondary w-48 shadow-xl" href={"#"}><Icon src={Home} theme='solid' size="16px"/> Home</a>
-    </div>
+
+    {#if selectedIWad}
+        {#if screen !== 'select-iwad'}
+        <div out:fly={{ y: '-100%' }} in:fly={{ delay: 600, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2 z-30">
+            <a class="btn btn-secondary w-48 shadow-xl" href={"#"}><Icon src={Home} theme='solid' size="16px"/> Home</a>
+        </div>
+        {/if}
 
     {@const selectedWadName = selectedIWad.name}
     <div
@@ -374,7 +509,7 @@
             </div>
         {/if}
     </div>
-{/if}
+    {/if}
 </div>
 
 <style>
