@@ -118,7 +118,10 @@
         <h2 class="text-2xl font-mono">{wadInfo.name}</h2>
         <span>{printBytes(wadFile.size)}, {wadFile.lumps.length} Lumps.</span>
     </div>
-    <button class="btn">Delete</button>
+    <div class="flex justify-end">
+        <a class="btn btn-primary w-full" href="#wad={wadInfo.episodicMaps ? 'doom' : 'doom2'}&wad={wadInfo.name}&play">Play</a>
+        <button class="btn">Delete</button>
+    </div>
 </section>
 
 <section>
