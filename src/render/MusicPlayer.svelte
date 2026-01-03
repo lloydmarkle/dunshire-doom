@@ -124,7 +124,10 @@
         // create our own local gain node so we can interrupt sound playback more gracefully (with fade)
         const localGain = audio.createGain();
         localGain.gain.value = 0;
+        localGain.gain.setValueAtTime(0, audio.currentTime);
         localGain.connect(audioRoot);
+        const fadeTime = 0.2 // seconds
+        const fadeTimeMS = fadeTime * 1000;
 
         const loadMusic = async (voice: string, musicLump: Lump) => {
             if (musicPlayer) {
@@ -140,26 +143,24 @@
             return musicPlayer;
         }
 
-        const playMusicAfterFade = debounce(async () => (await musicPlayer).start(), 200);
+        const playMusicAfterFade = debounce(async () => (await musicPlayer).start(), fadeTimeMS);
         function playMusic() {
-            localGain.gain.exponentialRampToValueAtTime(1, audio.currentTime + .2);
+            localGain.gain.linearRampToValueAtTime(1, audio.currentTime + fadeTime);
             playMusicAfterFade();
         };
 
-        const stopAfterFade = debounce(async () => (await musicPlayer).stop(), 200);
+        const stopAfterFade = debounce(async () => (await musicPlayer).stop(), fadeTimeMS);
         async function stopMusic() {
-            localGain.gain.cancelScheduledValues(audio.currentTime);
-            localGain.gain.exponentialRampToValueAtTime(0.000001, audio.currentTime + .2);
+            localGain.gain.linearRampToValueAtTime(0, audio.currentTime + fadeTime);
             return stopAfterFade();
         }
 
         const scrubAfterFade = debounce(async (position: number) => {
             (await musicPlayer).scrub(position);
-            localGain.gain.exponentialRampToValueAtTime(1, audio.currentTime + .2);
-        }, 200);
+            localGain.gain.linearRampToValueAtTime(1, audio.currentTime + fadeTime);
+        }, fadeTimeMS);
         function scrub(position: number) {
-            localGain.gain.cancelScheduledValues(audio.currentTime);
-            localGain.gain.exponentialRampToValueAtTime(0.000001, audio.currentTime + .2);
+            localGain.gain.linearRampToValueAtTime(0, audio.currentTime + fadeTime);
             return scrubAfterFade(position);
         }
 
