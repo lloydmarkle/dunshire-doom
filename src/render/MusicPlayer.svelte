@@ -7,9 +7,9 @@
     function musicInfo(lump: Lump) {
         const musicBuffer = lump?.data;
         const isEncodedMusic = musicBuffer && (
-                (musicBuffer[0] === 0xff && [0xfb, 0xf3, 0xf2].includes(musicBuffer[1]))
-                || (musicBuffer[0] === 0x4f && musicBuffer[1] === 0x67 && musicBuffer[2] === 0x67 && musicBuffer[3] === 0x53)
-                || (musicBuffer[0] === 0x49 && musicBuffer[1] === 0x44 && musicBuffer[2] === 0x33));
+                (musicBuffer[0] === 0xff && [0xfb, 0xf3, 0xf2].includes(musicBuffer[1])) // MP3
+                || (musicBuffer[0] === 0x49 && musicBuffer[1] === 0x44 && musicBuffer[2] === 0x33)
+                || (musicBuffer[0] === 0x4f && musicBuffer[1] === 0x67 && musicBuffer[2] === 0x67 && musicBuffer[3] === 0x53)); // OGG
         const music = toMidi(musicBuffer).buffer;
         return { isEncodedMusic, music };
 
@@ -79,26 +79,19 @@
             return node;
         }
 
-        let source = createSource();
-        let started = false;
+        let source: AudioBufferSourceNode;
         return {
-            duration: source.buffer.duration,
+            duration: buffer.duration,
             scrub: (n: number) => {
-                if (started) {
-                    source.stop();
-                    source = createSource();
-                    source.start(audio.currentTime, n * buffer.duration);
-                }
+                source?.stop();
+                source = createSource();
+                source.start(audio.currentTime, n * buffer.duration);
             },
             start: () => {
-                started = true;
+                source = createSource();
                 source.start();
             },
-            stop: () => {
-                if (started) {
-                    source.stop();
-                }
-            },
+            stop: () => source?.stop(),
         };
     }
 
