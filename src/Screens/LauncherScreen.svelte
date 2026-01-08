@@ -142,7 +142,9 @@
 
     // keyboard controls became almost an exercise in code golf so I'm not sure how readable this is...
     let rootNode: HTMLDivElement;
-    const [cursor, section, keyboardControllers] = (() => {
+    let cursor = store(0);
+    let section = store('');
+    const [keyboardControllers] = (() => {
         const gridMover = (name: string, selector: string) => {
             const info = { rows: 0, cols: 0, cells: 0, buttons: null as NodeListOf<HTMLElement> };
             const measure = () => {
@@ -304,7 +306,7 @@
             }
         };
 
-        return [cursor, section, { episode, skill, wads, root, }];
+        return [{ episode, skill, wads, root }];
     })();
     const cursorSection = (section: string, num: number) => () => {
         $section = section;

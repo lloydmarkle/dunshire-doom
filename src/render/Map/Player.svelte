@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { HierarchicalObject, T, useTask, useThrelte } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     import Thing from "./Thing.svelte";
     import { Camera, CircleGeometry, MeshStandardMaterial, OrthographicCamera, Scene } from "three";
     import { useAppContext, useDoomMap } from "../DoomContext";
@@ -94,7 +94,7 @@
     Don't add this scene to the parent scene (the root) because we are only rendering the HUD
     which is composited by a RenderPass
 -->
-<HierarchicalObject
+<!-- <HierarchicalObject
     onChildMount={() => {}}
 >
     <T.OrthographicCamera bind:ref={hudCam} />
@@ -102,4 +102,4 @@
         <T.AmbientLight color={'white'} intensity={4} />
         <Weapon {player} {yScale} screenSize={$size}/>
     </T.Scene>
-</HierarchicalObject>
+</HierarchicalObject> -->
