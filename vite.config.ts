@@ -8,7 +8,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [
     svelte(),
-    visualizer({ filename: 'bundle-stats.html' }),
+    visualizer({ emitFile: true, filename: 'assets/bundle-stats.html' }),
     viteStaticCopy({
       targets: [{
         src: path.resolve(__dirname, 'node_modules', 'spessasynth_lib', 'dist', 'spessasynth_processor.min.js*'),

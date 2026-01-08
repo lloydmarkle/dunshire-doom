@@ -1,18 +1,17 @@
 <script lang="ts">
-    import type { Size } from "@threlte/core";
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
     import BspDepthHeatMap from "./BspDepthHeatMap.svelte";
     import { type MapRuntime, type SubSector } from "../../doom";
-    import { useAppContext, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import { Color } from "three";
     import type { RenderSector } from "../RenderData";
     import { onDestroy } from "svelte";
     import { bridgeEventsToReadables, type MapObject as MObj } from "../Map/SvelteBridge";
 
-    export let size: Size;
     export let map: MapRuntime;
 
+    const { viewSize } = useDoom();
     const { renderSectors } = useDoomMap();
     const bridge = bridgeEventsToReadables(map, renderSectors);
     onDestroy(bridge.dispose);
@@ -33,7 +32,7 @@
     const mapSize = 65536;
     let zoom = 60;
     let bounds = map.data.blockMapBounds;
-    $: tScale = -Math.min(size.height, size.width) / mapSize;
+    $: tScale = -Math.min($viewSize.height, $viewSize.width) / mapSize;
 
     function mousedown(ev: MouseEvent) {
         if (ev.buttons & 1) {
@@ -78,7 +77,7 @@
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <svg
-    width={size.width} height={size.height}
+    width={$viewSize.width} height={$viewSize.height}
     viewBox="{mapSize * -.5} {mapSize * -.5} {mapSize} {mapSize}"
     style="
     transform:

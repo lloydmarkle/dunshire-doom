@@ -271,10 +271,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             #include <lights_fragment_begin>
 
             // apply lighting
-            material.diffuseColor.rgb *= doomLightLevel;
-            // material.diffuseColor.rgb = vec3(scaledLightLevel);
-            // material.diffuseColor.rgb = abs(normal_);
-            // material.diffuseColor.rgb = vColor.xyz;
+            material.diffuseContribution.rgb *= doomLightLevel;
             `);
     };
 

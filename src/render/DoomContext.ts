@@ -5,7 +5,6 @@ import { derived, get, writable, type Writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
 import { createFullscreenControls } from './Controls/FullscreenControls';
-import type { Size } from '@threlte/core';
 
 interface RangeSetting extends BaseSetting<number> {
     type: 'range';
@@ -227,7 +226,7 @@ export const createAppContext = () => {
     return { settings, settingsMenu, editor, audio, soundGain, musicGain, pointerLock, fullscreen, error, musicTrack };
 }
 
-export const createGameContext = (game: Game, viewSize: Store<Size>) => {
+export const createGameContext = (game: Game, viewSize: Store<{ width: number; height: number }>) => {
     const textures = new MapTextures(game.wad);
     const wad = game.wad;
     return { game, wad, textures, viewSize };

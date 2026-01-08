@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { type Game, store } from "../doom";
-    import { setContext } from "svelte";
+    import { type Game, randInt, randomNorm, store } from "../doom";
+    import { onMount, setContext, tick, type Snippet } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
@@ -12,35 +12,88 @@
     import Intermission from "./Intermission/Intermission.svelte";
     import SoundPlayer from "./SoundPlayer.svelte";
     import WipeContainer from "./Components/WipeContainer.svelte";
-    import Hack from "./Hack.svelte";
-    import { WebGLRenderer, type WebGLRendererParameters } from "three";
+    import DoomScene from "./DoomScene.svelte";
+    import { WebGLRenderer } from "three";
 
-    export let game: Game;
-    export let soundGain: GainNode;
-    export let paused: boolean;
+    interface Props {
+        game: Game;
+        soundGain: GainNode;
+        paused: boolean;
+        children: Snippet;
+    }
+    const { game, soundGain, paused, children }: Props = $props();
 
     let viewSize = store({ width: 320, height: 200 });
+    // FIXME: actually, the warnings on the nex two lines are correct and it's I have {#key game} in the parent block.
+    // I'm just still not sure the "right" way to fix it
     const doomContext = createGameContext(game, viewSize);
-    setContext("doom-game-context", doomContext);
-    const { settings, pointerLock, musicTrack } = useAppContext();
-    const { cameraMode, showPlayerInfo, timescale } = settings;
     const { map, intermission } = game;
+    setContext("doom-game-context", doomContext);
+    const { settings, pointerLock, musicTrack, error } = useAppContext();
+    const { cameraMode, showPlayerInfo, timescale, fpsLimit, simulate486 } = settings;
 
-    // NOTE: add noise to map name so that idclev to same map does screen wipe
-    $: screenName = ($map?.name ?? '') + Math.random();
-    $: intScreen = $intermission ? 'summary' : null;
+    let screenName = $derived(
+        $intermission ? 'intermission'
+        // NOTE: add noise to map name so that idclev to same map does screen wipe
+        : ($map?.name ?? '') + Math.random());
 
-    let intermissionMusic: string;
-    $: mapMusicTrack = $map?.musicTrack;
-    $: $musicTrack = game.wad.optionalLump($mapMusicTrack ?? intermissionMusic);
+    let intermissionMusic = $state('');
+    let mapMusic = $derived($map?.musicTrack);
+    $effect(() => { $musicTrack = game.wad.optionalLump($mapMusic ?? intermissionMusic) });
 
-    $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
-    $: settings.compassMove.set($cameraMode === "svg");
+    let renderSectors = $derived($map ? buildRenderSectors(game.wad, $map) : []);
+    $effect(() => settings.compassMove.set($cameraMode === "svg"));
 
-    const rendererParameters: WebGLRendererParameters = {
-        // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
-        logarithmicDepthBuffer: true,
+    let frameTime = $derived(1 / $fpsLimit);
+    let tScale = $derived($timescale);
+    // A fun little hack to make the game feel like it used to on my 486sx25
+    const use486TimeParams = () => {
+        if (!$simulate486) {
+            return;
+        }
+        setTimeout(use486TimeParams, randInt(200, 800));
+        // a real 486 would slow down if there was a lot of geometry or bad guys but this was simple and fun.
+        // This guy has some neat numbers though we're not strictly following it https://www.youtube.com/watch?v=rZcAo4oUc4o
+        frameTime = 1 / randomNorm(2, 18, 1.2);
+        tScale = 1 - frameTime * 2;
     };
+    const useNormalTimeParams = () => {
+        frameTime = 1 / $fpsLimit
+        tScale = $timescale;
+    };
+    // $effect() just blows up here. Probably good to revisit that someday when I understand svelte 5 better
+    onMount(() => simulate486.subscribe(is486 => tick().then(() => is486 ? use486TimeParams() : useNormalTimeParams())));
+
+    onMount(() => {
+        let lastTickTime = 0;
+        // use negative number so we always render first frame as fast as possible
+        let lastFrameTime = -1000;
+
+        let handle = requestAnimationFrame(function gameTicker(time) {
+            time *= .001;
+            handle = requestAnimationFrame(gameTicker);
+            if (paused) {
+                lastTickTime = time;
+                return;
+            }
+
+            if (time - lastFrameTime > frameTime) {
+                lastFrameTime = time - (time % frameTime);
+                try {
+                    game.tick(time - lastTickTime, tScale);
+                    lastTickTime = time;
+                } catch (e) {
+                    $error = e;
+                }
+            }
+        });
+        return () => cancelAnimationFrame(handle);
+    });
+
+    const preventDefault = (fn: (...args: any[]) => void) => (ev: Event) => {
+        ev.preventDefault();
+        fn.call(this, ev);
+	};
 
     function keyup(ev: KeyboardEvent) {
         switch (ev.code) {
@@ -52,38 +105,36 @@
     }
 </script>
 
-<svelte:window on:keyup|preventDefault={keyup} />
+<svelte:window onkeyup={preventDefault(keyup)} />
 
-<WipeContainer key={intScreen ?? screenName}>
+<WipeContainer key={screenName}>
     <div
-        class="relative grid h-full w-full bg-black"
+        class="relative flex justify-center h-full w-full bg-black"
         bind:clientHeight={$viewSize.height}
         bind:clientWidth={$viewSize.width}
     >
     {#if $intermission}
-        <!-- NOTE: be cautious with #key and bind: https://github.com/sveltejs/svelte/issues/7704 (until svelte5) -->
         <Intermission details={$intermission}
-            size={$viewSize}
-            bind:musicTrack={intermissionMusic}
-            bind:screenName={screenName} />
+            bind:musicTrack={intermissionMusic} />
     {/if}
 
     <MapContext map={$map} {renderSectors}>
         {#if $cameraMode === 'svg'}
-        <SvgMapRoot
-            size={$viewSize}
-            map={$map}
-        />
+        <SvgMapRoot map={$map} />
         {:else}
         <Canvas
-            createRenderer={(canvas) => new WebGLRenderer({ canvas, ...rendererParameters })}
+            createRenderer={(canvas) => new WebGLRenderer({
+                canvas,
+                // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
+                logarithmicDepthBuffer: true,
+            })}
             renderMode='manual'
             autoRender={false}
         >
-            <Hack viewSize={$viewSize} {paused} />
+            <DoomScene map={$map} {frameTime} {paused} />
         </Canvas>
         {/if}
-        <HUD size={$viewSize} player={$map.player} />
+        <HUD player={$map.player} />
 
         {#if $showPlayerInfo}
         <PlayerInfo player={$map.player} interactive={paused} />
@@ -95,4 +146,4 @@
 
 <SoundPlayer wad={game.wad} audioRoot={soundGain} soundEmitter={game} timescale={$timescale} player={$map?.player} />
 
-<slot />
+{@render children()}

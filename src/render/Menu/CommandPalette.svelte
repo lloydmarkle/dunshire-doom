@@ -3,7 +3,7 @@
     const maxRecentlyUsed = 5;
 
     function useSetting(item: MenuSetting) {
-        const filteredUsed = recentlyUsed.filter((e, i) => e !== item && i < maxRecentlyUsed);
+        const filteredUsed = recentlyUsed.filter((e, i) => e.text !== item.text && i < maxRecentlyUsed);
         recentlyUsed = [item, ...filteredUsed];
     }
 </script>

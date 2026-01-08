@@ -28,11 +28,11 @@
 
     const { pointerLock, soundGain, musicGain } = context;
 
-    let wad: DoomWad;
-    let game: Game;
+    let wad = $state<DoomWad>();
+    let game = $state<Game>();
     let difficulty: Skill = null;
-    let urlMapName: string;
-    let showEndoom = false;
+    let urlMapName = '';
+    let showEndoom = $state(false);
 
     async function parseUrlParams() {
         try {
@@ -43,12 +43,14 @@
         }
     }
     let lastWads = 0;
-    $: if ($availableWads.length != lastWads) {
-        lastWads = $availableWads.length;
-        // maybe a wad was added and now we can load the map?
-        parseUrlParams();
-    }
-    $: recentlyUsed = recentlyUsedGames($availableWads);
+    $effect(() => {
+        if ($availableWads.length != lastWads) {
+            lastWads = $availableWads.length;
+            // maybe a wad was added and now we can load the map?
+            parseUrlParams();
+        }
+    });
+    let recentlyUsed = $derived(recentlyUsedGames($availableWads));
 
     async function parseUrlParams2() {
         const params = new URLSearchParams(window.location.hash.substring(1));
@@ -119,31 +121,41 @@
     }
 
     const isPointerLocked = pointerLock.isPointerLocked;
-    $: showMenu = !$isPointerLocked;
+    let showMenu = $derived(!$isPointerLocked);
 
     // keep url in sync with game
-    $: map = game?.map;
-    $: if ($map && urlMapName !== $map.name) {
-        recentlyUsed.push(game.wad.name, $map.name, game.skill);
-        history.pushState(null, null, `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`);
-    }
+    let map = $derived(game?.map);
+    $effect(() => {
+        if ($map && urlMapName !== $map.name) {
+            recentlyUsed.push(game.wad.name, $map.name, game.skill);
+            urlMapName = $map.name;
+            history.pushState(null, null, `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`);
+        }
+    })
 
-    $: screenName =
+    let screenName = $derived(
         game ? 'game' :
         wad && showEndoom ? 'endoom':
         $error ? 'error' :
-        'home';
+        'home');
+
+    const once = (fn: () => void) => (ev: Event) => {
+        if (fn) {
+            fn.call(this, ev);
+            fn = null;
+        }
+    };
 </script>
 
-<svelte:window on:popstate={parseUrlParams} />
+<svelte:window onpopstate={parseUrlParams} />
 
-<!-- svelte-ignore a11y-click-events-have-key-events -->
-<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <main
-    on:click|once={enableSoundOnce}
+    onclick={once(enableSoundOnce)}
     use:context.pointerLock.pointerLockControls
     use:context.fullscreen.fullscreenControls
-    class="full"
+    class="w-screen h-screen"
 >
     <!-- <AABBSweepDebug /> -->
     <!-- <TextureMapScene /> -->
@@ -183,10 +195,5 @@
         --honeycomb-size: 40px;
         background: var(--honeycomb-gradient);
         background-size: var(--honeycomb-size-x) var(--honeycomb-size-y);
-    }
-
-    .full {
-        width: 100vw;
-        height: 100vh;
     }
 </style>

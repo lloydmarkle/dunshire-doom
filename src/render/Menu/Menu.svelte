@@ -211,7 +211,7 @@
     on:outrostart={menuSounds.sfx.swtchx}
     class:hidden={$editor.active}
     class="absolute inset-0 opacity-50 bg-neutral pointer-events-none"
-/>
+></div>
 
 <div class="absolute top-0 left-0 bottom-0 grid select-none">
     <div transition:fly={{ x: "-100%", duration: transitionDuration }} class="

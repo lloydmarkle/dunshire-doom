@@ -94,12 +94,10 @@
     Don't add this scene to the parent scene (the root) because we are only rendering the HUD
     which is composited by a RenderPass
 -->
-<!-- <HierarchicalObject
-    onChildMount={() => {}}
->
+<T.Mesh attach={() => () => {}}>
     <T.OrthographicCamera bind:ref={hudCam} />
     <T.Scene bind:ref={hudScene}>
         <T.AmbientLight color={'white'} intensity={4} />
-        <Weapon {player} {yScale} screenSize={$size}/>
+        <Weapon {player} {yScale} />
     </T.Scene>
-</HierarchicalObject> -->
+</T.Mesh>

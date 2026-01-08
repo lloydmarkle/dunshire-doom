@@ -182,5 +182,5 @@
     });
 </script>
 
-<T is={opaqGeo.root} on:click={hit} renderOrder={1} />
-<T is={tranGeo.root} on:click={hit} renderOrder={2} />
+<T is={opaqGeo.root} onclick={hit} renderOrder={1} />
+<T is={tranGeo.root} onclick={hit} renderOrder={2} />

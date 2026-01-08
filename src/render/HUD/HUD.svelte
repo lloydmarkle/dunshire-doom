@@ -3,29 +3,28 @@
     import Picture, { imageDataUrl } from "../Components/Picture.svelte";
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";
-    import type { Size } from "@threlte/core";
     import HUDMessages from "./HUDMessages.svelte";
     import STNumber from "../Components/STNumber.svelte";
-    import { useAppContext } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
 
     export let player: PlayerMapObject;
-    export let size: Size;
     const { maxHudScale, hudStyle } = useAppContext().settings;
+    const { viewSize } = useDoom();
 
     const { health, weapon, inventory } = player;
     $: weaponLights = $inventory.weapons.map(e => e?.keynum);
     const background = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
     const gfx = player.map.game.wad.graphic('STBAR');
     const offsetX = (320 - gfx.width) / 2;
-    $: scale = Math.min(size.width / gfx.width, size.height / gfx.height, $maxHudScale);
+    $: scale = Math.min($viewSize.width / gfx.width, $viewSize.height / gfx.height, $maxHudScale);
     $: hudHeight = gfx.height * scale; // why *2? Because we are scaling by 2 in a css transform below
 </script>
 
 <HUDMessages {scale} topOffset={$hudStyle === 'top' ? hudHeight : 0} {player} />
 
 <div
-    class="root"
-    style:--st-top="{$hudStyle === 'bottom' ? size.height - hudHeight : 0}px"
+    class="hud"
+    style:--st-top="{$hudStyle === 'bottom' ? $viewSize.height - hudHeight : 0}px"
     style:--st-bg="url({background})"
     style:--st-bg-offsetx="{offsetX}px"
     style:--st-scale="{scale}"
@@ -93,9 +92,8 @@
         line-height: 0;
     }
 
-    .root {
+    .hud {
         user-select: none;
-        place-self: center;
         width: 320px;
         height: 32px;
         transform: scale(var(--st-scale));

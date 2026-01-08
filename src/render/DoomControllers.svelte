@@ -19,11 +19,11 @@
 </script>
 
 {#if !paused || $cameraMode === 'svg'}
-<div use:keyboardControls={{ input: game.input, keymap: $keymap }} />
-<div use:keyboardCheatControls={game} />
+<div use:keyboardControls={{ input: game.input, keymap: $keymap }}></div>
+<div use:keyboardCheatControls={game}></div>
 {/if}
 {#if $isPointerLocked && !touchDevice}
-<div use:mouseControls={{ input: game.input, mouseSpeed: $mouseSensitivity, invertY: $mouseInvertY, swapButtons: $mouseSwitchLeftRightButtons }} />
+<div use:mouseControls={{ input: game.input, mouseSpeed: $mouseSensitivity, invertY: $mouseInvertY, swapButtons: $mouseSwitchLeftRightButtons }}></div>
 {/if}
 {#if touchDevice && !paused}
     <button

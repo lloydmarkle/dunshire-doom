@@ -94,6 +94,8 @@
         return () => clearInterval(skullChanger);
     });
 
+    let selectedWadName = '';
+    $: if (selectedIWad) selectedWadName = selectedIWad.name;
     let lastPwadsCount = 0;
     let lastIWad = '';
     let startPlaying = false;
@@ -135,10 +137,11 @@
         window.location.href = '#' + [selectedIWad, ...selectedPWads].filter(p => p).map(p => `wad=${p.name}`).join('&');
     }
     $: screen =
-        selectedIWad && wad && startPlaying && mapNames.includes('E1M1') && !mapName ? 'select-episode' :
-        selectedIWad && wad && startPlaying ? 'select-skill' :
-        selectedIWad && wad ? 'select-wads' :
-        'select-iwad';
+        wad && startPlaying && mapNames.includes('E1M1') && !mapName ? 'select-episode' :
+        wad && startPlaying ? 'select-skill' :
+        wad ? 'select-wads' :
+        !selectedIWad ? 'select-iwad' :
+        'wait'; // a brief intermediate state that happens when an iwad is selected but the wad isn't loaded (yet)
 
     // keyboard controls became almost an exercise in code golf so I'm not sure how readable this is...
     let rootNode: HTMLDivElement;
@@ -157,8 +160,8 @@
                     info.rows = style.gridTemplateRows.split(' ').length;
                     info.cols = style.gridTemplateColumns.split(' ').length;
 
-                    // const element = info.buttons.item($cursor);
-                    // element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const element = info.buttons.item($cursor);
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
             tick().then(() => measure());
@@ -188,8 +191,6 @@
             return { name, info, move, monitor };
         };
 
-        let cursor = store(0);
-        let section = store('');
         let resetCursor = () => {};
         let resetState: any = () => {};
         const captureCursor = (n: number, fn: KeyboardEventHandler<Window>, init = resetState) => {
@@ -317,7 +318,8 @@
         screen === 'select-episode' ? keyboardControllers.episode() :
         screen === 'select-skill' ? keyboardControllers.skill() :
         screen === 'select-wads' ? keyboardControllers.wads() :
-        keyboardControllers.root());
+        screen === 'select-iwad' ? keyboardControllers.root() :
+        null);
 </script>
 
 <svelte:window
@@ -381,7 +383,6 @@
         </div>
         {/if}
 
-    {@const selectedWadName = selectedIWad.name}
     <div
         class="card image-full bg-base-200 shadow-xl absolute inset-0"
         class:show-background={!Boolean(wad && startPlaying)}
@@ -518,10 +519,10 @@
     /* .card.image-full > figure img {
         object-fit: contain;
     } */
-    .card.image-full::before {
+    .card.image-full:before {
         transition: opacity .3s;
     }
-    .show-background::before {
+    .card.image-full.show-background:before {
         opacity: 0;
     }
 

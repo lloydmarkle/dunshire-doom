@@ -46,7 +46,7 @@ describe('perf', () => {
     it('benchmark', async () => {
         const wads = params.wadNames.map(wad => {
             const buff = fs.readFileSync(path.join(process.env.WADROOT, wad + '.wad'))
-            return new WadFile(wad, buff);
+            return new WadFile(wad, buff.buffer);
         })
         const wad = new DoomWad(params.wadNames.join('+'), wads);
         const settings = createDefaultSettings();

@@ -144,10 +144,7 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             .replace('#include <lights_fragment_begin>', `
             #include <lights_fragment_begin>
             // apply lighting
-            material.diffuseColor.rgb *= vScaledLightLevel;
-            // material.diffuseColor.rgb = vec3(scaledLightLevel);
-            // material.diffuseColor.rgb = vec3(fakeContrast(normal_) * 4.0 + .5);
-            // material.diffuseColor.rgb = abs(normal_);
+            material.diffuseContribution.rgb *= vScaledLightLevel;
 
             totalEmissiveRadiance += doomInspectorEmissive;
             `);

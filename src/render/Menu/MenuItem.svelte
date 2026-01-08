@@ -1,9 +1,16 @@
 <script lang="ts">
     import type { MenuSetting } from "../DoomContext";
 
-    export let item: MenuSetting;
-    export let active = false;
-    $: val = item.val;
+    // without runes, the <select /> binding causes some kind of infinite loop. The combination
+    // of $state and $effect allows most of the code to stay the same. Long term, there is probably
+    // a simpler way to manage settings
+    interface Props {
+        item: MenuSetting;
+        active: boolean,
+    }
+    let { item, active = false } = $props() as Props;
+    let val = $state(item.val);
+    $effect(() => { val = item.val });
 
     const formatNumber = (num: number) => num.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
 </script>
