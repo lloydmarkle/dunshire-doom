@@ -8,11 +8,13 @@
     import type { WadStore } from "../WadStore";
     import MenuItem from "../render/Menu/MenuItem.svelte";
     import WadManagerScreen from "./WadManagerScreen.svelte";
+    import { onMount } from "svelte";
 
     export let wadStore: WadStore;
     export let wad: DoomWad = null;
-    const { settingsMenu } = useAppContext();
+    const { settingsMenu, pointerLock } = useAppContext();
     const settings = menuCategories(settingsMenu);
+    onMount(pointerLock.releaseLock);
 
     const wads = wadStore.wads;
     $: haveIWads = $wads.some(wad => wad.iwad);

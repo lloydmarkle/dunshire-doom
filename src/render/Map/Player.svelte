@@ -91,13 +91,11 @@
 {/if}
 
 <!--
-    Don't add this scene to the parent scene (the root) because we are only rendering the HUD
+    Don't attach the scene to the parent scene (the root) because we are only rendering the HUD
     which is composited by a RenderPass
 -->
-<T.Mesh attach={() => () => {}}>
+<T.Scene attach={() => {}} bind:ref={hudScene} >
     <T.OrthographicCamera bind:ref={hudCam} />
-    <T.Scene bind:ref={hudScene}>
-        <T.AmbientLight color={'white'} intensity={4} />
-        <Weapon {player} {yScale} />
-    </T.Scene>
-</T.Mesh>
+    <T.AmbientLight color={'white'} intensity={4} />
+    <Weapon {player} {yScale} />
+</T.Scene>

@@ -14,36 +14,34 @@
 
     const { settings, editor } = useAppContext();
 
-    const threlteCtx = useThrelte();
+    const { renderer, advance } = useThrelte();
     // TODO: it would be nice to create this once per game
-    $: spriteSheet = (spriteSheet ?? new SpriteSheet(map.game.wad, threlteCtx.renderer.capabilities.maxTextureSize));
+    $: spriteSheet = (spriteSheet ?? new SpriteSheet(map.game.wad, renderer.capabilities.maxTextureSize));
 
     // A fun little hack to make the game feel like it used to on my 486sx25
     const { simulate486, pixelScale, renderMode } = settings;
     // F5 low-res mode (it should be .5 but that looks to sharp IMO)
     // FIXME: starting the game with low pixel ratio and then increasing doesn't work... why?
-    $: threlteCtx.renderer.setPixelRatio($simulate486 ? .2 : $pixelScale);
+    $: renderer.setPixelRatio($simulate486 ? .2 : $pixelScale);
 
     onMount(() => {
-        let frameReq: number;
         // use negative number so we always render first frame as fast as possible
         let lastFrameTime = -1000;
 
         // A nifty hack to watch all settings for changes and then force a re-render when the menu is open
         const allSettings = Object.keys(settings).filter(k => typeof settings[k] === 'object').map(k => settings[k]);
-        derived(allSettings, () => new Date()).subscribe(() => threlteCtx.advance());
+        derived(allSettings, () => new Date()).subscribe(advance);
 
-        const renderFrame: FrameRequestCallback = (time) => {
-            frameReq = requestAnimationFrame(renderFrame);
+        let frameReq = requestAnimationFrame(function renderFrame(time) {
             time *= .001;
+            frameReq = requestAnimationFrame(renderFrame);
             // update within 50ms on editor selection otherwise use 1fps
             let ft = !paused ? frameTime : ($editor.selected ? .05 : 1);
             if (time - lastFrameTime > ft) {
-                threlteCtx.advance();
+                advance();
                 lastFrameTime = time - (time % ft);
             }
-        };
-        renderFrame(0);
+        });
         return () => cancelAnimationFrame(frameReq);
     });
 </script>

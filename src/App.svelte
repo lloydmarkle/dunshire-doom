@@ -33,15 +33,9 @@
     let difficulty: Skill = null;
     let urlMapName = '';
     let showEndoom = $state(false);
+    const isPointerLocked = pointerLock.isPointerLocked;
+    let showMenu = $derived(!$isPointerLocked);
 
-    async function parseUrlParams() {
-        try {
-            await parseUrlParams2();
-            $error = null;
-        } catch (e) {
-            $error = e;
-        }
-    }
     let lastWads = 0;
     $effect(() => {
         if ($availableWads.length != lastWads) {
@@ -51,6 +45,15 @@
         }
     });
     let recentlyUsed = $derived(recentlyUsedGames($availableWads));
+
+    async function parseUrlParams() {
+        try {
+            await parseUrlParams2();
+            $error = null;
+        } catch (e) {
+            $error = e;
+        }
+    }
 
     async function parseUrlParams2() {
         const params = new URLSearchParams(window.location.hash.substring(1));
@@ -120,15 +123,12 @@
         }
     }
 
-    const isPointerLocked = pointerLock.isPointerLocked;
-    let showMenu = $derived(!$isPointerLocked);
-
     // keep url in sync with game
     let map = $derived(game?.map);
     $effect(() => {
         if ($map && urlMapName !== $map.name) {
-            recentlyUsed.push(game.wad.name, $map.name, game.skill);
             urlMapName = $map.name;
+            recentlyUsed.push(game.wad.name, $map.name, game.skill);
             history.pushState(null, null, `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`);
         }
     })

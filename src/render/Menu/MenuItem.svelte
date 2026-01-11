@@ -8,9 +8,8 @@
         item: MenuSetting;
         active: boolean,
     }
-    let { item, active = false } = $props() as Props;
-    let val = $state(item.val);
-    $effect(() => { val = item.val });
+    let { item, active = false }: Props = $props();
+    let val = $derived(item.val);
 
     const formatNumber = (num: number) => num.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
 </script>

@@ -66,25 +66,20 @@
 
     onMount(() => {
         let lastTickTime = 0;
-        // use negative number so we always render first frame as fast as possible
-        let lastFrameTime = -1000;
 
         let handle = requestAnimationFrame(function gameTicker(time) {
             time *= .001;
             handle = requestAnimationFrame(gameTicker);
-            if (paused) {
+            if (paused || !game) {
                 lastTickTime = time;
                 return;
             }
 
-            if (time - lastFrameTime > frameTime) {
-                lastFrameTime = time - (time % frameTime);
-                try {
-                    game.tick(time - lastTickTime, tScale);
-                    lastTickTime = time;
-                } catch (e) {
-                    $error = e;
-                }
+            try {
+                game.tick(time - lastTickTime, tScale);
+                lastTickTime = time;
+            } catch (e) {
+                $error = e;
             }
         });
         return () => cancelAnimationFrame(handle);
@@ -123,7 +118,7 @@
         <SvgMapRoot map={$map} />
         {:else}
         <Canvas
-            createRenderer={(canvas) => new WebGLRenderer({
+            createRenderer={canvas => new WebGLRenderer({
                 canvas,
                 // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
                 logarithmicDepthBuffer: true,

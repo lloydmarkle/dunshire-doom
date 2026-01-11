@@ -344,7 +344,7 @@
         class="absolute inset-0 z-30"
         transition:fly={{ x: menuFlyDirection, duration: transitionDuration }}
     >
-        <div class="absolute inset-0 bg-honeycomb opacity-60 pointer-events-none" />
+        <div class="absolute inset-0 bg-honeycomb opacity-60 pointer-events-none"></div>
         <div class="relative w-full h-full">
             <TouchControlsMenu bind:subMenu={subMenu} />
         </div>
