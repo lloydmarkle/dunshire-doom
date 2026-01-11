@@ -1018,12 +1018,20 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
         const hit = _precomputedHits[i];
         if ('mobj' in hit) {
             _nVec.set(mobj.position.x - hit.mobj.position.x, mobj.position.y - hit.mobj.position.y, 0);
-            if (mobj.map.game.settings.stuckMonstersCanMove.val && move.dot(_nVec) >= 0) {
-                continue;
-            }
-            const point = sweepAABBAABB(mobj.position, moveRadius, move, hit.mobj.position, hit.mobj.info.radius);
-            if (!point) {
-                continue;
+            if (mobj.map.game.settings.stuckMonstersCanMove.val) {
+                if (move.dot(_nVec) >= 0) {
+                    continue;
+                }
+                const point = sweepAABBAABB(mobj.position, moveRadius, move, hit.mobj.position, hit.mobj.info.radius);
+                if (!point) {
+                    continue;
+                }
+            } else {
+                // classic doom movement allowed the monster to move if the endpoint is okay so that's what we check
+                const point = sweepAABBAABB(_centreMoveEnd, moveRadius, zeroVec, hit.mobj.position, hit.mobj.info.radius);
+                if (!point) {
+                    continue;
+                }
             }
         } else if ('line' in hit) {
             if (moveRadius < 0) {
