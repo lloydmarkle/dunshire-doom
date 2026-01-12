@@ -51,6 +51,9 @@
 
     const wrapAround = (n: number, max: number) => n > max - 1 ? 0 : n < 0 ? max - 1 : n;
     const slide = (item: MenuSetting, direction: -1 | 1) => {
+        if (!item) {
+            return;
+        }
         if (item.type !== 'color') {
             useSetting(item);
         }
@@ -94,10 +97,8 @@
             tick().then(() => searchBox.focus());
         }
         if (keys[ev.code] && !ev.metaKey && !ev.altKey && !ev.ctrlKey) {
-            if (active) {
-                ev.preventDefault();
-                keys[ev.code]?.();
-            }
+            ev.preventDefault();
+            keys[ev.code]?.();
         }
     }
     function keyup(ev: KeyboardEvent) {
