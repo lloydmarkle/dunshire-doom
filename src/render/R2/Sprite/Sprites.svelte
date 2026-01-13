@@ -5,7 +5,7 @@
     import { createSpriteMaterialTransparent, createSpriteMaterial } from "./Materials";
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
-    import { onDestroy } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { MapRuntime, MFFlags, PlayerMapObject, tickTime, type MapObject as MO, type Sprite } from "../../../doom";
     import type { MapLighting } from "../MapLighting";
 
@@ -169,16 +169,18 @@
     }
     const updateMobjPosition = (mo: MapObject) => mo.renderData['rinfo']?.updatePosition()
 
-    map.objs.forEach(addMobj);
-    map.events.on('mobj-added', addMobj);
-    map.events.on('mobj-removed', removeMobjs);
-    map.events.on('mobj-updated-sprite', updateMobjSprite);
-    map.events.on('mobj-updated-position', updateMobjPosition);
-    onDestroy(() => {
-        map.events.off('mobj-added', addMobj);
-        map.events.off('mobj-removed', removeMobjs);
-        map.events.off('mobj-updated-sprite', updateMobjSprite);
-        map.events.off('mobj-updated-position', updateMobjPosition);
+    onMount(() => {
+        map.objs.forEach(addMobj);
+        map.events.on('mobj-added', addMobj);
+        map.events.on('mobj-removed', removeMobjs);
+        map.events.on('mobj-updated-sprite', updateMobjSprite);
+        map.events.on('mobj-updated-position', updateMobjPosition);
+        return () => {
+            map.events.off('mobj-added', addMobj);
+            map.events.off('mobj-removed', removeMobjs);
+            map.events.off('mobj-updated-sprite', updateMobjSprite);
+            map.events.off('mobj-updated-position', updateMobjPosition);
+        }
     });
 </script>
 

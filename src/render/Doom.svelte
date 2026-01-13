@@ -4,7 +4,6 @@
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
-    import { buildRenderSectors } from "./RenderData";
     import { Canvas } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
     import SvgMapRoot from "./Svg/Root.svelte";
@@ -41,7 +40,6 @@
     let mapMusic = $derived($map?.musicTrack);
     $effect(() => { $musicTrack = game.wad.optionalLump($mapMusic ?? intermissionMusic) });
 
-    let renderSectors = $derived($map ? buildRenderSectors(game.wad, $map) : []);
     $effect(() => settings.compassMove.set($cameraMode === "svg"));
 
     let frameTime = $derived(1 / $fpsLimit);
@@ -113,9 +111,9 @@
             bind:musicTrack={intermissionMusic} />
     {/if}
 
-    <MapContext map={$map} {renderSectors}>
+    <MapContext map={$map} let:map>
         {#if $cameraMode === 'svg'}
-        <SvgMapRoot map={$map} />
+        <SvgMapRoot {map} />
         {:else}
         <Canvas
             createRenderer={canvas => new WebGLRenderer({
@@ -126,15 +124,15 @@
             renderMode='manual'
             autoRender={false}
         >
-            <DoomScene map={$map} {frameTime} {paused} />
+            <DoomScene {map} {frameTime} {paused} />
         </Canvas>
         {/if}
-        <HUD player={$map.player} />
+        <HUD player={map.player} />
 
         {#if $showPlayerInfo}
-        <PlayerInfo player={$map.player} interactive={paused} />
+        <PlayerInfo player={map.player} interactive={paused} />
         {/if}
-        <EditPanel map={$map} />
+        <EditPanel {map} />
     </MapContext>
     </div>
 </WipeContainer>
