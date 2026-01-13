@@ -1,14 +1,12 @@
 <script lang="ts">
     import { DoomWad } from '../doom';
 
-    export let wad: DoomWad;
+    let { wad }: { wad: DoomWad } = $props();
 
-    let viewSize = { width: 1024, height: 600 };
-    // FIXME: this still needs some work for mobile screens in portrait orientation
-    $: style = [
-        `transform: scale(${Math.min(viewSize.width / 640, viewSize.height / 400)})`,
-        `transform-origin: top`,
-    ].join(';');
+    let viewSize = $state({ width: 320, height: 200 });
+    // larger divisor adds horizontal padding
+    let widthDivisor = $derived(viewSize.width > viewSize.height ? 640 : 550);
+    let viewScale = $derived(Math.min(viewSize.width / widthDivisor, viewSize.height / 400));
 
     // mapping from https://en.wikipedia.org/wiki/Code_page_437 to unicode
     // There are a couple characters I'm not sure about: 124, 127
@@ -38,27 +36,24 @@
     ];
 
     // Fun! https://doomwiki.org/wiki/ENDOOM
-    $: bytes = wad.lumpByName('ENDOOM').data;
-    $: values = Array.from(bytes).map((_, i, arr) => i % 2 ? null : [arr[i], arr[i + 1]]).filter(e => e);
+    let bytes = $derived(wad.lumpByName('ENDOOM').data);
+    let values = $derived(Array.from(bytes).map((_, i, arr) => i % 2 ? null : [arr[i], arr[i + 1]]).filter(e => e));
 </script>
 
 <div
-    class="h-full w-full bg-black"
+    class="h-full w-full bg-black flex justify-center items-center"
     bind:clientHeight={viewSize.height}
     bind:clientWidth={viewSize.width}
 >
-    <div class="flex justify-around">
-        <div class="grid-80x25" style="{style}">
-            {#each values as [char, col]}
-                {@const style = `
-                    background:${colours[(col >> 4) & 0x7]};
-                    color:${colours[col & 0xf]};
-                `}
-                <span class="box" {style}>
-                    <span class:blink={col & 0x80}>{cp437[char]}</span>
-                </span>
-            {/each}
-        </div>
+    <div class="grid-80x25" style="transform: scale({viewScale})">
+        {#each values as [char, col]}
+            <span class="box"
+                style:background="{colours[(col >> 4) & 0x7]}"
+                style:color="{colours[col & 0xf]}"
+            >
+                <span class={{ blink: (col & 0x80) }}>{cp437[char]}</span>
+            </span>
+        {/each}
     </div>
 </div>
 
