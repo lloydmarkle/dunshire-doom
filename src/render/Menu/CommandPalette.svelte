@@ -31,7 +31,7 @@
         { type: 'toggle', cat: 'advanced', val: simulate486, text: '486 simulator' },
         // { type: 'toggle', cat: 'advanced', val: fullscreen, text: 'Fullscreen' },
         { type: 'toggle', cat: 'advanced', val: inspectorEnabled, text: 'Debug inspector' },
-    ].map<any>(e => ({ ...e, searchText: e.text.toLocaleLowerCase() }));
+    ].map<any>(e => ({ ...e, searchText: e.text.toLocaleLowerCase() + (e.type === 'option' ? (e as any).options.join(' ') : '') }));
 
     let activeItem = 0;
     let searchText = '';
