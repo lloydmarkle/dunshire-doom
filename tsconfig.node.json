@@ -5,5 +5,10 @@
     "module": "ESNext",
     "moduleResolution": "bundler"
   },
-  "include": ["vite.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "build-scripts/*.ts",
+    "src/doom/**/*.ts",
+    "src/doom.ts",
+  ]
 }

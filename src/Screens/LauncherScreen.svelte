@@ -345,7 +345,7 @@
                     <img width="320" height="200" src={info.image} alt={info.wad} />
                     <div
                         class="absolute bottom-2 left-2 p-2 flex items-end text-secondary bg-black rounded-lg"
-                        style:--tw-bg-opacity={.4}
+                        style:--tw-bg-opacity={.5}
                     >
                         <span>{info.map}:</span>
                         <span>{data.skills[info.skill - 1].alias}</span>

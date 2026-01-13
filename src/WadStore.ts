@@ -90,9 +90,13 @@ export class WadStore {
         const tr = this.db.transaction(['wad-info', 'wads'], 'readwrite');
         tr.objectStore('wads').put({ name, buff });
         tr.objectStore('wad-info').put(info);
-        // TODO: tr.onerror = () => ...
-        tr.oncomplete = () => this.updateWadList();
-        return info;
+        return new Promise<WADInfo>((resolve, reject) => {
+            tr.onerror = reject;
+            tr.oncomplete = () => {
+                this.updateWadList();
+                resolve(info);
+            }
+        });
     }
 
     removeWad(name: string) {

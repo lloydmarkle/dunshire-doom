@@ -30,6 +30,7 @@
     "@types/three": "^0.182.0",
     "autoprefixer": "^10.4.17",
     "daisyui": "^4.12.10",
+    "fflate": "^0.8.2",
     "iconv-lite": "^0.6.3",
     "js-yaml": "^4.1.0",
     "mocha": "^10.8.2",

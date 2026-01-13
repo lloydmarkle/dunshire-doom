@@ -27,3 +27,5 @@ dist-ssr
 bundle-stats.html
 # synth import
 public/synthetizer
+public/remotes
+_temp-downloads
