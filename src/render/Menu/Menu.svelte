@@ -236,7 +236,7 @@
                 <MapStats map={$map} />
             </div>
 
-            <div class="divider" />
+            <div class="divider"></div>
             <button class="btn btn-primary uppercase" on:click={resumeGame}>Resume</button>
 
             {#if hasNextEpisode}
@@ -251,7 +251,7 @@
             <!-- <button class="btn" disabled>Load</button>
             <button class="btn" disabled>Save</button> -->
 
-            <div class="divider" />
+            <div class="divider"></div>
             <div class="flex mx-auto join">
                 <label class="swap btn btn-lg join-item">
                     <input type="checkbox" bind:checked={$isFullscreen} on:click={toggleFullscreen} />

@@ -6,7 +6,7 @@
     // a simpler way to manage settings
     interface Props {
         item: MenuSetting;
-        active: boolean,
+        active?: boolean,
     }
     let { item, active = false }: Props = $props();
     let val = $derived(item.val);

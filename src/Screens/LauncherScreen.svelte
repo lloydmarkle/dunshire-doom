@@ -59,6 +59,7 @@
     import { menuSoundPlayer } from "../render/Menu/Menu.svelte";
     import type { KeyboardEventHandler } from "svelte/elements";
     import PreloadWad, { preloadedWads } from "./Launcher/PreloadWad.svelte";
+    import { SpeakerWave, SpeakerXMark } from "@steeze-ui/heroicons";
 
     export let wads: WADInfo[];
     export let wadStore: WadStore;
@@ -68,7 +69,7 @@
     $: pWads = wads.filter(wad => !wad.iwad);
 
     const { audio, soundGain, settings, musicTrack } = useAppContext();
-    const { maxSoundChannels } = settings;
+    const { maxSoundChannels, muted } = settings;
     $: menuSounds = menuSoundPlayer(audio, soundGain, wad ? createSoundBufferCache(audio, wad) : null);
     $: msfx = menuSounds.sfx;
     $: menuSounds.channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
@@ -162,9 +163,6 @@
                     const style = getComputedStyle(grid);
                     info.rows = style.gridTemplateRows.split(' ').length;
                     info.cols = style.gridTemplateColumns.split(' ').length;
-
-                    const element = info.buttons.item($cursor);
-                    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
             tick().then(() => measure());
@@ -224,6 +222,10 @@
                     () => {
                         resetState();
                         resetState = main.monitor();
+                        tick().then(() => {
+                            const element = main.info.buttons.item($cursor);
+                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        });
                         return ev => {
                             if (ev.code === 'ArrowUp') {
                                 if (cursor.val - main.info.cols < 0) {
@@ -256,8 +258,9 @@
                 section.subscribe(val => currentHandler = (val === 'game' ? gameGridHandler() : recentGridHandler()));
                 return ev => currentHandler(ev);
             }
-            const gameGrid = gridMover('game', '.grid');
-            return captureCursor(0, gameGrid.move, gameGrid.monitor);
+            section.set('game');
+            const gameGrid = gridMover('game', '.game-grid');
+            return captureCursor(0, gameGrid.move, gameGrid.monitor)();
         };
 
         const skill = captureCursor(3, ev => {
@@ -298,16 +301,17 @@
                 } else if (ev.code === 'ArrowLeft' || ev.code === 'ArrowRight') {
                     msfx.swtchn();
                     cursor.set(0);
-                    rootNode.querySelector<HTMLElement>('.dropdown .btn').focus();
-                    rootNode.querySelector<HTMLElement>('.dropdown input').focus();
+                    rootNode.querySelector<HTMLElement>('.dropdown .btn')?.focus();
+                    rootNode.querySelector<HTMLElement>('.dropdown input')?.focus();
                 }
             })();
             return ev => {
                 // this is probably a little expensive but since the visibility can be cancelled by mixing mouse and
                 // keyboard interaction, it's the only safe way I can think of doing this
-                const listVisible = getComputedStyle(rootNode.querySelector<HTMLElement>('.dropdown .dropdown-content')).visibility === 'visible';
+                const dropdownELement = rootNode.querySelector<HTMLElement>('.dropdown .dropdown-content');
+                const listVisible = dropdownELement && getComputedStyle(dropdownELement).visibility === 'visible';
                 return (listVisible ? wadListController : wadScreenController)(ev);
-            }
+            };
         };
 
         return [{ episode, skill, wads, root }];
@@ -386,8 +390,7 @@
                         index === $cursor && 'game' === $section && 'pulse-highlight',
                         index === $cursor && 'game' === $section && 'btn-outline',
                     ],
-                    // this is a bit of a hack but it works...
-                    'on:pointerenter': cursorSection('game', index),
+                    onpointerenter: cursorSection('game', index),
                 }}
             >
                 <span class="download-required-annotation">Download</span>
@@ -399,6 +402,11 @@
         {#if screen !== 'select-iwad'}
         <div out:fly={{ y: '-100%' }} in:fly={{ delay: 600, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2 z-30">
             <a class="btn btn-secondary w-48 shadow-xl" href={"#"}><Icon src={Home} theme='solid' size="16px"/> Home</a>
+            <label class="swap btn btn-secondary join-item">
+                <input type="checkbox" bind:checked={$muted} />
+                <Icon class="swap-on fill-current" src={SpeakerXMark} theme='solid' size="16px"/>
+                <Icon class="swap-off fill-current" src={SpeakerWave} theme='solid' size="16px"/>
+            </label>
         </div>
         {/if}
 

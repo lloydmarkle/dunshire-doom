@@ -10,6 +10,7 @@
     import WadManagerScreen from "./WadManagerScreen.svelte";
     import { onMount } from "svelte";
     import PreloadedWad, { preloadedWads } from './Launcher/PreloadWad.svelte';
+    import { Icon } from "@steeze-ui/svelte-icon";
 
     interface Props {
         wadStore: WadStore;

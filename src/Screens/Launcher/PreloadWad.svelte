@@ -51,7 +51,6 @@
     {...others}
     class={[ others['class'] ?? '', "btn wad-install h-auto no-animation p-0 overflow-hidden shadow-2xl relative" ]}
     style:--wad-install-progress="{wad.installProgress}turn"
-    onpointerenter={others['on:pointerenter']}
     onclick={() => installWad(wadStore, wad)}
 >
     {#await dataUrl}
