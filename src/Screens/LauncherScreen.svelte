@@ -48,7 +48,7 @@
 <script lang="ts">
     import { crossfade, fade, fly } from "svelte/transition";
     import { data, store, tickTime, type DoomWad } from "../doom";
-    import type { WADInfo } from "../WadStore";
+    import { WadStore, type WADInfo } from "../WadStore";
     import Picture from "../render/Components/Picture.svelte";
     import { Home, MagnifyingGlass } from "@steeze-ui/heroicons";
     import { Icon } from "@steeze-ui/svelte-icon";
@@ -58,10 +58,13 @@
     import { onMount, tick } from "svelte";
     import { menuSoundPlayer } from "../render/Menu/Menu.svelte";
     import type { KeyboardEventHandler } from "svelte/elements";
+    import PreloadWad, { preloadedWads } from "./Launcher/PreloadWad.svelte";
 
     export let wads: WADInfo[];
+    export let wadStore: WadStore;
     export let wad: DoomWad = null;
     $: iWads = wads.filter(wad => wad.iwad);
+    $: preloadWads = preloadedWads.filter(e => !iWads.find(w => w.name === e.link.split('/').pop().split('.').shift()))
     $: pWads = wads.filter(wad => !wad.iwad);
 
     const { audio, soundGain, settings, musicTrack } = useAppContext();
@@ -374,6 +377,22 @@
             </a>
             {/if}
         {/each}
+        {#each preloadWads as wad, i (wad.link)}
+            {@const index = i + iWads.length}
+            <PreloadWad
+                {wadStore} {wad}
+                {...{
+                    class: [
+                        index === $cursor && 'game' === $section && 'pulse-highlight',
+                        index === $cursor && 'game' === $section && 'btn-outline',
+                    ],
+                    // this is a bit of a hack but it works...
+                    'on:pointerenter': cursorSection('game', index),
+                }}
+            >
+                <span class="download-required-annotation">Download</span>
+            </PreloadWad>
+        {/each}
     </div>
 
     {#if selectedIWad}
@@ -516,6 +535,16 @@
 </div>
 
 <style>
+    .download-required-annotation {
+        position: absolute;
+        top: 0;
+        background: black;
+        transition: transform .3s;
+    }
+    :global(.wad-install:hover .download-required-annotation) {
+        transform: translate(0, -150%);
+    }
+
     /* .card.image-full > figure img {
         object-fit: contain;
     } */

@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import path from 'path'
 import fs from 'fs/promises'
 import * as fflate from 'fflate';
-import { WadFile } from '../src/doom';
+import { WadFile } from '../src/doom/wad/wadfile';
 
 const rethrow = (err: any) => { throw err; }
 // probably this shouldn't be a vite plugin, it's a build thing, but it's convenient
