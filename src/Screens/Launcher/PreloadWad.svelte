@@ -1,9 +1,10 @@
 <script lang="ts" module>
     // TODO: generate this in build-scripts/remote-download ?
     type PreloadedWad = typeof preloadedWads[0];
+
     export const preloadedWads = $state([
-        { name: 'Freedoom Phase 1', link: '/remotes/freedoom1.zip', size: '10MB', installProgress: 0 },
-        { name: 'Freedoom Phase 2', link: '/remotes/freedoom2.zip', size: '10.5MB', installProgress: 0 },
+        { name: 'Freedoom Phase 1', link: '/remotes/freedoom1.zip', size: '10MB', installProgress: 0, notice: undefined },
+        { name: 'Freedoom Phase 2', link: '/remotes/freedoom2.zip', size: '10.5MB', installProgress: 0, notice: undefined },
     ]);
 </script>
 <script lang="ts">
@@ -11,7 +12,7 @@
     import { unzip } from "fflate";
     import { pictureDataUrl } from "../../render/Components/Picture.svelte";
     import { defaultPalette, type WadStore } from "../../WadStore";
-    import type { Snippet } from "svelte";
+    import { type Snippet } from "svelte";
 
     interface Props {
         wadStore: WadStore;
@@ -40,6 +41,12 @@
         });
     }
 
+    let modal: HTMLDialogElement;
+    async function showModal() {
+        modal.showModal();
+        wad.notice = wad.notice ?? fetch('/remotes/COPYING.txt').then(res => res.text());
+    }
+
     let titlepic = $derived(wad.link.replace('.zip', '.titlepic.lump'));
     let dataUrl = $derived(fetch(titlepic)
         .then(res => res.bytes())
@@ -51,7 +58,7 @@
     {...others}
     class={[ others['class'] ?? '', "btn wad-install h-auto no-animation p-0 overflow-hidden shadow-2xl relative" ]}
     style:--wad-install-progress="{wad.installProgress}turn"
-    onclick={() => installWad(wadStore, wad)}
+    onclick={showModal}
 >
     {#await dataUrl}
         <div class="flex justify-center">
@@ -65,33 +72,40 @@
     {/await}
 
     <div
-        class="download-info absolute bottom-2 left-2 p-2 items-end text-secondary bg-black rounded-lg flex flex-col gap-2"
+        class="absolute bottom-2 left-2 p-2 text-secondary bg-black rounded-lg"
         style:--tw-bg-opacity={.5}
     >
-        <span>{wad.name}</span>
-        <span>{wad.size} download</span>
+        {wad.name}
     </div>
-
     {@render children?.()}
 </button>
 
-<style>
-    .wad-install .download-info {
-        transition: transform .2s;
-        transform: translate(0, 150%);
-    }
-    .wad-install:hover .download-info {
-        transform: translate(0, 0);
-    }
-    @media (hover: none) {
-        .download-info {
-            transform: none;
-        }
-    }
+<dialog bind:this={modal} class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box w-full sm:w-full sm:max-w-5xl">
+    <h3 class="text-lg font-bold">{wad.name}</h3>
+    {#await wad.notice}
+        <div class="loading loading-spinner loading-md"></div>
+    {:then notice}
+        <pre class="py-4 max-h-64 overflow-scroll bg-base-300 rounded-lg p-4">{notice}</pre>
+    {/await}
+    <p class="py-4">{wad.size} download</p>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn btn-primary" onclick={() => installWad(wadStore, wad)}>Download and Play</button>
+        <button class="btn">Close</button>
+    </form>
+    </div>
+  </div>
+</dialog>
 
+<style>
     .wad-install img {
         grid-row: 1;
         grid-column: 1;
+        transition: transform .2s;
+    }
+    .wad-install:hover img {
+        transform: scale(1.05);
     }
     .wad-install img:nth-child(2) {
         filter: sepia(100%);

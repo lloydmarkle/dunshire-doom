@@ -10,7 +10,6 @@
     import WadManagerScreen from "./WadManagerScreen.svelte";
     import { onMount } from "svelte";
     import PreloadedWad, { preloadedWads } from './Launcher/PreloadWad.svelte';
-    import { Icon } from "@steeze-ui/svelte-icon";
 
     interface Props {
         wadStore: WadStore;
@@ -65,14 +64,12 @@
         {:then _}
             {#if !haveIWads}
                 <div class="flex flex-col gap-2 sm:items-center justify-center p-8">
-                    <div class="flex flex-col gap-2 justify-center">
-                        <p>No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.</p>
-                    </div>
-                    <div class="py-8 px-2 mx-auto">
+                    <p>No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.</p>
+                    <div class="py-8 mx-auto">
                         <p>To start playing DOOM, drag and drop DOOM WAD files into the drop box.</p>
                         <WadDropbox {wadStore} />
                     </div>
-                    <div class="divider max-w-4xl w-full self-center">OR</div>
+                    <div class="divider divider-accent max-w-xl w-full self-center">OR</div>
                     <p>Don't have any DOOM WADs? Try out Freedoom 1 or Freedoom 2.</p>
                     <div class="flex gap-4 flex-wrap">
                         {#each preloadedWads as wad}

@@ -543,6 +543,14 @@
 </div>
 
 <style>
+    .btn-outline img {
+        transform-origin: top center;
+        transition: transform 0.2s;
+    }
+    .btn-outline img {
+        transform: scale(1.05);
+    }
+
     .download-required-annotation {
         position: absolute;
         top: 0;

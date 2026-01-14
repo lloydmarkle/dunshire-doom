@@ -86,9 +86,10 @@ export const freedoomAssetDownloader = () => remoteAssetDownloader({
 
         const bytes = await fs.readFile(filepath);
         fflate.unzip(bytes, {}, (err, data) => {
-          // extract freedoom1.wad, freedoom2.wad, and COPYING.txt because this is now a binary distribution of freedoom
-          // To be more bandwidth friendly, re-zip the .wad files. This means the browser will have to unzip them
-          // but that's actually good because I could see zip/unzipping wads being a useful feature.
+          // extract freedoom1.wad, freedoom2.wad. To be more bandwidth friendly, re-zip the .wad files.
+          // This means the browser will have to unzip them but that's actually good because I could
+          // see zip/unzipping wads being a useful feature.
+          // Also extract COPYING.txt because this is a now a binary distribution of Freedoom.
           const files = ['freedoom1.wad', 'freedoom2.wad', 'COPYING.txt'];
           for (const zipfile of Object.keys(data)) {
             const filename = path.basename(zipfile);
