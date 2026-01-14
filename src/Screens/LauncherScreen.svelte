@@ -151,7 +151,7 @@
     let rootNode: HTMLDivElement;
     let cursor = store(0);
     let section = store('');
-    const [keyboardControllers] = (() => {
+    const keyboardControllers = (() => {
         const gridMover = (name: string, selector: string) => {
             const info = { rows: 0, cols: 0, cells: 0, buttons: null as NodeListOf<HTMLElement> };
             const measure = () => {
@@ -314,7 +314,7 @@
             };
         };
 
-        return [{ episode, skill, wads, root }];
+        return { episode, skill, wads, root };
     })();
     const cursorSection = (section: string, num: number) => () => {
         $section = section;
@@ -327,14 +327,24 @@
         screen === 'select-wads' ? keyboardControllers.wads() :
         screen === 'select-iwad' ? keyboardControllers.root() :
         null);
+
+    let keyboardActive = false;
+    const keydown: KeyboardEventHandler<Window> = ev => {
+        keyboardActive = true;
+        keyController?.(ev);
+    }
 </script>
 
 <svelte:window
     on:popstate={() => parseUrlHash(window.location.hash, iWads)}
-    on:keydown={keyController}
+    on:keydown={keydown}
+    on:pointermove={() => keyboardActive = false}
 />
 
-<div class="px-4 py-2 pb-24 sm:px-8 mx-auto" bind:this={rootNode}>
+<div bind:this={rootNode}
+    class="launcher-screen px-4 py-2 pb-24 sm:px-8 mx-auto"
+    class:keyboard-controls={keyboardActive}
+>
     {#if recentlyUsed.items.length}
         <div class="divider">Recent Games</div>
         <div class="recent-grid
@@ -543,6 +553,13 @@
 </div>
 
 <style>
+    :global(body):has(.launcher-screen.keyboard-controls) {
+        cursor: none;
+    }
+    .keyboard-controls {
+        pointer-events: none;
+    }
+
     .btn-outline img {
         transform-origin: top center;
         transition: transform 0.2s;
