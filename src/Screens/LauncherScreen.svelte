@@ -7,7 +7,7 @@
     }
 
     const settingsKey = 'doom-lru-wads';
-    const recentlyUsedLimit = 10;
+    const recentlyUsedLimit = 12;
     // nifty! https://stackoverflow.com/questions/34698905
     const simplifyItem = (item: RecentlyUsedGame) => (({ image, ...o }) => o)(item);
 

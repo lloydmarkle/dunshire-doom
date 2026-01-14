@@ -2,6 +2,8 @@
 
 A (mostly complete) rewrite of DOOM for the browser. The project started by trying to render DOOM in isometric projection ([kinda like this](https://www.doomworld.com/forum/topic/126329-top-down-isometric-view-from-a-wad-file/)) but quickly snowballed. Dunshire is a nod to Parks and Recreation's [Cones of Dunshire](https://parksandrecreation.fandom.com/wiki/The_Cones_of_Dunshire) because Ben Wyatt, between jobs, feels relatable.
 
+Try it live: https://lloydmarkle.github.io/dunshire-doom/
+
 ![DOOM map E1M1](assets/screenshot1.jpg) ![DOOM in isometric projection](assets/screenshot2.jpg)
 
 ## Description
