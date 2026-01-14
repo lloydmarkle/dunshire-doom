@@ -58,7 +58,6 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
         doomFakeContrast: { value: 0 } as IUniform,
         time: { value: 0 } as IUniform,
         // map lighting info
-        tLightLevels: { value: lighting.lightLevels },
         tLightMap: { value: lighting.lightMap },
         tLightMapWidth: { value: lighting.lightMap.image.width },
         // texture meta data
@@ -75,27 +74,19 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
     material.onBeforeCompile = shader => {
         Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
+        // console.log('shaders', shader.vertexShader, shader.fragmentShader)
         shader.vertexShader = shader.vertexShader
             .replace('#include <common>', vertex_pars + `
-            uniform sampler2D tLightLevels;
             uniform sampler2D tLightMap;
             uniform uint tLightMapWidth;
             uniform float doomExtraLight;
             uniform int doomFakeContrast;
             attribute uint doomLight;
-            varying float vScaledLightLevel;
+            varying float vSectorLightLevel;
 
             uniform uvec2 dInspect;
             attribute uvec2 ${inspectorAttributeName};
             varying vec3 doomInspectorEmissive;
-
-            const float oneSixteenth = 1.0 / 16.0;
-            float doomLightLevel(float level) {
-                float light = clamp(level, 0.0, 1.0) * 255.0;
-                vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
-                vec4 sectorLightLevel = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
-                return sectorLightLevel.g;
-            }
 
             const float fakeContrastStep = 16.0 / 256.0;
             float fakeContrast(vec3 normal) {
@@ -126,8 +117,7 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
 
             sectorLight.rgb += fakeContrast(normal);
-            vScaledLightLevel = doomLightLevel(sectorLight.g + doomExtraLight);
-            // vScaledLightLevel = sectorLight.g;
+            vSectorLightLevel = clamp(sectorLight.g, 0.0, 1.0);
 
             // faded magenta if selected for inspection
             // maybe it's better to simply have an if/else?
@@ -137,14 +127,19 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
 
         shader.fragmentShader = shader.fragmentShader
             .replace('#include <common>', fragment_pars + `
-            varying float vScaledLightLevel;
+            varying float vSectorLightLevel;
             varying vec3 doomInspectorEmissive;
+            uniform float doomExtraLight;
             `)
             .replace('#include <map_fragment>', map_fragment)
             .replace('#include <lights_fragment_begin>', `
             #include <lights_fragment_begin>
-            // apply lighting
-            material.diffuseContribution.rgb *= vScaledLightLevel;
+
+            float depth = gl_FragDepth * (1.0 - vSectorLightLevel);
+            float light = doomExtraLight + clamp(vSectorLightLevel - depth, 0.0, 1.0);
+            light = ceil(light * 252.0 / 4.0 - .5) * 4.0 / 252.0;
+            light = 1.0 - cos(light * 3.14159265 * .5);
+            material.diffuseContribution.rgb *= clamp(light, 0.0, 1.0);
 
             totalEmissiveRadiance += doomInspectorEmissive;
             `);

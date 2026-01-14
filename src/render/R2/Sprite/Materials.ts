@@ -1,4 +1,4 @@
-import { DoubleSide, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, Vector3, Vector4, type IUniform } from "three";
+import { DoubleSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, Vector3, Vector4, type IUniform } from "three";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { store } from "../../../doom";
 import type { MapLighting } from "../MapLighting";
@@ -19,7 +19,6 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
     uniform uint tSpriteUVsWidth;
     uniform isampler2D tSpriteInfo;
     uniform float tSpritesWidth;
-    uniform sampler2D tLightLevels;
     uniform sampler2D tLightMap;
     uniform uint tLightMapWidth;
     uniform float time;
@@ -65,14 +64,6 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
                 + step(dot1 - split2, 0.0)
                 + step(dot1 + split2, 0.0));
         return rot;
-    }
-
-    const float oneSixteenth = 1.0 / 16.0;
-    float scaleLightLevel(float level) {
-        float light = level * 256.0;
-        vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
-        vec4 scaledLight = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
-        return scaledLight.g;
     }
 
     // https://discourse.threejs.org/t/instanced-geometry-vertex-shader-question/2694/3
@@ -191,7 +182,6 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
         camQ: { value: new Vector4() } as IUniform,
         camP: { value: new Vector3() } as IUniform,
         // map lighting info
-        tLightLevels: { value: lighting.lightLevels },
         tLightMap: { value: lighting.lightMap },
         tLightMapWidth: { value: lighting.lightMap.image.width },
         // sprite meta data
@@ -214,7 +204,8 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             .replace('#include <common>', vertex_pars + `
             uniform float doomExtraLight;
             attribute uint doomLight;
-            varying float doomLightLevel;
+            varying float vSectorLightLevel;
+            varying float vSpriteFullBright;
 
             uniform uint dInspect;
             attribute uint ${inspectorAttributeName};
@@ -236,13 +227,15 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
                 mod(dLf, float(tLightMapWidth)),
                 floor(dLf * invLightMapWidth) );
             vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
-            float fullBright = flagBit(texN.y, flag_fullBright);
-            doomLightLevel = clamp(scaleLightLevel(sectorLight.g + doomExtraLight + fullBright), 0.0, 1.0);
+            vSectorLightLevel = sectorLight.g;
+            vSpriteFullBright = flagBit(texN.y, flag_fullBright);
             `);
 
         shader.fragmentShader = shader.fragmentShader
             .replace('#include <common>', fragment_pars + `
-            varying float doomLightLevel;
+            uniform float doomExtraLight;
+            varying float vSectorLightLevel;
+            varying float vSpriteFullBright;
             varying vec3 doomInspectorEmissive;
             `)
             .replace('#include <map_fragment>', `
@@ -271,7 +264,11 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             #include <lights_fragment_begin>
 
             // apply lighting
-            material.diffuseContribution.rgb *= doomLightLevel;
+            float depth = gl_FragDepth * (1.0 - vSectorLightLevel);
+            float light = doomExtraLight + vSpriteFullBright + clamp(vSectorLightLevel - depth, 0.0, 1.0);
+            light = ceil(light * 252.0 / 4.0 - .5) * 4.0 / 252.0;
+            light = 1.0 - cos(light * 3.14159265 * .5);
+            material.diffuseContribution.rgb *= clamp(light, 0.0, 1.0);
             `);
     };
 
