@@ -17,7 +17,7 @@ export interface GameSettings {
     moveChecksZ: Store<boolean>;
     stuckMonstersCanMove: Store<boolean>;
     ghostMonsters: Store<boolean>;
-    skipInitialSpawn: Store<boolean>;
+    spawnMode: Store<'everything' | 'items-only' | 'players-only'>;
     xyAimAssist: Store<boolean>;
     zAimAssist: Store<boolean>;
     noclip: Store<boolean>;
@@ -187,6 +187,7 @@ export class Game implements SoundEmitter {
             } as InvalidMap;
         }
         this.intermission.set(null);
+        return this.map.val;
     }
 
     private soundHandler: SoundHandler;

@@ -2,11 +2,11 @@
     import { useThrelte } from "@threlte/core";
     import R1 from "./Map/Root.svelte";
     import R2 from "./R2/Root.svelte";
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import { SpriteSheet } from "./R2/Sprite/SpriteAtlas";
     import { useAppContext } from "./DoomContext";
     import { derived } from "svelte/store";
-    import type { MapRuntime } from "../doom";
+    import { Game, type MapRuntime } from "../doom";
 
     export let map: MapRuntime;
     export let frameTime: number;
@@ -23,6 +23,20 @@
     // F5 low-res mode (it should be .5 but that looks to sharp IMO)
     // FIXME: starting the game with low pixel ratio and then increasing doesn't work... why?
     $: renderer.setPixelRatio($simulate486 ? .2 : $pixelScale);
+
+    // the spawn mode setting is a little tricky to handle
+    let lastSpawnMode = settings.spawnMode.val;
+    onMount(() => settings.spawnMode.subscribe(val => {
+        if (val === lastSpawnMode) {
+            return;
+        }
+        const game = map.game;
+        const { position, direction, pitch } = map.player;
+        const newMap = game.startMap(map.name);
+        newMap.player.position.copy(position);
+        newMap.player.direction = direction;
+        newMap.player.pitch = pitch;
+    }));
 
     onMount(() => {
         // use negative number so we always render first frame as fast as possible

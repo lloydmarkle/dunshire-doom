@@ -46,7 +46,7 @@ export const createDefaultSettings = () => {
         moveChecksZ: store(false),
         stuckMonstersCanMove: store(false),
         ghostMonsters: store(false),
-        skipInitialSpawn: store(false),
+        spawnMode: store('everything'),
         zAimAssist: store(true),
         xyAimAssist: store(false),
         invicibility: store(false),
@@ -199,7 +199,7 @@ export const createAppContext = () => {
         toggle('debug', settings.useTextures, 'Show textures'),
         range('debug', settings.shotTraceSeconds, 'Shot tracer duration (seconds)', 0, 20, .25),
         option('debug', settings.monsterAI, 'AI mode', ['enabled', 'disabled', 'move-only', 'fast']),
-        toggle('debug', settings.skipInitialSpawn, 'No items/monsters (reset map progress)'),
+        option('debug', settings.spawnMode, 'Spawn mode (reset map progress)', [ 'everything', 'items-only', 'players-only']),
         option('debug', settings.wireframe, 'Show geometry', ['off', 'visible', 'all']),
         option('debug', settings.renderMode, 'Render engine', ['r1', 'r2']),
         // experimental

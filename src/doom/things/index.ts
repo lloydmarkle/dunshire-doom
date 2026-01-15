@@ -40,7 +40,9 @@ export function thingSpec(moType: MapObjectIndex): ThingSpec {
     let spec = specCache[moType];
     if (!spec) {
         const mo = mapObjectInfo[moType];
-        const t = things.find(e => e.type === mo.doomednum);
+        // TODO: changes needed to support coop
+        const t = moType === MapObjectIndex.MT_PLAYER ? other[0]
+            : things.find(e => e.type === mo.doomednum);
         specCache[moType] = spec = { ...t, moType, mo };
     }
     return spec;

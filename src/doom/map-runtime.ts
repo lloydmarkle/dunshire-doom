@@ -148,7 +148,7 @@ export class MapRuntime {
         this.synchronizeSpecials();
 
         let playerThing: MapObject;
-        this.disposables.push(this.game.settings.skipInitialSpawn.subscribe(() => {
+        this.disposables.push(this.game.settings.spawnMode.subscribe(() => {
             this.players.length = 0;
             this.objs.forEach(mo => this.destroy(mo));
             for (const thing of this.data.things) {
@@ -218,12 +218,8 @@ export class MapRuntime {
     private initialThingSpawn(thing: Thing): MapObject | undefined {
         const noSpawn = (false
             || thing.type === 0 // plutonia map 12, what?!
-            || thing.type === 2
-            || thing.type === 3
-            || thing.type === 4
+            || (thing.type >= 2 && thing.type <= 4) // coop-player spawns
             || thing.type === 11
-            // always spawn players (even with skipInitialSpawn)
-            || (this.game.settings.skipInitialSpawn.val && thing.type !== 1)
         );
         if (noSpawn) {
             return;
@@ -240,15 +236,22 @@ export class MapRuntime {
         if (!skillMatch) {
             return;
         }
-
+            // || (this.game.settings.skipInitialSpawn.val && thing.class !== 'S'
         const type = thing.type === 1 ? MapObjectIndex.MT_PLAYER :
             mapObjectInfo.findIndex(e => e.doomednum === thing.type);
         if (type === -1) {
             console.warn('unable to spawn thing type', thing.type);
             return;
         }
-        const mobj = this.spawn(type, thing.x, thing.y, undefined, thing.angle * ToRadians);
+        // always spawn special things (players and teleports) even with skipInitialSpawn
+        const allowSpawnMode = (this.game.settings.spawnMode.val === 'everything'
+            || (this.game.settings.spawnMode.val === 'players-only' && thingSpec(type).class === 'S')
+            || (this.game.settings.spawnMode.val === 'items-only' && thingSpec(type).class !== 'M'));
+        if (!allowSpawnMode) {
+            return;
+        }
 
+        const mobj = this.spawn(type, thing.x, thing.y, undefined, thing.angle * ToRadians);
         if (thing.flags & 0x0008) {
             mobj.info.flags |= MFFlags.MF_AMBUSH;
         }
@@ -269,6 +272,8 @@ export class MapRuntime {
             this.players.push(mobj);
         }
         if (moType === MapObjectIndex.MT_TELEPORTMAN) {
+            // teleports are spawned then destroyed immediately and not removed from this list but that's okay.
+            // We only want to have a reference to them and they don't need to be processed during map tick
             this.teleportMobjs.push(mobj);
         }
         this.objs.add(mobj);
