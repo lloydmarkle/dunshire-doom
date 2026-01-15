@@ -32,33 +32,62 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         risingStairs[linedef.special] ??
         levelExits[linedef.special];
     if (action) {
+        console.log('vanilla special',linedef.special)
         return action(mobj, linedef, trigger, side);
     }
 
-    if (linedef.special > 24_576 && linedef.special < 32_767) {
-        const fx = (linedef.special & 0x0c00) >> 10;
-        const model = ((linedef.special & 0x0020) >> 5) ? triggerModel : numModel;
+    console.log('generalized special',linedef.special)
+    const changeEffects = (model: SectorSelectorFunction) => [
+        null,
+        effect([assignFloorFlat, zeroSectorType], model),
+        effect([assignFloorFlat], model),
+        effect([assignFloorFlat, assignSectorType], model),
+    ]
+    if (linedef.special >= 0x4000 && linedef.special < 0x6000) {
+        // generalized ceilings
+        const change = (linedef.special & 0x0c00) >> 10;
+        const model = ((linedef.special & 0x0020) >> 5) ? numModel : triggerModel;
+        const monsterActivated = ((change === 0 && model === numModel) ? 'm' : '');
         const direction = ((linedef.special & 0x0040) >> 6) ? 1 : -1;
-        const monsterActivated = ((fx === 0 && (linedef.special & 0x0020) >> 5) ? 'm' : '');
-        const def = floorDefinition(
+        const def = ceilingDefinition(
             ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterActivated,
             direction,
             [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
             [
-                null,
-                effect([zeroSectorType], model),
-                effect([assignFloorFlat], model),
-                effect([assignFloorFlat, zeroSectorType], model),
-            ][fx],
+                highestNeighbourCeiling,
+                lowestNeighbourCeiling,
+                direction > 0 ? nextNeighbourCeilingAbove : nextNeighbourCeilingBelow,
+                highestNeighbourFloor,
+                floorHeight,
+                shortestLowerTexture,
+                adjust(ceilingHeight, 24),
+                adjust(ceilingHeight, 32),
+            ][(linedef.special & 0x0380) >> 7],
+            changeEffects(model)[change],
+            Boolean((linedef.special & 0x1000) >> 12),
+        );
+        action = createCeilingAction(def);
+        return action(mobj, linedef, trigger, side);
+    } else if (linedef.special >= 0x6000 && linedef.special < 0x8000) {
+        // generalized floors
+        const change = (linedef.special & 0x0c00) >> 10;
+        const model = ((linedef.special & 0x0020) >> 5) ? numModel : triggerModel;
+        const direction = ((linedef.special & 0x0040) >> 6) ? 1 : -1;
+        const monsterActivated = ((change === 0 && model === numModel) ? 'm' : '');
+        const def = floorDefinition(
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterActivated,
+            direction,
+            [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
+            changeEffects(model)[change],
             [
                 highestNeighbourFloor,
                 lowestNeighbourFloor,
                 direction > 0 ? nextNeighbourFloor : nextNeighbourFloorAbove,
                 lowestNeighbourCeiling,
-                ceilingHeight, //??
+                ceilingHeight,
                 shortestLowerTexture,
-                adjust(floorValue, 24),
-                adjust(floorValue, 32),
+                adjust(floorHeight, 24),
+                adjust(floorHeight, 32),
             ][(linedef.special & 0x0380) >> 7],
             Boolean((linedef.special & 0x1000) >> 12),
         );
@@ -75,7 +104,7 @@ const ignoreLines = new Set([
 
 // Push, Switch, Walk, Gun (shoot)
 export type TriggerType = 'P' | 'S' | 'W' | 'G';
-const floorMax = 32000;
+const maxZ = 32000;
 export interface SpecialDefinition {
     repeatable: boolean;
 }
@@ -83,26 +112,30 @@ export interface SpecialDefinition {
 type TargetValueFunction = (map: MapRuntime, sector: Sector) => number;
 
 const findLowestCeiling = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), floorMax)
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), maxZ)
 const lowestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zFloor), sector.zFloor);
 const highestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), -floorMax);
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), -maxZ);
 const highestNeighbourFloorInclusive = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), sector.zFloor);
+const nextNeighbourCeilingBelow = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), sector.zCeil);
+const nextNeighbourCeilingAbove = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
 const nextNeighbourFloor = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor > sector.zFloor ? sec.zFloor : last), sector.zFloor);
 const nextNeighbourFloorAbove = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor < sector.zFloor ? Math.min(last, sec.zFloor) : last, floorMax);
+    map.data.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor < sector.zFloor ? Math.min(last, sec.zFloor) : last, sector.zFloor);
 const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
 const highestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), -floorMax);
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), -maxZ);
 const floorHeight = (map: MapRuntime, sector: Sector) => sector.zFloor;
 const ceilingHeight = (map: MapRuntime, sector: Sector) => sector.zCeil;
 
 const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
-    let target = floorMax;
+    let target = maxZ;
     // https://www.doomworld.com/forum/topic/95030-why-does-raise-floor-by-shortest-lower-texture-only-half-work-on-older-ports/#comment-1770824
     // solves a bug in Doom2's MAP15 but it really doesn't feel right. I'm guessing almost every doom "shortest lower texture"
     // linedef out there expects 64px (or less) rise because, in my opinion, it's highly unlikely both side lower textures are set
@@ -116,7 +149,6 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     }
     return sector.zFloor + target;
 };
-const floorValue = (map: MapRuntime, sector: Sector) => sector.zFloor;
 const adjust = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
 
 type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector;
@@ -125,6 +157,7 @@ const numModel = (map: MapRuntime, sector: Sector) => {
     let line: LineDef = null;
     for (const ld of map.data.linedefs) {
         if (ld.left) {
+            // FIXME: zFloor or zCeil depending on trigger type
             if (ld.left.sector === sector && ld.right.sector.zFloor === sector.zFloor) {
                 line = (line && line.num < ld.num) ? line : ld;
             }
@@ -142,10 +175,11 @@ const playMoveSound = (map: MapRuntime, sector: Sector) => {
 // effects
 type EffectFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => void;
 type SectorEffectFunction = (map: MapRuntime, from: Sector, to: Sector) => void;
-const effect = (effects: SectorEffectFunction[], select: SectorSelectorFunction) =>
+const effect =
+    (effects: SectorEffectFunction[], select: SectorSelectorFunction) =>
     (map: MapRuntime, to: Sector, linedef: LineDef) => {
         const from = select(map, to, linedef);
-        effects.forEach(ef => ef(map, from, to))
+        effects.forEach(fx => fx(map, from, to))
     };
 
 const assignFloorFlat = (map: MapRuntime, from: Sector, to: Sector) => {
@@ -153,14 +187,8 @@ const assignFloorFlat = (map: MapRuntime, from: Sector, to: Sector) => {
     map.events.emit('sector-flat', to);
     map.initializeFlatTextureAnimation(to, 'floorFlat');
 }
-
-const assignSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
-    to.type = from.type;
-}
-
-const zeroSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
-    to.type = 0;
-}
+const assignSectorType = (map: MapRuntime, from: Sector, to: Sector) => to.type = from.type;
+const zeroSectorType = (map: MapRuntime, from: Sector, to: Sector) => to.type = 0;
 
 const sectorObjects = (map: MapRuntime, sector: Sector) => [...map.sectorObjs.get(sector)];
 
@@ -514,19 +542,19 @@ const createLiftAction =
 // Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
 // We call them "floors" and keep lifts as strictly something moves and can reverse
 const liftDefinitions = {
-    10: createLiftAction(liftDefinition('W1m', 3, 4, -1, floorValue)),
-    21: createLiftAction(liftDefinition('S1', 3, 4, -1, floorValue)),
+    10: createLiftAction(liftDefinition('W1m', 3, 4, -1, floorHeight)),
+    21: createLiftAction(liftDefinition('S1', 3, 4, -1, floorHeight)),
     53: createLiftAction(liftDefinition('W1', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual')),
-    54: createLiftAction(liftDefinition('W1', 0, 0, 0, floorValue, 'stop')),
-    62: createLiftAction(liftDefinition('SR', 3, 4, -1, floorValue)),
+    54: createLiftAction(liftDefinition('W1', 0, 0, 0, floorHeight, 'stop')),
+    62: createLiftAction(liftDefinition('SR', 3, 4, -1, floorHeight)),
     87: createLiftAction(liftDefinition('WR', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual')),
-    88: createLiftAction(liftDefinition('WRm', 3, 4, -1, floorValue)),
-    89: createLiftAction(liftDefinition('WR', 0, 0, 0, floorValue, 'stop')),
+    88: createLiftAction(liftDefinition('WRm', 3, 4, -1, floorHeight)),
+    89: createLiftAction(liftDefinition('WR', 0, 0, 0, floorHeight, 'stop')),
     95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
-    120: createLiftAction(liftDefinition('WR', 3, 8, -1, floorValue)),
-    121: createLiftAction(liftDefinition('W1', 3, 8, -1, floorValue)),
-    122: createLiftAction(liftDefinition('S1', 3, 8, -1, floorValue)),
-    123: createLiftAction(liftDefinition('SR', 3, 8, -1, floorValue)),
+    120: createLiftAction(liftDefinition('WR', 3, 8, -1, floorHeight)),
+    121: createLiftAction(liftDefinition('W1', 3, 8, -1, floorHeight)),
+    122: createLiftAction(liftDefinition('S1', 3, 8, -1, floorHeight)),
+    123: createLiftAction(liftDefinition('SR', 3, 8, -1, floorHeight)),
 };
 
 // Floors
@@ -550,6 +578,10 @@ const createFloorAction =
     if (mobj.isMonster) {
         return;
     }
+    // vanilla doom specials apply effects immediately
+    // while boom generalized specials seem to apply at the end.
+    // Not sure why
+    const isVanillaSpecial = linedef.special < 0x100;
     if (!def.repeatable) {
         linedef.special = 0;
     }
@@ -562,7 +594,7 @@ const createFloorAction =
         }
 
         triggered = true;
-        if (def.direction > 0) {
+        if (isVanillaSpecial) {
             def.effect?.(map, sector, linedef);
         }
 
@@ -598,7 +630,7 @@ const createFloorAction =
                 map.game.playSound(SoundIndex.sfx_pstop, sector);
                 sector.specialData = null;
                 map.removeAction(action);
-                if (def.direction < 0) {
+                if (!isVanillaSpecial) {
                     def.effect?.(map, sector, linedef);
                 }
             }
@@ -623,8 +655,8 @@ const floorDefinitions = {
     45: createFloorAction(floorDefinition('SR', -1, 1, null, highestNeighbourFloor)),
     55: createFloorAction(floorDefinition('S1', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
     56: createFloorAction(floorDefinition('W1', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
-    58: createFloorAction(floorDefinition('W1', 1, 1, null, adjust(floorValue, 24))),
-    59: createFloorAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), adjust(floorValue, 24))),
+    58: createFloorAction(floorDefinition('W1', 1, 1, null, adjust(floorHeight, 24))),
+    59: createFloorAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), adjust(floorHeight, 24))),
     60: createFloorAction(floorDefinition('SR', -1, 1, null, lowestNeighbourFloor)),
     64: createFloorAction(floorDefinition('SR', 1, 1, null, lowestNeighbourCeiling)),
     65: createFloorAction(floorDefinition('SR', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
@@ -635,8 +667,8 @@ const floorDefinitions = {
     83: createFloorAction(floorDefinition('WR', -1, 1, null, highestNeighbourFloor)),
     84: createFloorAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel), lowestNeighbourFloor)),
     91: createFloorAction(floorDefinition('WR', 1, 1, null, lowestNeighbourCeiling)),
-    92: createFloorAction(floorDefinition('WR', 1, 1, null, adjust(floorValue, 24))),
-    93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  adjust(floorValue, 24))),
+    92: createFloorAction(floorDefinition('WR', 1, 1, null, adjust(floorHeight, 24))),
+    93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  adjust(floorHeight, 24))),
     94: createFloorAction(floorDefinition('WR', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
     96: createFloorAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
     98: createFloorAction(floorDefinition('WR', -1, 4, null, adjust(highestNeighbourFloor, 8))),
@@ -648,29 +680,31 @@ const floorDefinitions = {
     130: createFloorAction(floorDefinition('W1', 1, 4, null, nextNeighbourFloor)),
     131: createFloorAction(floorDefinition('S1', 1, 4, null, nextNeighbourFloor)),
     132: createFloorAction(floorDefinition('SR', 1, 4, null, nextNeighbourFloor)),
-    140: createFloorAction(floorDefinition('S1', 1, 1, null, adjust(floorValue, 512))),
+    140: createFloorAction(floorDefinition('S1', 1, 1, null, adjust(floorHeight, 512))),
 
     // DOOM wiki calls these lifts https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
     // but they seem to better match a moving floor
-    14: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), adjust(floorValue, 32))),
-    15: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat], triggerModel), adjust(floorValue, 24))),
+    14: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), adjust(floorHeight, 32))),
+    15: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat], triggerModel), adjust(floorHeight, 24))),
     20: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
     22: createFloorAction(floorDefinition('W1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
     47: createFloorAction(floorDefinition('G1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
-    66: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat], triggerModel), adjust(floorValue, 24))),
-    67: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), adjust(floorValue, 32))),
+    66: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat], triggerModel), adjust(floorHeight, 24))),
+    67: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), adjust(floorHeight, 32))),
     68: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
 };
 
 // Ceilings
 const ceilingSlow = 1;
 const ceilingFast = ceilingSlow * 2;
-const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction) => ({
+const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction, effect: EffectFunction = undefined, crush = (direction === -1)) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     direction,
     targetFn,
     speed,
+    crush,
+    effect,
 });
 
 const createCeilingAction =
@@ -683,6 +717,7 @@ const createCeilingAction =
     if (mobj.isMonster) {
         return;
     }
+    const isVanillaSpecial = linedef.special < 0x100;
     if (!def.repeatable) {
         linedef.special = 0;
     }
@@ -695,6 +730,10 @@ const createCeilingAction =
         }
 
         triggered = true;
+        if (isVanillaSpecial) {
+            def.effect?.(map, sector, linedef);
+        }
+
 
         sector.specialData = def.direction;
         const target = def.targetFn(map, sector);
@@ -711,7 +750,7 @@ const createCeilingAction =
             }
 
             // crush
-            if (def.direction === -1) {
+            if (def.crush) {
                 const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
                 if (crushing.length) {
                     let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
@@ -726,6 +765,9 @@ const createCeilingAction =
                 map.game.playSound(SoundIndex.sfx_pstop, sector);
                 sector.specialData = null;
                 map.removeAction(action);
+                if (!isVanillaSpecial) {
+                    def.effect?.(map, sector, linedef);
+                }
             }
             mobjs.forEach(mobj => mobj.sectorChanged(sector));
             map.events.emit('sector-z',sector)
