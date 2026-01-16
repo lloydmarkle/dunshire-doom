@@ -48,12 +48,24 @@ export const strings = {
     GOTSHOTGUN2: 'You got the super shotgun!',
 
     // Doors
-    PD_BLUEO: 'You need a blue key to activate this object',
+    PD_RED: 'You need a red key to open this door',
+    PD_REDS: 'You need a red skull key to open this door',
     PD_REDO: 'You need a red key to activate this object',
+    PD_REDSO: 'You need a red skull key to activate this object',
+    PD_BLUE: 'You need a blue key to open this door',
+    PD_BLUES: 'You need a blue skull key to open this door',
+    PD_BLUEO: 'You need a blue key to activate this object',
+    PD_BLUESO: 'You need a blue skull key to activate this object',
+    PD_YELLOW: 'You need a yellow key to open this door',
+    PD_YELLOWS: 'You need a yellow skull key to open this door',
     PD_YELLOWO: 'You need a yellow key to activate this object',
-    PD_BLUEK: 'You need a blue key to open this door',
-    PD_REDK: 'You need a red key to open this door',
-    PD_YELLOWK: 'You need a yellow key to open this door',
+    PD_YELLOWSO: 'You need a yellow skull key to activate this object',
+    PD_3KEY: 'You need all three keys to open this door',
+    PD_3KEYO: 'You need all three keys to activate this object',
+    PD_6KEY: 'You need all six keys to open this door',
+    PD_6KEYO: 'You need all six keys to activate this object',
+    PD_ANYKEY: 'You need a key to open this door',
+    PD_ANYKEYO: 'You need a key to activate this object',
 
     // Victory screens
     // Doom II's cast of characters

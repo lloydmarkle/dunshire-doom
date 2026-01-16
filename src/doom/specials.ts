@@ -3,7 +3,7 @@ import { type MapObject, PlayerMapObject } from "./map-object";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
 import { zeroVec, type LineDef, type Sector, linedefSlope, type LineTraceHit, type TraceParams, baseMoveTrace } from "./map-data";
-import { _T } from "./text";
+import { _T, type MessageId } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
 import { ticksPerSecond } from "./math";
@@ -21,7 +21,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         return;
     }
 
-    let action =
+    let action: SpecialAction =
         doorDefinitions[linedef.special] ??
         liftDefinitions[linedef.special] ??
         floorDefinitions[linedef.special] ??
@@ -43,11 +43,41 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         effect([assignFloorFlat], model),
         effect([assignFloorFlat, assignSectorType], model),
     ]
-    if (linedef.special >= 0x4000 && linedef.special < 0x6000) {
+    if (linedef.special >= 0x3800 && linedef.special < 0x3c00) {
+        // generalized locked doors
+        const doorFunction = (['openWaitClose', 'openAndStay'] as DoorFunction[])[(linedef.special & 0x0020) >> 5];
+        const differentiateSkullKeys = Boolean((linedef.special & 0x0200) >> 9);
+        const keys = [
+            '*', 'R', 'B', 'Y', 'r', 'b', 'y', (differentiateSkullKeys ? 'RBYrby' : 'RBY'),
+        ][(linedef.special & 0x01c0) >> 6];
+        const def = doorDefinition(
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007],
+            keys,
+            [2, 4, 8, 16][(linedef.special & 0x0018) >> 3],
+            150,
+            doorFunction,
+            differentiateSkullKeys
+        );
+        action = createDoorAction(def);
+    } else if (linedef.special >= 0x3c00 && linedef.special < 0x4000) {
+        // generalized doors
+        const monsterTrigger = ((linedef.special & 0x0080) >> 7) ? 'm' : '';
+        const doorFunction = ([
+            'openWaitClose', 'openAndStay', 'closeWaitOpen', 'closeAndStay'
+        ] as DoorFunction[])[(linedef.special & 0x0020) >> 5];
+        const def = doorDefinition(
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterTrigger,
+            '',
+            [2, 4, 8, 16][(linedef.special & 0x0018) >> 3],
+            [35, 150, 315, 1050][(linedef.special & 0x0300) >> 8],
+            doorFunction
+        );
+        action = createDoorAction(def);
+    } else if (linedef.special >= 0x4000 && linedef.special < 0x6000) {
         // generalized ceilings
         const change = (linedef.special & 0x0c00) >> 10;
-        const model = ((linedef.special & 0x0020) >> 5) ? numModel : triggerModel;
-        const monsterActivated = ((change === 0 && model === numModel) ? 'm' : '');
+        const model = ((linedef.special & 0x0020) >> 5) ? numModel('zCeil') : triggerModel;
+        const monsterActivated = ((change === 0 && (linedef.special & 0x0020) >> 5) ? 'm' : '');
         const direction = ((linedef.special & 0x0040) >> 6) ? 1 : -1;
         const def = ceilingDefinition(
             ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterActivated,
@@ -67,13 +97,12 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
             Boolean((linedef.special & 0x1000) >> 12),
         );
         action = createCeilingAction(def);
-        return action(mobj, linedef, trigger, side);
     } else if (linedef.special >= 0x6000 && linedef.special < 0x8000) {
         // generalized floors
         const change = (linedef.special & 0x0c00) >> 10;
-        const model = ((linedef.special & 0x0020) >> 5) ? numModel : triggerModel;
+        const model = ((linedef.special & 0x0020) >> 5) ? numModel('zFloor') : triggerModel;
         const direction = ((linedef.special & 0x0040) >> 6) ? 1 : -1;
-        const monsterActivated = ((change === 0 && model === numModel) ? 'm' : '');
+        const monsterActivated = ((change === 0 && (linedef.special & 0x0020) >> 5) ? 'm' : '');
         const def = floorDefinition(
             ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterActivated,
             direction,
@@ -92,6 +121,9 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
             Boolean((linedef.special & 0x1000) >> 12),
         );
         action = createFloorAction(def);
+    }
+
+    if (action) {
         return action(mobj, linedef, trigger, side);
     }
     console.warn('unsupported linedef special:', linedef.special);
@@ -151,20 +183,21 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
 };
 const adjust = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
 
-type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector;
+type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector | undefined;
 const triggerModel = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector;
-const numModel = (map: MapRuntime, sector: Sector) => {
-    let line: LineDef = null;
-    for (const ld of map.data.linedefs) {
-        if (ld.left) {
-            // FIXME: zFloor or zCeil depending on trigger type
-            if (ld.left.sector === sector && ld.right.sector.zFloor === sector.zFloor) {
-                line = (line && line.num < ld.num) ? line : ld;
+const numModel =
+    (targetProperty: 'zFloor' | 'zCeil') =>
+    (map: MapRuntime, sector: Sector, linedef: LineDef) => {
+        let line: LineDef = null;
+        for (const ld of map.data.linedefs) {
+            if (ld.left) {
+                if (ld.left.sector === sector && ld.right.sector[targetProperty] === sector[targetProperty]) {
+                    line = (line && line.num < ld.num) ? line : ld;
+                }
             }
         }
+        return line?.right?.sector;
     }
-    return line ? line.right.sector : sector;
-}
 
 const playMoveSound = (map: MapRuntime, sector: Sector) => {
     if ((Math.trunc(map.game.time.tick.val) & 7) === 0) {
@@ -179,7 +212,9 @@ const effect =
     (effects: SectorEffectFunction[], select: SectorSelectorFunction) =>
     (map: MapRuntime, to: Sector, linedef: LineDef) => {
         const from = select(map, to, linedef);
-        effects.forEach(fx => fx(map, from, to))
+        if (from) {
+            effects.forEach(fx => fx(map, from, to))
+        }
     };
 
 const assignFloorFlat = (map: MapRuntime, from: Sector, to: Sector) => {
@@ -229,17 +264,39 @@ function crunchAndDamageMapObject(mobj: MapObject) {
 }
 
 // Doors
+const keyMissingMessage = (playerKeys: string, def: ReturnType<typeof doorDefinition>) => {
+    const compareKeys = def.differentiateSkullKeys ? playerKeys : playerKeys.toUpperCase();
+    const keys = ['*', ...compareKeys.split('')];
+    for (const key of def.keys) {
+        if (!keys.includes(key)) {
+            let message = (
+                    def.keys.length === 3 ? 'PD_3KEY' :
+                    def.keys.length === 6 ? 'PD_6KEY' :
+                    key === 'B' ? 'PD_BLUE' :
+                    key === 'b' ? 'PD_BLUES' :
+                    key === 'R' ? 'PD_RED' :
+                    key === 'r' ? 'PD_REDS' :
+                    key === 'Y' ? 'PD_YELLOW' :
+                    key === 'y' ? 'PD_YELLOWS' :
+                    'PD_ANYKEY');
+            return (def.trigger === 'S' || def.trigger === 'P'
+                ? message : message + 'O') as MessageId;
+        }
+    }
+};
+
 const normal = 2;
 const blaze = 4 * normal;
 type DoorFunction = 'openWaitClose' | 'openAndStay' | 'closeAndStay' | 'closeWaitOpen';
-const doorDefinition = (trigger: string, key: 'R' | 'Y' | 'B' | 'No', speed: number, topWaitS: number, func: DoorFunction) => ({
+const doorDefinition = (trigger: string, keys: string, speed: number, closeDelay: number, func: DoorFunction, differentiateSkullKeys = false) => ({
     function: func,
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     speed,
     sounds: speed < 8 ? [SoundIndex.sfx_doropn, SoundIndex.sfx_dorcls] : [SoundIndex.sfx_bdopn, SoundIndex.sfx_bdcls],
-    key: key === 'No' ? undefined : key,
-    topWait: topWaitS * ticksPerSecond,
+    keys: (differentiateSkullKeys ? keys : keys.toUpperCase()).split(''),
+    differentiateSkullKeys,
+    closeDelay,
     monsterTrigger: trigger.includes('m'),
 });
 
@@ -258,19 +315,9 @@ const createDoorAction =
     if (mobj.isMonster && !def.monsterTrigger) {
         return;
     }
-    const missingKey = def.key && mobj instanceof PlayerMapObject && !mobj.inventory.val.keys.toUpperCase().includes(def.key);
+    const missingKey = def.keys && mobj instanceof PlayerMapObject && keyMissingMessage(mobj.inventory.val.keys, def);
     if (missingKey) {
-        const msg = trigger === 'S'
-            ? (
-                def.key === 'B' ? 'PD_BLUEK' :
-                def.key === 'R' ? 'PD_REDK' :
-                'PD_YELLOWK')
-            : (
-                def.key === 'B' ? 'PD_BLUEO' :
-                def.key === 'R' ? 'PD_REDO' :
-                'PD_YELLOWO'
-            )
-        mobj.hudMessage.set(_T(msg));
+        mobj.hudMessage.set(_T(missingKey));
         mobj.map.game.playSound(SoundIndex.sfx_oof);
         return;
     }
@@ -281,6 +328,7 @@ const createDoorAction =
     const doorSound = (sector: Sector) =>
         sector.specialData && mobj.map.game.playSound(sector.specialData > 0 ? def.sounds[0] : def.sounds[1], sector);
 
+    // TODO: I really don't love the "DoorFunction" as a string. It might be fun to try to break it down into smaller functions to control start/stop actions
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
     let triggered = false;
@@ -334,13 +382,13 @@ const createDoorAction =
             if (sector.zCeil > topHeight) {
                 // hit ceiling
                 finished = def.function === 'closeWaitOpen' || def.function === 'openAndStay';
-                ticks = def.topWait;
+                ticks = def.closeDelay;
                 sector.zCeil = topHeight;
                 sector.specialData = 0;
             } else if (sector.zCeil < sector.zFloor) {
                 // hit floor
                 finished = def.function === 'openWaitClose' || def.function === 'closeAndStay';
-                ticks = def.topWait;
+                ticks = def.closeDelay;
                 sector.zCeil = sector.zFloor;
                 sector.specialData = 0;
             }
@@ -374,42 +422,42 @@ const createDoorAction =
 
 // https://doomwiki.org/wiki/Linedef_type#Door_linedef_types
 const doorDefinitions = {
-    1: createDoorAction(doorDefinition('PRm', 'No', normal, 4, 'openWaitClose')),
-    2: createDoorAction(doorDefinition('W1', 'No', normal, -1, 'openAndStay')),
-    3: createDoorAction(doorDefinition('W1', 'No', normal, -1, 'closeAndStay')),
-    4: createDoorAction(doorDefinition('W1', 'No', normal, 4, 'openWaitClose')),
-    16: createDoorAction(doorDefinition('W1', 'No', normal, 30, 'closeWaitOpen')),
-    29: createDoorAction(doorDefinition('S1', 'No', normal, 4, 'openWaitClose')),
-    31: createDoorAction(doorDefinition('P1', 'No', normal, -1, 'openAndStay')),
-    42: createDoorAction(doorDefinition('SR', 'No', normal, -1, 'closeAndStay')),
-    46: createDoorAction(doorDefinition('GR', 'No', normal, -1, 'openAndStay')),
-    50: createDoorAction(doorDefinition('S1', 'No', normal, -1, 'closeAndStay')),
-    61: createDoorAction(doorDefinition('SR', 'No', normal, -1, 'openAndStay')),
-    63: createDoorAction(doorDefinition('SR', 'No', normal, 4, 'openWaitClose')),
-    75: createDoorAction(doorDefinition('WR', 'No', normal, -1, 'closeAndStay')),
-    76: createDoorAction(doorDefinition('WR', 'No', normal, 30, 'closeWaitOpen')),
-    86: createDoorAction(doorDefinition('WR', 'No', normal, -1, 'openAndStay')),
-    90: createDoorAction(doorDefinition('WR', 'No', normal, 4, 'openWaitClose')),
-    103: createDoorAction(doorDefinition('S1', 'No', normal, -1, 'openAndStay')),
-    105: createDoorAction(doorDefinition('WR', 'No', blaze, 4, 'openWaitClose')),
-    106: createDoorAction(doorDefinition('WR', 'No', blaze, -1, 'openAndStay')),
-    107: createDoorAction(doorDefinition('WR', 'No', blaze, -1, 'closeAndStay')),
-    108: createDoorAction(doorDefinition('W1', 'No', blaze, 4, 'openWaitClose')),
-    109: createDoorAction(doorDefinition('W1', 'No', blaze, -1, 'openAndStay')),
-    110: createDoorAction(doorDefinition('W1', 'No', blaze, -1, 'closeAndStay')),
-    111: createDoorAction(doorDefinition('S1', 'No', blaze, 4, 'openWaitClose')),
-    112: createDoorAction(doorDefinition('S1', 'No', blaze, -1, 'openAndStay')),
-    113: createDoorAction(doorDefinition('S1', 'No', blaze, -1, 'closeAndStay')),
-    114: createDoorAction(doorDefinition('SR', 'No', blaze, 4, 'openWaitClose')),
-    115: createDoorAction(doorDefinition('SR', 'No', blaze, -1, 'openAndStay')),
-    116: createDoorAction(doorDefinition('SR', 'No', blaze, -1, 'closeAndStay')),
-    117: createDoorAction(doorDefinition('PR', 'No', blaze, 4, 'openWaitClose')),
-    118: createDoorAction(doorDefinition('P1', 'No', blaze, -1, 'openAndStay')),
+    1: createDoorAction(doorDefinition('PRm', '', normal, 150, 'openWaitClose')),
+    2: createDoorAction(doorDefinition('W1', '', normal, -1, 'openAndStay')),
+    3: createDoorAction(doorDefinition('W1', '', normal, -1, 'closeAndStay')),
+    4: createDoorAction(doorDefinition('W1', '', normal, 150, 'openWaitClose')),
+    16: createDoorAction(doorDefinition('W1', '', normal, 1050, 'closeWaitOpen')),
+    29: createDoorAction(doorDefinition('S1', '', normal, 150, 'openWaitClose')),
+    31: createDoorAction(doorDefinition('P1', '', normal, -1, 'openAndStay')),
+    42: createDoorAction(doorDefinition('SR', '', normal, -1, 'closeAndStay')),
+    46: createDoorAction(doorDefinition('GR', '', normal, -1, 'openAndStay')),
+    50: createDoorAction(doorDefinition('S1', '', normal, -1, 'closeAndStay')),
+    61: createDoorAction(doorDefinition('SR', '', normal, -1, 'openAndStay')),
+    63: createDoorAction(doorDefinition('SR', '', normal, 150, 'openWaitClose')),
+    75: createDoorAction(doorDefinition('WR', '', normal, -1, 'closeAndStay')),
+    76: createDoorAction(doorDefinition('WR', '', normal, 1050, 'closeWaitOpen')),
+    86: createDoorAction(doorDefinition('WR', '', normal, -1, 'openAndStay')),
+    90: createDoorAction(doorDefinition('WR', '', normal, 150, 'openWaitClose')),
+    103: createDoorAction(doorDefinition('S1', '', normal, -1, 'openAndStay')),
+    105: createDoorAction(doorDefinition('WR', '', blaze, 150, 'openWaitClose')),
+    106: createDoorAction(doorDefinition('WR', '', blaze, -1, 'openAndStay')),
+    107: createDoorAction(doorDefinition('WR', '', blaze, -1, 'closeAndStay')),
+    108: createDoorAction(doorDefinition('W1', '', blaze, 150, 'openWaitClose')),
+    109: createDoorAction(doorDefinition('W1', '', blaze, -1, 'openAndStay')),
+    110: createDoorAction(doorDefinition('W1', '', blaze, -1, 'closeAndStay')),
+    111: createDoorAction(doorDefinition('S1', '', blaze, 150, 'openWaitClose')),
+    112: createDoorAction(doorDefinition('S1', '', blaze, -1, 'openAndStay')),
+    113: createDoorAction(doorDefinition('S1', '', blaze, -1, 'closeAndStay')),
+    114: createDoorAction(doorDefinition('SR', '', blaze, 150, 'openWaitClose')),
+    115: createDoorAction(doorDefinition('SR', '', blaze, -1, 'openAndStay')),
+    116: createDoorAction(doorDefinition('SR', '', blaze, -1, 'closeAndStay')),
+    117: createDoorAction(doorDefinition('PR', '', blaze, 150, 'openWaitClose')),
+    118: createDoorAction(doorDefinition('P1', '', blaze, -1, 'openAndStay')),
     // Key doors
-    26: createDoorAction(doorDefinition('PR', 'B', normal, 4, 'openWaitClose')),
-    28: createDoorAction(doorDefinition('PR', 'R', normal, 4, 'openWaitClose')),
-    27: createDoorAction(doorDefinition('PR', 'Y', normal, 4, 'openWaitClose')),
-    32: createDoorAction(doorDefinition('P1', 'B', normal, 1, 'openAndStay')),
+    26: createDoorAction(doorDefinition('PR', 'B', normal, 150, 'openWaitClose')),
+    28: createDoorAction(doorDefinition('PR', 'R', normal, 150, 'openWaitClose')),
+    27: createDoorAction(doorDefinition('PR', 'Y', normal, 150, 'openWaitClose')),
+    32: createDoorAction(doorDefinition('P1', 'B', normal, 35, 'openAndStay')),
     33: createDoorAction(doorDefinition('P1', 'R', normal, -1, 'openAndStay')),
     34: createDoorAction(doorDefinition('P1', 'Y', normal, -1, 'openAndStay')),
     99: createDoorAction(doorDefinition('SR', 'B', blaze, -1, 'openAndStay')),
@@ -578,8 +626,8 @@ const createFloorAction =
     if (mobj.isMonster) {
         return;
     }
-    // vanilla doom specials apply effects immediately
-    // while boom generalized specials seem to apply at the end.
+    // vanilla doom specials apply effects immediately while
+    // boom generalized specials seem to apply at the end.
     // Not sure why
     const isVanillaSpecial = linedef.special < 0x100;
     if (!def.repeatable) {
@@ -650,7 +698,7 @@ const floorDefinitions = {
     24: createFloorAction(floorDefinition('G1', 1, 1, null, lowestNeighbourCeiling)),
     30: createFloorAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture)),
     36: createFloorAction(floorDefinition('W1', -1, 4, null, adjust(highestNeighbourFloor, 8))),
-    37: createFloorAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel), lowestNeighbourFloor)),
+    37: createFloorAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
     38: createFloorAction(floorDefinition('W1', -1, 1, null, lowestNeighbourFloor)),
     45: createFloorAction(floorDefinition('SR', -1, 1, null, highestNeighbourFloor)),
     55: createFloorAction(floorDefinition('S1', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
@@ -665,7 +713,7 @@ const floorDefinitions = {
     71: createFloorAction(floorDefinition('S1', -1, 4, null, adjust(highestNeighbourFloor, 8))),
     82: createFloorAction(floorDefinition('WR', -1, 1, null, lowestNeighbourFloor)),
     83: createFloorAction(floorDefinition('WR', -1, 1, null, highestNeighbourFloor)),
-    84: createFloorAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel), lowestNeighbourFloor)),
+    84: createFloorAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
     91: createFloorAction(floorDefinition('WR', 1, 1, null, lowestNeighbourCeiling)),
     92: createFloorAction(floorDefinition('WR', 1, 1, null, adjust(floorHeight, 24))),
     93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  adjust(floorHeight, 24))),
