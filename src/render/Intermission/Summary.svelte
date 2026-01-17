@@ -71,7 +71,7 @@
     const itemPercent = ticker(2, sum(details.playerStats, 'items'), stats.totalItems);
     const secretPercent = ticker(2, sum(details.playerStats, 'secrets'), stats.totalSecrets);
     const parTime = ticker(3, episodeMaps
-        ? parTimes1[episode - 1][mapNum(details.finishedMap.name)]
+        ? (parTimes1[episode - 1] ?? parTimes1[0])[mapNum(details.finishedMap.name)]
         : parTimes2[mapNum(details.finishedMap.name)]);
     const mapTime = ticker(3, stats.elapsedTime);
     const gameTime = ticker(3, details.finishedMap.game.time.playTime);

@@ -43,7 +43,29 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         effect([assignFloorFlat], model),
         effect([assignFloorFlat, assignSectorType], model),
     ]
-    if (linedef.special >= 0x3800 && linedef.special < 0x3c00) {
+    if (linedef.special >= 0x2f80 && linedef.special < 0x3000) {
+        // crushers
+    } else if (linedef.special >= 0x3000 && linedef.special < 0x3400) {
+        // stair builders
+    } else if (linedef.special >= 0x3400 && linedef.special < 0x3800) {
+        // lifts
+        const monsterTrigger = ((linedef.special & 0x0020) >> 5) ? 'm' : '';
+        const [lowTarget, hightTarget] = ([
+            [lowestNeighbourFloor, floorHeight],
+            [nextLowestNeighbourFloor, floorHeight],
+            [lowestNeighbourCeiling, floorHeight],
+            [lowestNeighbourFloor, highestNeighbourFloorInclusive],
+        ] as TargetValueFunction[][])[(linedef.special & 0x0300) >> 8];
+        const def = liftDefinition(
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterTrigger,
+            [35, 105, 165, 350][(linedef.special & 0x00c0) >> 6],
+            [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
+            lowTarget,
+            hightTarget,
+            (hightTarget === highestNeighbourFloorInclusive) ? 'perpetual' : 'normal',
+        );
+        action = createLiftAction(def);
+    } else if (linedef.special >= 0x3800 && linedef.special < 0x3c00) {
         // generalized locked doors
         const doorFunction = (['openWaitClose', 'openAndStay'] as DoorFunction[])[(linedef.special & 0x0020) >> 5];
         const differentiateSkullKeys = Boolean((linedef.special & 0x0200) >> 9);
@@ -155,6 +177,8 @@ const nextNeighbourCeilingBelow = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), sector.zCeil);
 const nextNeighbourCeilingAbove = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
+const nextLowestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) =>  sec.zFloor < sector.zFloor ? Math.max(last, sec.zFloor) : last, sector.zFloor);
 const nextNeighbourFloor = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor > sector.zFloor ? sec.zFloor : last), sector.zFloor);
 const nextNeighbourFloorAbove = (map: MapRuntime, sector: Sector) =>
@@ -469,17 +493,17 @@ const doorDefinitions = {
 };
 
 // Lifts
-const liftDefinition = (trigger: string, waitTimeS: number, speed: number, direction: number, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal', effect?: EffectFunction) => ({
+const liftDefinition = (trigger: string, waitTicks: number, speed: number, targetLowFn: TargetValueFunction, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal') => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     speed,
-    direction,
-    effect,
+    direction: -1,
     perpetual: actionType === 'perpetual',
+    targetLowFn,
     targetHighFn,
     stopper: actionType === 'stop',
     monsterTrigger: trigger.includes('m'),
-    waitTime: waitTimeS * ticksPerSecond,
+    waitTicks,
 });
 
 const createLiftAction =
@@ -511,12 +535,8 @@ const createLiftAction =
 
         triggered = true;
 
-        const low = lowestNeighbourFloor(map, sector);
+        const low = def.targetLowFn(map, sector);
         const high = def.targetHighFn(map, sector);
-
-        if (def.direction > 0) {
-            def.effect?.(map, sector, linedef);
-        }
 
         let nextSound = SoundIndex.sfx_pstart;
         let ticks = 0;
@@ -541,7 +561,7 @@ const createLiftAction =
                 // hit bottom
                 nextSound = SoundIndex.sfx_pstart;
                 map.game.playSound(SoundIndex.sfx_pstop, sector);
-                ticks = def.waitTime;
+                ticks = def.waitTicks;
                 sector.zFloor = low;
                 direction = 1;
             } else if (sector.zFloor > high) {
@@ -549,7 +569,7 @@ const createLiftAction =
                 nextSound = SoundIndex.sfx_pstart;
                 map.game.playSound(SoundIndex.sfx_pstop, sector);
                 finished = !def.perpetual;
-                ticks = def.waitTime;
+                ticks = def.waitTicks;
                 sector.zFloor = high;
                 direction = -1;
             }
@@ -572,9 +592,6 @@ const createLiftAction =
             if (finished) {
                 map.removeAction(action);
                 sector.specialData = null;
-                if (def.direction < 0) {
-                    def.effect?.(map, sector, linedef);
-                }
             }
             mobjs.forEach(mobj => mobj.sectorChanged(sector));
             map.events.emit('sector-z', sector);
@@ -590,19 +607,21 @@ const createLiftAction =
 // Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
 // We call them "floors" and keep lifts as strictly something moves and can reverse
 const liftDefinitions = {
-    10: createLiftAction(liftDefinition('W1m', 3, 4, -1, floorHeight)),
-    21: createLiftAction(liftDefinition('S1', 3, 4, -1, floorHeight)),
-    53: createLiftAction(liftDefinition('W1', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual')),
-    54: createLiftAction(liftDefinition('W1', 0, 0, 0, floorHeight, 'stop')),
-    62: createLiftAction(liftDefinition('SR', 3, 4, -1, floorHeight)),
-    87: createLiftAction(liftDefinition('WR', 3, 1, -1, highestNeighbourFloorInclusive, 'perpetual')),
-    88: createLiftAction(liftDefinition('WRm', 3, 4, -1, floorHeight)),
-    89: createLiftAction(liftDefinition('WR', 0, 0, 0, floorHeight, 'stop')),
-    95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
-    120: createLiftAction(liftDefinition('WR', 3, 8, -1, floorHeight)),
-    121: createLiftAction(liftDefinition('W1', 3, 8, -1, floorHeight)),
-    122: createLiftAction(liftDefinition('S1', 3, 8, -1, floorHeight)),
-    123: createLiftAction(liftDefinition('SR', 3, 8, -1, floorHeight)),
+    10: createLiftAction(liftDefinition('W1m', 105, 4, lowestNeighbourFloor, floorHeight)),
+    21: createLiftAction(liftDefinition('S1', 105, 4, lowestNeighbourFloor, floorHeight)),
+    53: createLiftAction(liftDefinition('W1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+    54: createLiftAction(liftDefinition('W1', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
+    62: createLiftAction(liftDefinition('SR', 105, 4, lowestNeighbourFloor, floorHeight)),
+    87: createLiftAction(liftDefinition('WR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+    88: createLiftAction(liftDefinition('WRm', 105, 4, lowestNeighbourFloor, floorHeight)),
+    89: createLiftAction(liftDefinition('WR', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
+    // moved to floorActions but is that correct? I could only find this linedef at the end of
+    // Sigil E5M4 and sigil E6M6. Floor actions work just fine so may be it's okay?
+    // 95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, lowestNeighbourFloor, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
+    120: createLiftAction(liftDefinition('WR', 105, 8, lowestNeighbourFloor, floorHeight)),
+    121: createLiftAction(liftDefinition('W1', 105, 8, lowestNeighbourFloor, floorHeight)),
+    122: createLiftAction(liftDefinition('S1', 105, 8, lowestNeighbourFloor, floorHeight)),
+    123: createLiftAction(liftDefinition('SR', 105, 8, lowestNeighbourFloor, floorHeight)),
 };
 
 // Floors
@@ -678,9 +697,7 @@ const createFloorAction =
                 map.game.playSound(SoundIndex.sfx_pstop, sector);
                 sector.specialData = null;
                 map.removeAction(action);
-                if (!isVanillaSpecial) {
-                    def.effect?.(map, sector, linedef);
-                }
+                def.effect?.(map, sector, linedef);
             }
             mobjs.forEach(mobj => mobj.sectorChanged(sector));
             map.events.emit('sector-z', sector);
@@ -718,6 +735,7 @@ const floorDefinitions = {
     92: createFloorAction(floorDefinition('WR', 1, 1, null, adjust(floorHeight, 24))),
     93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  adjust(floorHeight, 24))),
     94: createFloorAction(floorDefinition('WR', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
+    95: createFloorAction(floorDefinition('WR', 1, 0.5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
     96: createFloorAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
     98: createFloorAction(floorDefinition('WR', -1, 4, null, adjust(highestNeighbourFloor, 8))),
     101: createFloorAction(floorDefinition('S1', 1, 1, null, lowestNeighbourCeiling)),

@@ -27,11 +27,6 @@ import { createDefaultSettings } from '../render/DoomContext';
 setFlagsFromString('--expose_gc');
 const megabyte = 1024 * 1024;
 
-if (!process.env.WADROOT) {
-    console.error('Missing env variable WADROOT')
-    process.exit(1);
-}
-
 // https://stackoverflow.com/questions/7343890
 const stats = (arr: number[], usePopulation = false) => {
     const mean = arr.reduce((acc, val) => acc + val, 0) / arr.length;
