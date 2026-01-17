@@ -47,6 +47,15 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         // crushers
     } else if (linedef.special >= 0x3000 && linedef.special < 0x3400) {
         // stair builders
+        const monsterTrigger = ((linedef.special & 0x0020) >> 5) ? 'm' : '';
+        const def = stairBuilderDefinition(
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterTrigger,
+            [.25, .5, 2, 4][(linedef.special & 0x0018) >> 3],
+            [4, 8, 16, 24][(linedef.special & 0x00c0) >> 6],
+            ((linedef.special & 0x0100) >> 8) ? 1 : -1,
+            Boolean((linedef.special & 0x0200) >> 9),
+        );
+        action = stairBuilderAction(def);
     } else if (linedef.special >= 0x3400 && linedef.special < 0x3800) {
         // lifts
         const monsterTrigger = ((linedef.special & 0x0020) >> 5) ? 'm' : '';
@@ -1375,17 +1384,18 @@ const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1
     return triggered ? def : undefined;
 };
 
-// Rising Stairs
-const risingStairDefinition = (trigger: string, speed: number, stepSize: number) => ({
+// Stair builders (rising stairs in vanilla doom)
+const stairBuilderDefinition = (trigger: string, speed: number, stepSize: number, direction = 1, ignoreTexture = false) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
-    direction: 1,
-    stepSize,
+    direction,
+    stepSize: stepSize * direction,
     speed,
+    ignoreTexture,
 });
 
-const createRisingStairAction =
-        (def: ReturnType<typeof risingStairDefinition>) =>
+const stairBuilderAction =
+        (def: ReturnType<typeof stairBuilderDefinition>) =>
         (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
     const map = mobj.map;
     if (def.trigger !== trigger) {
@@ -1396,6 +1406,9 @@ const createRisingStairAction =
     }
     if (!def.repeatable) {
         linedef.special = 0;
+    } else if (linedef.special >= 0x3000 && linedef.special < 0x3400) {
+        // generalized stair builders reverse if they are repeatable so toggle the direction bit
+        linedef.special ^= 0x0100;
     }
 
     let triggered = false;
@@ -1409,23 +1422,26 @@ const createRisingStairAction =
         let target = sector.zFloor;
 
         const flat = sector.floorFlat;
-        let base = sector;
-        while (base) {
+        let step = sector;
+        let affected = new Set<Sector>();
+        while (step) {
             target += def.stepSize;
-            raiseFloorAction(map, base, def, target);
+            stepBuilderAction(map, step, def, target);
+            affected.add(step);
 
             // find next step to raise
-            const matches = raiseFloorsectors(base, map.data.linedefs).filter(e => e.floorFlat === flat);
+            const stepSectors = stairBuilderSectorNeighbours(step, map.data.linedefs)
+                .filter(e => !affected.has(e) && (def.ignoreTexture || e.floorFlat === flat));
             // why not filter for sectors without specialData? Well, Doom has a "bug" of sorts where it raises the step height
             // before checking if the sector has special data. TNT MAP 30 takes advantage of this for two stair cases
             // https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/p_floor.c#L533
             // https://www.doomworld.com/forum/topic/57014-tnt-map30-stairs/
-            base = null;
-            for (const match of matches) {
-                if (match.specialData) {
+            step = null;
+            for (const nextStep of stepSectors) {
+                if (nextStep.specialData) {
                     target += def.stepSize;
                 } else {
-                    base = match;
+                    step = nextStep;
                     break;
                 }
             }
@@ -1435,14 +1451,14 @@ const createRisingStairAction =
 };
 
 const risingStairs = {
-    7: createRisingStairAction(risingStairDefinition('S1', .25, 8)),
-    8: createRisingStairAction(risingStairDefinition('W1', .25, 8)),
-    127: createRisingStairAction(risingStairDefinition('S1', 4, 16)),
-    100: createRisingStairAction(risingStairDefinition('W1', 4, 16)),
+    7: stairBuilderAction(stairBuilderDefinition('S1', .25, 8)),
+    8: stairBuilderAction(stairBuilderDefinition('W1', .25, 8)),
+    127: stairBuilderAction(stairBuilderDefinition('S1', 4, 16)),
+    100: stairBuilderAction(stairBuilderDefinition('W1', 4, 16)),
 };
 
 // rising floors needs a more strict implementation of sectorNeighbours(). Thanks Plutonia MAP24...
-function raiseFloorsectors(sector: Sector, mapLinedefs: LineDef[]): Sector[] {
+function stairBuilderSectorNeighbours(sector: Sector, mapLinedefs: LineDef[]): Sector[] {
     const sectors = [];
     for (const ld of mapLinedefs) {
         if (ld.left) {
@@ -1454,7 +1470,7 @@ function raiseFloorsectors(sector: Sector, mapLinedefs: LineDef[]): Sector[] {
     return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
 }
 
-function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number, direction: number }, target: number) {
+function stepBuilderAction(map: MapRuntime, sector: Sector, def: { speed: number, direction: number }, target: number) {
     sector.specialData = def;
     const action = () => {
         let finished = false;
@@ -1474,14 +1490,14 @@ function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number,
                 return;
             }
         }
+        mobjs.forEach(mobj => mobj.sectorChanged(sector));
+        map.events.emit('sector-z', sector);
 
         if (finished) {
             map.game.playSound(SoundIndex.sfx_pstop, sector);
             sector.specialData = null;
             map.removeAction(action);
         }
-        mobjs.forEach(mobj => mobj.sectorChanged(sector));
-        map.events.emit('sector-z', sector);
     }
     map.addAction(action);
 }
