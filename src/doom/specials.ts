@@ -45,6 +45,14 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
     ]
     if (linedef.special >= 0x2f80 && linedef.special < 0x3000) {
         // crushers
+        const monsterTrigger = ((linedef.special & 0x0020) >> 5) ? 'm' : '';
+        const def = crusherCeilingDefinition(
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterTrigger,
+            [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
+            'start'
+        );
+        def.silent = Boolean((linedef.special & 0x0040) >> 6);
+        action = createCrusherCeilingAction(def);
     } else if (linedef.special >= 0x3000 && linedef.special < 0x3400) {
         // stair builders
         const monsterTrigger = ((linedef.special & 0x0020) >> 5) ? 'm' : '';
@@ -108,10 +116,10 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         // generalized ceilings
         const change = (linedef.special & 0x0c00) >> 10;
         const model = ((linedef.special & 0x0020) >> 5) ? numModel('zCeil') : triggerModel;
-        const monsterActivated = ((change === 0 && (linedef.special & 0x0020) >> 5) ? 'm' : '');
+        const monsterTrigger = ((change === 0 && (linedef.special & 0x0020) >> 5) ? 'm' : '');
         const direction = ((linedef.special & 0x0040) >> 6) ? 1 : -1;
         const def = ceilingDefinition(
-            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterActivated,
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterTrigger,
             direction,
             [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
             [
@@ -121,8 +129,8 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
                 highestNeighbourFloor,
                 floorHeight,
                 shortestLowerTexture,
-                adjust(ceilingHeight, 24),
-                adjust(ceilingHeight, 32),
+                offset(ceilingHeight, 24),
+                offset(ceilingHeight, 32),
             ][(linedef.special & 0x0380) >> 7],
             changeEffects(model)[change],
             Boolean((linedef.special & 0x1000) >> 12),
@@ -133,9 +141,9 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         const change = (linedef.special & 0x0c00) >> 10;
         const model = ((linedef.special & 0x0020) >> 5) ? numModel('zFloor') : triggerModel;
         const direction = ((linedef.special & 0x0040) >> 6) ? 1 : -1;
-        const monsterActivated = ((change === 0 && (linedef.special & 0x0020) >> 5) ? 'm' : '');
+        const monsterTrigger = ((change === 0 && (linedef.special & 0x0020) >> 5) ? 'm' : '');
         const def = floorDefinition(
-            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterActivated,
+            ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007] + monsterTrigger,
             direction,
             [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
             changeEffects(model)[change],
@@ -146,8 +154,8 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
                 lowestNeighbourCeiling,
                 ceilingHeight,
                 shortestLowerTexture,
-                adjust(floorHeight, 24),
-                adjust(floorHeight, 32),
+                offset(floorHeight, 24),
+                offset(floorHeight, 32),
             ][(linedef.special & 0x0380) >> 7],
             Boolean((linedef.special & 0x1000) >> 12),
         );
@@ -214,7 +222,7 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     }
     return sector.zFloor + target;
 };
-const adjust = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
+const offset = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
 
 type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector | undefined;
 const triggerModel = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector;
@@ -723,30 +731,30 @@ const floorDefinitions = {
     23: createFloorAction(floorDefinition('S1', -1, 1, null, lowestNeighbourFloor)),
     24: createFloorAction(floorDefinition('G1', 1, 1, null, lowestNeighbourCeiling)),
     30: createFloorAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture)),
-    36: createFloorAction(floorDefinition('W1', -1, 4, null, adjust(highestNeighbourFloor, 8))),
+    36: createFloorAction(floorDefinition('W1', -1, 4, null, offset(highestNeighbourFloor, 8))),
     37: createFloorAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
     38: createFloorAction(floorDefinition('W1', -1, 1, null, lowestNeighbourFloor)),
     45: createFloorAction(floorDefinition('SR', -1, 1, null, highestNeighbourFloor)),
-    55: createFloorAction(floorDefinition('S1', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
-    56: createFloorAction(floorDefinition('W1', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
-    58: createFloorAction(floorDefinition('W1', 1, 1, null, adjust(floorHeight, 24))),
-    59: createFloorAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), adjust(floorHeight, 24))),
+    55: createFloorAction(floorDefinition('S1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+    56: createFloorAction(floorDefinition('W1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+    58: createFloorAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 24))),
+    59: createFloorAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), offset(floorHeight, 24))),
     60: createFloorAction(floorDefinition('SR', -1, 1, null, lowestNeighbourFloor)),
     64: createFloorAction(floorDefinition('SR', 1, 1, null, lowestNeighbourCeiling)),
-    65: createFloorAction(floorDefinition('SR', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
+    65: createFloorAction(floorDefinition('SR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
     69: createFloorAction(floorDefinition('SR', 1, 1, null, nextNeighbourFloor)),
-    70: createFloorAction(floorDefinition('SR', -1, 4, null, adjust(highestNeighbourFloor, 8))),
-    71: createFloorAction(floorDefinition('S1', -1, 4, null, adjust(highestNeighbourFloor, 8))),
+    70: createFloorAction(floorDefinition('SR', -1, 4, null, offset(highestNeighbourFloor, 8))),
+    71: createFloorAction(floorDefinition('S1', -1, 4, null, offset(highestNeighbourFloor, 8))),
     82: createFloorAction(floorDefinition('WR', -1, 1, null, lowestNeighbourFloor)),
     83: createFloorAction(floorDefinition('WR', -1, 1, null, highestNeighbourFloor)),
     84: createFloorAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
     91: createFloorAction(floorDefinition('WR', 1, 1, null, lowestNeighbourCeiling)),
-    92: createFloorAction(floorDefinition('WR', 1, 1, null, adjust(floorHeight, 24))),
-    93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  adjust(floorHeight, 24))),
-    94: createFloorAction(floorDefinition('WR', 1, 1, null, adjust(lowestNeighbourCeiling, -8), true)),
+    92: createFloorAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 24))),
+    93: createFloorAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  offset(floorHeight, 24))),
+    94: createFloorAction(floorDefinition('WR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
     95: createFloorAction(floorDefinition('WR', 1, 0.5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
     96: createFloorAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
-    98: createFloorAction(floorDefinition('WR', -1, 4, null, adjust(highestNeighbourFloor, 8))),
+    98: createFloorAction(floorDefinition('WR', -1, 4, null, offset(highestNeighbourFloor, 8))),
     101: createFloorAction(floorDefinition('S1', 1, 1, null, lowestNeighbourCeiling)),
     102: createFloorAction(floorDefinition('S1', -1, 1, null, highestNeighbourFloor)),
     119: createFloorAction(floorDefinition('W1', 1, 1, null, nextNeighbourFloor)),
@@ -755,23 +763,21 @@ const floorDefinitions = {
     130: createFloorAction(floorDefinition('W1', 1, 4, null, nextNeighbourFloor)),
     131: createFloorAction(floorDefinition('S1', 1, 4, null, nextNeighbourFloor)),
     132: createFloorAction(floorDefinition('SR', 1, 4, null, nextNeighbourFloor)),
-    140: createFloorAction(floorDefinition('S1', 1, 1, null, adjust(floorHeight, 512))),
+    140: createFloorAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 512))),
 
     // DOOM wiki calls these lifts https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
     // but they seem to better match a moving floor
-    14: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), adjust(floorHeight, 32))),
-    15: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat], triggerModel), adjust(floorHeight, 24))),
+    14: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    15: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
     20: createFloorAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
     22: createFloorAction(floorDefinition('W1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
     47: createFloorAction(floorDefinition('G1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
-    66: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat], triggerModel), adjust(floorHeight, 24))),
-    67: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), adjust(floorHeight, 32))),
+    66: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
+    67: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
     68: createFloorAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
 };
 
 // Ceilings
-const ceilingSlow = 1;
-const ceilingFast = ceilingSlow * 2;
 const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction, effect: EffectFunction = undefined, crush = (direction === -1)) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
@@ -853,21 +859,22 @@ const createCeilingAction =
 };
 
 const ceilingDefinitions = {
-    40: createCeilingAction(ceilingDefinition('W1', 1, ceilingSlow, highestNeighbourCeiling)),
-    41: createCeilingAction(ceilingDefinition('S1', -1, ceilingFast, floorHeight)),
-    43: createCeilingAction(ceilingDefinition('SR', -1, ceilingFast, floorHeight)),
-    44: createCeilingAction(ceilingDefinition('W1', -1, ceilingSlow, adjust(floorHeight, 8))),
-    72: createCeilingAction(ceilingDefinition('WR', -1, ceilingSlow, adjust(floorHeight, 8))),
+    40: createCeilingAction(ceilingDefinition('W1', 1, 1, highestNeighbourCeiling)),
+    41: createCeilingAction(ceilingDefinition('S1', -1, 2, floorHeight)),
+    43: createCeilingAction(ceilingDefinition('SR', -1, 2, floorHeight)),
+    44: createCeilingAction(ceilingDefinition('W1', -1, 1, offset(floorHeight, 8))),
+    72: createCeilingAction(ceilingDefinition('WR', -1, 1, offset(floorHeight, 8))),
 };
 
 // Crusher Ceilings
-const crusherCeilingDefinition = (trigger: string, speed: number, triggerType: 'start' | 'stop') => ({
+const crusherCeilingDefinition = (trigger: string, speed: number, triggerType: 'start' | 'stop', silent = false) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     direction: -1,
-    targetFn: adjust(floorHeight, 8),
+    targetFn: offset(floorHeight, 8),
     stopper: triggerType === 'stop',
     speed,
+    silent,
 });
 
 const createCrusherCeilingAction =
@@ -880,6 +887,7 @@ const createCrusherCeilingAction =
     if (mobj.isMonster) {
         return;
     }
+    const vanillaCrusher = linedef.special < 0x100;
     if (!def.repeatable) {
         linedef.special = 0;
     }
@@ -907,7 +915,7 @@ const createCrusherCeilingAction =
         const action = () => {
             let finished = false;
             const mobjs = sectorObjects(map, sector);
-            if (linedef.special !== 141) {
+            if (!vanillaCrusher || !def.silent) {
                 playMoveSound(map, sector);
             }
 
@@ -927,20 +935,24 @@ const createCrusherCeilingAction =
                 const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
                 if (crushing.length) {
                     const hitSolid = crushing.reduce((res, mo) => crunchAndDamageMapObject(mo) || res, false);
-                    if (hitSolid && def.speed === ceilingSlow) {
-                        // slow crushers go even slowing when they crush something
+                    // vanilla fast crushers (speed of 2) and generalized slow and normal crushers
+                    // go even slower when they crush something
+                    const slowSpeed = vanillaCrusher ? 2 : 4;
+                    if (hitSolid && def.speed < slowSpeed) {
                         sector.zCeil = original + (def.speed / 8) * direction
                     }
                 }
             }
 
+            mobjs.forEach(mobj => mobj.sectorChanged(sector));
+            map.events.emit('sector-z', sector);
             if (finished) {
-                map.game.playSound(SoundIndex.sfx_pstop, sector);
+                if (!def.silent) {
+                    map.game.playSound(SoundIndex.sfx_pstop, sector);
+                }
                 // crushers keep going
                 direction = -direction;
             }
-            mobjs.forEach(mobj => mobj.sectorChanged(sector));
-            map.events.emit('sector-z', sector);
         };
         sector.specialData = action;
         map.addAction(action);
@@ -949,14 +961,14 @@ const createCrusherCeilingAction =
 };
 
 const crusherCeilingDefinitions = {
-    6: createCrusherCeilingAction(crusherCeilingDefinition('W1', ceilingFast, 'start')),
-    25: createCrusherCeilingAction(crusherCeilingDefinition('W1', ceilingSlow, 'start')),
-    49: createCrusherCeilingAction(crusherCeilingDefinition('S1', ceilingSlow, 'start')),
+    6: createCrusherCeilingAction(crusherCeilingDefinition('W1', 2, 'start')),
+    25: createCrusherCeilingAction(crusherCeilingDefinition('W1', 1, 'start')),
+    49: createCrusherCeilingAction(crusherCeilingDefinition('S1', 1, 'start')),
     57: createCrusherCeilingAction(crusherCeilingDefinition('W1', null, 'stop')),
-    73: createCrusherCeilingAction(crusherCeilingDefinition('WR', ceilingSlow, 'start')),
+    73: createCrusherCeilingAction(crusherCeilingDefinition('WR', 1, 'start')),
     74: createCrusherCeilingAction(crusherCeilingDefinition('WR', null, 'stop')),
-    77: createCrusherCeilingAction(crusherCeilingDefinition('WR', ceilingFast, 'start')),
-    141: createCrusherCeilingAction(crusherCeilingDefinition('W1', ceilingSlow, 'start')),
+    77: createCrusherCeilingAction(crusherCeilingDefinition('WR', 2, 'start')),
+    141: createCrusherCeilingAction(crusherCeilingDefinition('W1', 1, 'start')),
 };
 
 // Lighting

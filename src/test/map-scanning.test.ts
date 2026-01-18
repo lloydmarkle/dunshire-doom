@@ -6,14 +6,15 @@ import { DoomWad, MapData, WadFile } from '../doom';
 console.time = () => {};
 console.timeEnd = () => {};
 const params = {
-    // special: 95,
-    special: [0x3000, 0x3400],
+    special: 141,
+    // special: [0x3000, 0x3400],
     wadNames: [
-        // 'doom', 'doom2', 'tnt', 'plutonia',
+        'doom', 'doom2',
+        // 'tnt', 'plutonia',
         // 'freedoom1' ,'freedoom2',
         // 'SIGIL_v1_21', 'SIGIL_II_V1_0',
-        'SODfinal',
-        'CChest2',
+        // 'SODfinal',
+        // 'CChest2',
         // 'EARTH',
         // 'SCYTHE',
         // 'MSCP_v1a',
