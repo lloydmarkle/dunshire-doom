@@ -43,6 +43,7 @@ export interface LineDef {
     left?: SideDef;
     // used by renderer
     transparentWindowHack: boolean;
+    scrollSpeed: { dx: number, dy: number };
     // For game processing
     switchAction: Action;
     hitC: number; // don't hit the same line twice during collision detection
@@ -53,6 +54,7 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
     if (num * len !== lump.data.length) {
         throw new Error('invalid lump: LINEDEFS');
     }
+    const zeroScroll = { dx: 0, dy: 0 };
     let linedefs = new Array<LineDef>(num);
     for (let i = 0; i < num; i++) {
         const v0 = word(lump.data, 0 + i * len);
@@ -71,6 +73,7 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
             right: sidedefs[rightSidedef],
             switchAction: null,
             hitC: 0,
+            scrollSpeed: zeroScroll,
             transparentWindowHack: false,
         };
         if (!linedefs[i].right) {
@@ -142,6 +145,8 @@ export interface Sector {
     // special rendering data
     renderData: any;
     transfer: LineDef;
+    floorLightTransfer: LineDef;
+    ceilLightTransfer: LineDef;
     // Game processing data
     center: Vector3;
     specialData: any;
@@ -168,6 +173,8 @@ function sectorsLump(lump: Lump) {
             tag, type, zFloor, zCeil, ceilFlat, floorFlat, light,
             renderData: {},
             transfer: null,
+            floorLightTransfer: null,
+            ceilLightTransfer: null,
             num: i,
             specialData: null,
             soundC: 0,
@@ -681,6 +688,45 @@ export class MapData {
             const skyHeight = Math.max(...sectors.map(sec => sec.zCeil));
             sectors.forEach(sector => sector.skyHeight = skyHeight);
         });
+
+        // compute scroll speeds on linedefs based on specials
+        for (const ld of this.linedefs) {
+            // NOTE we create new objects here because otherwise we update the zeroScroll obejct and all lines change
+            if (ld.special === 48) {
+                ld.scrollSpeed = { dx: 1, dy: 0 };
+            } else if (ld.special === 85) {
+                ld.scrollSpeed = { dx: -1, dy: 0 };
+            } else if (ld.special === 255) {
+                ld.scrollSpeed = { dx: ld.right.xOffset.initial, dy: ld.right.yOffset.initial };
+            } else if (ld.special === 1024) {
+                const taggedLines = this.linedefs.filter(e => e.tag === ld.tag);
+                for (const line of taggedLines) {
+                    line.scrollSpeed = { dx: ld.right.xOffset.initial / 8, dy: ld.right.yOffset.initial / 8 };
+                }
+            } else if (ld.special >= 250 && ld.special <= 253) {
+                const { dx, dy, length } = linedefSlope(ld);
+                ld.scrollSpeed = {
+                    dx: Math.sign(dx) * length / 32,
+                    dy: Math.sign(dy) * length / 32,
+                };
+            } else if (ld.special === 254) {
+                const { dx, dy, length } = linedefSlope(ld);
+                const angle = Math.atan2(dy, dx);
+                const taggedLines = this.linedefs.filter(e => e.tag === ld.tag);
+                for (const line of taggedLines) {
+                    let { dx, dy } = linedefSlope(line);
+                    const angleBetween = angle - Math.atan2(dy, dx);
+                    dx = -Math.cos(angleBetween) * length / 32;
+                    dy = Math.sin(angleBetween) * length / 32;
+                    line.scrollSpeed = { dx, dy };
+                }
+            } else if (ld.special === 1025) {
+                const taggedLines = this.linedefs.filter(e => e.tag === ld.tag);
+                for (const line of taggedLines) {
+                    line.scrollSpeed = { dx: ld.right.xOffset.initial / 8, dy: ld.right.yOffset.initial / 8 };
+                }
+            }
+        }
 
         // really? linedefs without segs? I've only found this in a few final doom maps (plutonia29, tnt20, tnt21, tnt27)
         // and all of them are two-sided, most have special flags which is a particular problem. Because we are detection

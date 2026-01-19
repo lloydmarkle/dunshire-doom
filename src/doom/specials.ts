@@ -14,7 +14,11 @@ import { Vector3 } from "three";
 // or maybe remove the whole "definition" idea.
 const doomSpecials: { [key: number]: () => SpecialAction } = {
     // Donut!
-    9: () => donut,
+    9: () => donut('S1'),
+    // Extended donuts
+    146: () => donut('W1'),
+    155: () => donut('WR'),
+    191: () => donut('SR'),
 
     // Doors https://doomwiki.org/wiki/Linedef_type#Door_linedef_types
     1: () => createDoorAction(doorDefinition('PRm', '', 2, 150, 'openWaitClose')),
@@ -61,6 +65,130 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     133: () => createDoorAction(doorDefinition('S1', 'B', 8, -1, 'openAndStay')),
     135: () => createDoorAction(doorDefinition('S1', 'R', 8, -1, 'openAndStay')),
     137: () => createDoorAction(doorDefinition('S1', 'Y', 8, -1, 'openAndStay')),
+    // Extended Doors
+    175: () => createDoorAction(doorDefinition('S1', '', 2, 1050, 'closeWaitOpen')),
+    196: () => createDoorAction(doorDefinition('SR', '', 2, 1050, 'closeWaitOpen')),
+
+    // Moving floors
+    5: () => flatMoverAction(floorDefinition('W1', 1, 1, null, lowestNeighbourCeiling)),
+    18: () => flatMoverAction(floorDefinition('S1', 1, 1, null, nextNeighbourFloorUp)),
+    19: () => flatMoverAction(floorDefinition('W1', -1, 1, null, highestNeighbourFloor)),
+    23: () => flatMoverAction(floorDefinition('S1', -1, 1, null, lowestNeighbourFloor)),
+    24: () => flatMoverAction(floorDefinition('G1', 1, 1, null, lowestNeighbourCeiling)),
+    30: () => flatMoverAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture)),
+    36: () => flatMoverAction(floorDefinition('W1', -1, 4, null, offset(highestNeighbourFloor, 8))),
+    37: () => flatMoverAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
+    38: () => flatMoverAction(floorDefinition('W1', -1, 1, null, lowestNeighbourFloor)),
+    45: () => flatMoverAction(floorDefinition('SR', -1, 1, null, highestNeighbourFloor)),
+    55: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+    56: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+    58: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 24))),
+    59: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), offset(floorHeight, 24))),
+    60: () => flatMoverAction(floorDefinition('SR', -1, 1, null, lowestNeighbourFloor)),
+    64: () => flatMoverAction(floorDefinition('SR', 1, 1, null, lowestNeighbourCeiling)),
+    65: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+    69: () => flatMoverAction(floorDefinition('SR', 1, 1, null, nextNeighbourFloorUp)),
+    70: () => flatMoverAction(floorDefinition('SR', -1, 4, null, offset(highestNeighbourFloor, 8))),
+    71: () => flatMoverAction(floorDefinition('S1', -1, 4, null, offset(highestNeighbourFloor, 8))),
+    82: () => flatMoverAction(floorDefinition('WR', -1, 1, null, lowestNeighbourFloor)),
+    83: () => flatMoverAction(floorDefinition('WR', -1, 1, null, highestNeighbourFloor)),
+    84: () => flatMoverAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
+    91: () => flatMoverAction(floorDefinition('WR', 1, 1, null, lowestNeighbourCeiling)),
+    92: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 24))),
+    93: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  offset(floorHeight, 24))),
+    94: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+    95: () => flatMoverAction(floorDefinition('WR', 1, 0.5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    96: () => flatMoverAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
+    98: () => flatMoverAction(floorDefinition('WR', -1, 4, null, offset(highestNeighbourFloor, 8))),
+    101: () => flatMoverAction(floorDefinition('S1', 1, 1, null, lowestNeighbourCeiling)),
+    102: () => flatMoverAction(floorDefinition('S1', -1, 1, null, highestNeighbourFloor)),
+    119: () => flatMoverAction(floorDefinition('W1', 1, 1, null, nextNeighbourFloorUp)),
+    128: () => flatMoverAction(floorDefinition('WR', 1, 1, null, nextNeighbourFloorUp)),
+    129: () => flatMoverAction(floorDefinition('WR', 1, 4, null, nextNeighbourFloorUp)),
+    130: () => flatMoverAction(floorDefinition('W1', 1, 4, null, nextNeighbourFloorUp)),
+    131: () => flatMoverAction(floorDefinition('S1', 1, 4, null, nextNeighbourFloorUp)),
+    132: () => flatMoverAction(floorDefinition('SR', 1, 4, null, nextNeighbourFloorUp)),
+    140: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 512))),
+    // Extended floors
+    78: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), floorHeight)),
+    142: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 512))),
+    147: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 512))),
+    153: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), floorHeight)),
+    154: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), floorHeight)),
+    158: () => flatMoverAction(floorDefinition('S1', 1, 1, null, shortestLowerTexture)),
+    159: () => flatMoverAction(floorDefinition('S1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
+    160: () => flatMoverAction(floorDefinition('S1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), offset(floorHeight, 24))),
+    161: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 24))),
+    176: () => flatMoverAction(floorDefinition('SR', 1, 1, null, shortestLowerTexture)),
+    177: () => flatMoverAction(floorDefinition('SR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
+    178: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 512))),
+    179: () => flatMoverAction(floorDefinition('SR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), offset(floorHeight, 24))),
+    180: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 24))),
+    189: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([assignFloorFlat, assignSectorType], triggerModel), floorHeight)),
+    190: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([assignFloorFlat, assignSectorType], triggerModel), floorHeight)),
+    219: () => flatMoverAction(floorDefinition('W1', -1, 1, null, nextNeighbourFloorDown)),
+    220: () => flatMoverAction(floorDefinition('WR', -1, 1, null, nextNeighbourFloorDown)),
+    221: () => flatMoverAction(floorDefinition('S1', -1, 1, null, nextNeighbourFloorDown)),
+    222: () => flatMoverAction(floorDefinition('SR', -1, 1, null, nextNeighbourFloorDown)),
+    239: () => flatMoverAction(floorDefinition('W1', 0, 0, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), floorHeight)),
+    240: () => flatMoverAction(floorDefinition('WR', 0, 0, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), floorHeight)),
+    241: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), floorHeight)),
+    // More moving floors
+    // Note: DOOM wiki calls these lifts https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
+    // but they seem to better match a moving floor
+    14: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    15: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
+    20: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    22: () => flatMoverAction(floorDefinition('W1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    47: () => flatMoverAction(floorDefinition('G1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    66: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
+    67: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    68: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    // More Extended moving floors
+    143: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
+    144: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    148: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
+    149: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+
+    // 211 	Ext 	SR 	-- 	Inst 	None 	-- 	No 	Ceiling (toggle)
+    // 212 	Ext 	WR 	-- 	Inst 	None 	-- 	No 	Ceiling (toggle)
+
+    // Moving ceilings
+    40: () => flatMoverAction(ceilingDefinition('W1', 1, 1, highestNeighbourCeiling)),
+    41: () => flatMoverAction(ceilingDefinition('S1', -1, 2, floorHeight)),
+    43: () => flatMoverAction(ceilingDefinition('SR', -1, 2, floorHeight)),
+    44: () => flatMoverAction(ceilingDefinition('W1', -1, 1, offset(floorHeight, 8))),
+    72: () => flatMoverAction(ceilingDefinition('WR', -1, 1, offset(floorHeight, 8))),
+    // Extended ceilings
+    145: () => flatMoverAction(ceilingDefinition('W1', -1, 2, floorHeight)),
+    151: () => flatMoverAction(ceilingDefinition('WR', 1, 1, highestNeighbourCeiling)),
+    152: () => flatMoverAction(ceilingDefinition('WR', -1, 2, floorHeight)),
+    166: () => flatMoverAction(ceilingDefinition('S1', 1, 1, highestNeighbourCeiling)),
+    167: () => flatMoverAction(ceilingDefinition('S1', -1, 1, offset(floorHeight, 8))),
+    186: () => flatMoverAction(ceilingDefinition('SR', 1, 1, highestNeighbourCeiling)),
+    187: () => flatMoverAction(ceilingDefinition('SR', -1, 1, offset(floorHeight, 8))),
+    199: () => flatMoverAction(ceilingDefinition('W1', -1, 1, lowestNeighbourCeiling)),
+    200: () => flatMoverAction(ceilingDefinition('W1', -1, 1, highestNeighbourFloor)),
+    201: () => flatMoverAction(ceilingDefinition('WR', -1, 1, lowestNeighbourCeiling)),
+    202: () => flatMoverAction(ceilingDefinition('WR', -1, 1, highestNeighbourFloor)),
+    203: () => flatMoverAction(ceilingDefinition('S1', -1, 1, lowestNeighbourCeiling)),
+    204: () => flatMoverAction(ceilingDefinition('S1', -1, 1, highestNeighbourFloor)),
+    205: () => flatMoverAction(ceilingDefinition('SR', -1, 1, lowestNeighbourCeiling)),
+    206: () => flatMoverAction(ceilingDefinition('SR', -1, 1, highestNeighbourFloor)),
+
+    // Elevators (kind of a moving floor that also moves the ceiling)
+    227: () => elevatorAction(elevatorDefinition('W1', 1, nextNeighbourFloorUp)),
+    228: () => elevatorAction(elevatorDefinition('WR', 1, nextNeighbourFloorUp)),
+    229: () => elevatorAction(elevatorDefinition('S1', 1, nextNeighbourFloorUp)),
+    230: () => elevatorAction(elevatorDefinition('SR', 1, nextNeighbourFloorUp)),
+    231: () => elevatorAction(elevatorDefinition('W1', 1, nextNeighbourFloorDown)),
+    232: () => elevatorAction(elevatorDefinition('WR', 1, nextNeighbourFloorDown)),
+    233: () => elevatorAction(elevatorDefinition('S1', 1, nextNeighbourFloorDown)),
+    234: () => elevatorAction(elevatorDefinition('SR', 1, nextNeighbourFloorDown)),
+    235: () => elevatorAction(elevatorDefinition('W1', 1, triggerFloor)),
+    236: () => elevatorAction(elevatorDefinition('WR', 1, triggerFloor)),
+    237: () => elevatorAction(elevatorDefinition('S1', 1, triggerFloor)),
+    238: () => elevatorAction(elevatorDefinition('SR', 1, triggerFloor)),
 
     // Lifts
     // Some combination of the unofficial doom spec https://www.gamers.org/dhs/helpdocs/dmsp1666.html
@@ -78,79 +206,35 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     // 95 is moved to floorActions but is that correct? I could only find this linedef at the end of
     // Sigil E5M4 and sigil E6M6. Floor actions work just fine so may be it's okay?
     // 95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, lowestNeighbourFloor, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
+    // FIXME: should these be speed 4 or 8?
     120: () => createLiftAction(liftDefinition('WR', 105, 8, lowestNeighbourFloor, floorHeight)),
     121: () => createLiftAction(liftDefinition('W1', 105, 8, lowestNeighbourFloor, floorHeight)),
     122: () => createLiftAction(liftDefinition('S1', 105, 8, lowestNeighbourFloor, floorHeight)),
     123: () => createLiftAction(liftDefinition('SR', 105, 8, lowestNeighbourFloor, floorHeight)),
-
-    // Moving floors
-    5: () => flatMoverAction(floorDefinition('W1', 1, 1, null, lowestNeighbourCeiling)),
-    18: () => flatMoverAction(floorDefinition('S1', 1, 1, null, nextNeighbourFloor)),
-    19: () => flatMoverAction(floorDefinition('W1', -1, 1, null, highestNeighbourFloor)),
-    23: () => flatMoverAction(floorDefinition('S1', -1, 1, null, lowestNeighbourFloor)),
-    24: () => flatMoverAction(floorDefinition('G1', 1, 1, null, lowestNeighbourCeiling)),
-    30: () => flatMoverAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture)),
-    36: () => flatMoverAction(floorDefinition('W1', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    37: () => flatMoverAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
-    38: () => flatMoverAction(floorDefinition('W1', -1, 1, null, lowestNeighbourFloor)),
-    45: () => flatMoverAction(floorDefinition('SR', -1, 1, null, highestNeighbourFloor)),
-    55: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    56: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    58: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 24))),
-    59: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), offset(floorHeight, 24))),
-    60: () => flatMoverAction(floorDefinition('SR', -1, 1, null, lowestNeighbourFloor)),
-    64: () => flatMoverAction(floorDefinition('SR', 1, 1, null, lowestNeighbourCeiling)),
-    65: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    69: () => flatMoverAction(floorDefinition('SR', 1, 1, null, nextNeighbourFloor)),
-    70: () => flatMoverAction(floorDefinition('SR', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    71: () => flatMoverAction(floorDefinition('S1', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    82: () => flatMoverAction(floorDefinition('WR', -1, 1, null, lowestNeighbourFloor)),
-    83: () => flatMoverAction(floorDefinition('WR', -1, 1, null, highestNeighbourFloor)),
-    84: () => flatMoverAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
-    91: () => flatMoverAction(floorDefinition('WR', 1, 1, null, lowestNeighbourCeiling)),
-    92: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 24))),
-    93: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  offset(floorHeight, 24))),
-    94: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    95: () => flatMoverAction(floorDefinition('WR', 1, 0.5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
-    96: () => flatMoverAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
-    98: () => flatMoverAction(floorDefinition('WR', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    101: () => flatMoverAction(floorDefinition('S1', 1, 1, null, lowestNeighbourCeiling)),
-    102: () => flatMoverAction(floorDefinition('S1', -1, 1, null, highestNeighbourFloor)),
-    119: () => flatMoverAction(floorDefinition('W1', 1, 1, null, nextNeighbourFloor)),
-    128: () => flatMoverAction(floorDefinition('WR', 1, 1, null, nextNeighbourFloor)),
-    129: () => flatMoverAction(floorDefinition('WR', 1, 4, null, nextNeighbourFloor)),
-    130: () => flatMoverAction(floorDefinition('W1', 1, 4, null, nextNeighbourFloor)),
-    131: () => flatMoverAction(floorDefinition('S1', 1, 4, null, nextNeighbourFloor)),
-    132: () => flatMoverAction(floorDefinition('SR', 1, 4, null, nextNeighbourFloor)),
-    140: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 512))),
-    // More moving floors
-    // Note: DOOM wiki calls these lifts https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
-    // but they seem to better match a moving floor
-    14: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
-    15: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
-    20: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
-    22: () => flatMoverAction(floorDefinition('W1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
-    47: () => flatMoverAction(floorDefinition('G1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
-    66: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
-    67: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
-    68: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloor)),
-
-    // Moving ceilings
-    40: () => flatMoverAction(ceilingDefinition('W1', 1, 1, highestNeighbourCeiling)),
-    41: () => flatMoverAction(ceilingDefinition('S1', -1, 2, floorHeight)),
-    43: () => flatMoverAction(ceilingDefinition('SR', -1, 2, floorHeight)),
-    44: () => flatMoverAction(ceilingDefinition('W1', -1, 1, offset(floorHeight, 8))),
-    72: () => flatMoverAction(ceilingDefinition('WR', -1, 1, offset(floorHeight, 8))),
+    // Extended lifts
+    162: () => createLiftAction(liftDefinition('S1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+    181: () => createLiftAction(liftDefinition('SR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+    163: () => createLiftAction(liftDefinition('S1', 0, 0, floorHeight, floorHeight, 'stop')),
+    182: () => createLiftAction(liftDefinition('SR', 0, 0, floorHeight, floorHeight, 'stop')),
 
     // Crushers
     6: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', 2, 'start')),
     25: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', 1, 'start')),
     49: () => createCrusherCeilingAction(crusherCeilingDefinition('S1', 1, 'start')),
-    57: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', null, 'stop')),
+    57: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', 0, 'stop')),
     73: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', 1, 'start')),
-    74: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', null, 'stop')),
+    74: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', 0, 'stop')),
     77: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', 2, 'start')),
-    141: () =>createCrusherCeilingAction(crusherCeilingDefinition('W1', 1, 'start')),
+    141: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', 1, 'start')),
+    // Extended crushers
+    150: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', 1, 'start', true)),
+    164: () => createCrusherCeilingAction(crusherCeilingDefinition('S1', 2, 'start', false)),
+    165: () => createCrusherCeilingAction(crusherCeilingDefinition('S1', 1, 'start', true)),
+    168: () => createCrusherCeilingAction(crusherCeilingDefinition('S1', 0, 'stop')),
+    183: () => createCrusherCeilingAction(crusherCeilingDefinition('SR', 2, 'start')),
+    184: () => createCrusherCeilingAction(crusherCeilingDefinition('SR', 1, 'start')),
+    185: () => createCrusherCeilingAction(crusherCeilingDefinition('SR', 1, 'start', true)),
+    188: () => createCrusherCeilingAction(crusherCeilingDefinition('SR', 0, 'stop')),
 
     // Lighting
     12: () => createLightingAction(createLightingDefinition('W1', maxNeighbourLight)),
@@ -204,12 +288,20 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     8: () => stairBuilderAction(stairBuilderDefinition('W1', .25, 8)),
     127: () => stairBuilderAction(stairBuilderDefinition('S1', 4, 16)),
     100: () => stairBuilderAction(stairBuilderDefinition('W1', 4, 16)),
+    // Extended
+    256: () => stairBuilderAction(stairBuilderDefinition('WR', .25, 8)),
+    257: () => stairBuilderAction(stairBuilderDefinition('WR', 4, 16)),
+    258: () => stairBuilderAction(stairBuilderDefinition('SR', .25, 16)),
+    259: () => stairBuilderAction(stairBuilderDefinition('SR', 4, 16)),
 
     // Level exist
     11: () => createLevelExitAction(levelExitDefinitions('S1', 'normal')),
     52: () => createLevelExitAction(levelExitDefinitions('W1', 'normal')),
     51: () => createLevelExitAction(levelExitDefinitions('S1', 'secret')),
     124: () => createLevelExitAction(levelExitDefinitions('W1', 'secret')),
+    // Extended
+    197: () => createLevelExitAction(levelExitDefinitions('G1', 'normal')),
+    198: () => createLevelExitAction(levelExitDefinitions('G1', 'secret')),
 };
 
 // General
@@ -218,7 +310,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
     if (ignoreLines.has(linedef.special)) {
         return;
     }
-
+    console.log('special',linedef.special)
     let action = doomSpecials[linedef.special]?.();
     if (action) {
         return action(mobj, linedef, trigger, side);
@@ -287,7 +379,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         const monsterTrigger = ((linedef.special & 0x0080) >> 7) ? 'm' : '';
         const doorFunction = ([
             'openWaitClose', 'openAndStay', 'closeWaitOpen', 'closeAndStay'
-        ] as DoorFunction[])[(linedef.special & 0x0020) >> 5];
+        ] as DoorFunction[])[(linedef.special & 0x0060) >> 5];
         const def = doorDefinition(
             triggerType + monsterTrigger,
             '',
@@ -308,7 +400,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
             [
                 highestNeighbourCeiling,
                 lowestNeighbourCeiling,
-                direction > 0 ? nextNeighbourCeilingAbove : nextNeighbourCeilingBelow,
+                direction > 0 ? nextNeighbourCeilingUp : nextNeighbourCeilingDown,
                 highestNeighbourFloor,
                 floorHeight,
                 shortestLowerTexture,
@@ -332,7 +424,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
             [
                 highestNeighbourFloor,
                 lowestNeighbourFloor,
-                direction > 0 ? nextNeighbourFloor : nextNeighbourFloorAbove,
+                direction > 0 ? nextNeighbourFloorUp : nextNeighbourFloorDown,
                 lowestNeighbourCeiling,
                 ceilingHeight,
                 shortestLowerTexture,
@@ -351,7 +443,9 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
 
 const ignoreLines = new Set([
     // scrollers can be walked over but they don't do anything (they don't start/stop) so ignore them
-    48, 85, 255, 250, 251, 252, 253, 254
+    48, 85, 255, 250, 251, 252, 253, 254,
+    // transfer lines should generally be outside map bounds but better to ignore them too
+    213, 242, 261,
 ]);
 
 // Push, Switch, Walk, Gun (shoot)
@@ -361,7 +455,7 @@ export interface SpecialDefinition {
     repeatable: boolean;
 }
 
-type TargetValueFunction = (map: MapRuntime, sector: Sector) => number;
+type TargetValueFunction = (map: MapRuntime, sector: Sector, linedef?: LineDef) => number;
 
 const findLowestCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), maxZ)
@@ -371,20 +465,22 @@ const highestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), -maxZ);
 const highestNeighbourFloorInclusive = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), sector.zFloor);
-const nextNeighbourCeilingBelow = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), sector.zCeil);
-const nextNeighbourCeilingAbove = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
+const nextNeighbourCeilingUp = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).filter(sec => sec.zCeil > sector.zCeil).reduce((last, sec) => sec.zCeil < last.zCeil ? sec : last)?.zCeil ?? sector.zCeil;
+const nextNeighbourCeilingDown = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).filter(sec => sec.zCeil < sector.zCeil).reduce((last, sec) => sec.zCeil > last.zCeil ? sec : last)?.zCeil ?? sector.zCeil;
 const nextLowestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) =>  sec.zFloor < sector.zFloor ? Math.max(last, sec.zFloor) : last, sector.zFloor);
-const nextNeighbourFloor = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor > sector.zFloor ? sec.zFloor : last), sector.zFloor);
-const nextNeighbourFloorAbove = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor < sector.zFloor ? Math.min(last, sec.zFloor) : last, sector.zFloor);
+    map.data.sectorNeighbours(sector).filter(sec => sec.zFloor < sector.zFloor).reduce((last, sec) => sec.zFloor > last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
+const nextNeighbourFloorUp = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).filter(sec => sec.zFloor > sector.zFloor).reduce((last, sec) => sec.zFloor < last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
+const nextNeighbourFloorDown = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).filter(sec => sec.zFloor < sector.zFloor).reduce((last, sec) => sec.zFloor > last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
 const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
 const highestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), -maxZ);
+
+const triggerFloor = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector.zFloor
 const floorHeight = (map: MapRuntime, sector: Sector) => sector.zFloor;
 const ceilingHeight = (map: MapRuntime, sector: Sector) => sector.zCeil;
 
@@ -577,7 +673,7 @@ const createDoorAction =
         sector.specialData = def.function === 'openAndStay' || def.function === 'openWaitClose' ? 1 : -1;
         doorSound(sector);
 
-        const topHeight = linedef.special === 16 || linedef.special === 76
+        const topHeight =sector.specialData === -1
             ? sector.zCeil : (findLowestCeiling(map, sector) - 4);
         let ticks = 0;
         const action = () => {
@@ -678,6 +774,7 @@ const createLiftAction =
                 map.addAction(sector.specialData);
             }
             // sector is already running an action so don't add another one
+            // TODO: should we triggered be true here?
             continue;
         }
 
@@ -749,6 +846,7 @@ const createLiftAction =
     return triggered ? def : undefined;
 };
 
+// Moving floors, ceilings, and elevators
 const flatMoverDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, prop: 'zCeil' | 'zFloor', crush: boolean) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
@@ -761,8 +859,14 @@ const flatMoverDefinition = (trigger: string, direction: number, speed: number, 
 });
 const floorDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, crush = false) =>
     flatMoverDefinition(trigger, direction, speed, effect, targetFn, 'zFloor', crush);
-const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction, effect: EffectFunction = undefined, crush = (direction === -1)) =>
+const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction, effect: EffectFunction = undefined, crush = false) =>
     flatMoverDefinition(trigger, direction, speed, effect, targetFn, 'zCeil', crush);
+const elevatorDefinition = (trigger: string, speed: number, targetFn: TargetValueFunction) => ({
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    targetFn,
+    speed,
+});
 
 const flatMoverAction =
         (def: ReturnType<typeof flatMoverDefinition>) =>
@@ -794,8 +898,8 @@ const flatMoverAction =
             def.effect?.(map, sector, linedef);
         }
 
-        sector.specialData = def.direction;
-        const target = def.targetFn(map, sector);
+        sector.specialData = def;
+        const target = def.targetFn(map, sector, linedef);
         const action = () => {
             const mobjs = sectorObjects(map, sector);
             let finished = false;
@@ -834,6 +938,72 @@ const flatMoverAction =
     }
     return triggered ? def : undefined;
 };
+
+const elevatorAction =
+        (def: ReturnType<typeof elevatorDefinition>) =>
+        (mobj: MapObject, linedef: LineDef,  trigger: TriggerType): SpecialDefinition | undefined => {
+    const map = mobj.map;
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (mobj.isMonster) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    // it would be nice to re-use flatMoverAction here (create one for ceiling and one for floor)
+    // but this one computes it's own direction and is just different enough that I'm not sure how to
+    // combine them nicely
+    let triggered = false;
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
+    for (const sector of sectors) {
+        if (sector.specialData !== null) {
+            continue;
+        }
+
+        triggered = true;
+        sector.specialData = def;
+
+        const target = def.targetFn(map, sector, linedef);
+        let ceilGap = sector.zCeil - sector.zFloor;
+        let direction = Math.sign(target - sector.zFloor);
+        const action = () => {
+            const mobjs = sectorObjects(map, sector);
+            let finished = false;
+            let originalFloor = sector.zFloor;
+            sector.zFloor += direction * def.speed;
+            playMoveSound(map, sector);
+
+            if ((direction > 0 && sector.zFloor > target) || (direction < 0 && sector.zFloor < target)) {
+                finished = true;
+                sector.zFloor = target;
+            }
+
+            // crush
+            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
+            if (crushing.length) {
+                let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
+                if (hitSolid) {
+                    sector.zFloor = originalFloor;
+                    return;
+                }
+            }
+
+            sector.zCeil = sector.zFloor + ceilGap;
+            mobjs.forEach(mobj => mobj.sectorChanged(sector));
+            map.events.emit('sector-z', sector);
+            if (finished) {
+                map.game.playSound(SoundIndex.sfx_pstop, sector);
+                sector.specialData = null;
+                map.removeAction(action);
+            }
+        }
+        map.addAction(action);
+    }
+    return triggered ? def : undefined;
+}
 
 // Crusher Ceilings
 const crusherCeilingDefinition = (trigger: string, speed: number, triggerType: 'start' | 'stop', silent = false) => ({
@@ -1223,10 +1393,12 @@ const applyTeleportAction =
 };
 
 // Donut (apparently only in E1M2, E2M2 and MAP21 of tnt (none in Doom2 or plutonia)
-const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+const donut =
+        (trigger: string) =>
+        (mobj: MapObject, linedef: LineDef, hitTrigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+    const def = { trigger, repeatable: (trigger[1] === 'R') };
     const map = mobj.map;
-    const def = { trigger: 'S', repeatable: false };
-    if (trigger !== def.trigger) {
+    if (hitTrigger !== def.trigger) {
         return;
     }
     if (mobj.isMonster) {
@@ -1475,14 +1647,6 @@ export function exitLevel(mobj: MapObject, target: 'secret' | 'normal', nextMapO
 }
 
 // Pushers
-export const linedefScrollSpeed = (linedef: LineDef) => {
-    const slope = linedefSlope(linedef);
-    const len = Math.floor(slope.length / 32);
-    slope.dx = Math.sign(slope.dx) * len;
-    slope.dy = Math.sign(slope.dy) * len;
-    return slope;
-}
-
 export function pusherAction(map: MapRuntime, linedef: LineDef) {
     let specials: LineTraceHit[] = [];
     let movement = new Vector3();
@@ -1491,13 +1655,13 @@ export function pusherAction(map: MapRuntime, linedef: LineDef) {
     if (!sectors) {
         return;
     }
-    const { dx, dy } = linedefScrollSpeed(linedef);
+    const { dx, dy } = linedef.scrollSpeed;
     movement.set(dx, dy, 0);
     const action = () => {
         // group mobjs by sector _before_ moving because otherwise the mobj may be put into another sector
         // that also moves. Actually, that can still happen if the mobj moves to a different pusher but from the
         // little testing I've done (cchest MAP02), it's expected.
-        const sectorMobjs = sectors.map(sector => sectorObjects(map, sector).filter(e => e.onGround));
+        const sectorMobjs = sectors.map(sector => sectorObjects(map, sector).filter(e => e.zFloor <= sector.zFloor));
         for (const mobjs of sectorMobjs) {
             for (let i = 0; i < mobjs.length; i++) {
                 specials.length = 0;

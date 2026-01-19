@@ -216,6 +216,7 @@ export class MapRuntime {
     }
 
     private initialThingSpawn(thing: Thing): MapObject | undefined {
+        const isPlayer = thing.type >= 1 && thing.type <= 4;
         const noSpawn = (false
             || thing.type === 0 // plutonia map 12, what?!
             || (thing.type >= 2 && thing.type <= 4) // coop-player spawns
@@ -224,7 +225,7 @@ export class MapRuntime {
         if (noSpawn) {
             return;
         }
-        if (thing.flags & 0x0010 && this.game.mode === 'solo') {
+        if (!isPlayer && thing.flags & 0x0010 && this.game.mode === 'solo') {
             return; // multiplayer only
         }
         const skillMatch = (false
@@ -363,7 +364,7 @@ export class MapRuntime {
     }
 
     addAction(action: Action) {
-        if (action) {
+        if (typeof action === 'function') {
             this.actions.add(action);
         }
     }

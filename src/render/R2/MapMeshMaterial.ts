@@ -74,7 +74,6 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
     material.onBeforeCompile = shader => {
         Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
-        // console.log('shaders', shader.vertexShader, shader.fragmentShader)
         shader.vertexShader = shader.vertexShader
             .replace('#include <common>', vertex_pars + `
             uniform sampler2D tLightMap;

@@ -1,10 +1,9 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import { TransparentWindowTexture, type MapTextureAtlas } from "./TextureAtlas";
-import { linedefSlope, HALF_PI, MapRuntime, type LineDef, type Sector, type SideDef, type Vertex, type WallTextureType } from "../../doom";
+import { HALF_PI, linedefSlope, MapRuntime, type LineDef, type Sector, type SideDef, type Vertex, type WallTextureType } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
-import { linedefScrollSpeed } from '../../doom/specials';
 
 // https://github.com/mrdoob/three.js/issues/17361
 function flipWindingOrder(geometry: BufferGeometry) {
@@ -123,22 +122,9 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
 
     const applyWallAttributes = (ld: LineDef, geo: BufferGeometry) => {
         geo.setAttribute(inspectorAttributeName, int16BufferFrom([0, ld.num], geo.attributes.position.count));
-
-        // specials
-        if (ld.special === 48) {
-            for (let i = 0; i < geo.attributes.position.count; i++) {
-                geo.attributes.doomOffset.array[i * 2] = 1;
-            }
-        } else if (ld.special === 85) {
-            for (let i = 0; i < geo.attributes.position.count; i++) {
-                geo.attributes.doomOffset.array[i * 2] = -1;
-            }
-        }
-        if (ld.special === 255) {
-            for (let i = 0; i < geo.attributes.position.count; i++) {
-                geo.attributes.doomOffset.array[i * 2] = ld.right.xOffset.initial;
-                geo.attributes.doomOffset.array[i * 2 + 1] = ld.right.yOffset.initial;
-            }
+        for (let i = 0; i < geo.attributes.position.count; i++) {
+            geo.attributes.doomOffset.array[i * 2] = ld.scrollSpeed.dx;
+            geo.attributes.doomOffset.array[i * 2 + 1] = ld.scrollSpeed.dy;
         }
     };
 
@@ -381,11 +367,10 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             const needsScrolling = (ceiling && ld.special === 250)
                 || (!ceiling && (ld.special === 251 || ld.special == 253));
             if (needsScrolling) {
-                let { dx, dy } = linedefScrollSpeed(ld);
                 for (let i = 0; i < geo.attributes.position.count; i++) {
                      // draw floors/ceilings with direction flipped!!
-                    geo.attributes.doomOffset.array[i * 2 + 0] = -dx;
-                    geo.attributes.doomOffset.array[i * 2 + 1] = -dy;
+                    geo.attributes.doomOffset.array[i * 2 + 0] += -ld.scrollSpeed.dx;
+                    geo.attributes.doomOffset.array[i * 2 + 1] += -ld.scrollSpeed.dy;
                 }
             }
         }
@@ -396,13 +381,15 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
     type FloorCeilingPair = [GeoInfo, GeoInfo]
     const addSector = (rs: RenderSector): [FloorCeilingPair, GeoInfo[], [FloorCeilingPair, FloorCeilingPair]] => {
         const floorGeo = rs.geometry.clone();
-        const floor = flatBuilder(rs.sector.floorFlat).addFlatGeometry(floorGeo, rs.sector.num);
+        const floorLight = rs.sector.floorLightTransfer?.right?.sector?.num ?? rs.sector.num;
+        const floor = flatBuilder(rs.sector.floorFlat).addFlatGeometry(floorGeo, floorLight);
         applySectorSpecials(rs, floorGeo, false);
 
         const ceilGeo = rs.geometry.clone();
         // flip over triangles for ceiling
         flipWindingOrder(ceilGeo);
-        const ceil = flatBuilder(rs.sector.ceilFlat).addFlatGeometry(ceilGeo.clone(), rs.sector.num);
+        const ceilLight = rs.sector.ceilLightTransfer?.right?.sector?.num ?? rs.sector.num;
+        const ceil = flatBuilder(rs.sector.ceilFlat).addFlatGeometry(ceilGeo.clone(), ceilLight);
         applySectorSpecials(rs, ceil.geom, true);
 
         let extras: GeoInfo[] = [];

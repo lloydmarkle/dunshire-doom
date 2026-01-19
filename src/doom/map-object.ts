@@ -288,39 +288,16 @@ const updateBlockMapPosition = (() => {
             mo.position.x - radius, mo.position.y - radius,
             mo.position.x + radius, mo.position.y + radius,
         );
-        const blockMapChanged = rNew[0] !== rOld[0] || rNew[1] !== rOld[1] || rNew[2] !== rOld[2] || rNew[3] !== rOld[3];
-        if (!blockMapChanged) {
-            // re-evaluate any sectors the mobj is touching
-            blockMap.regionTracer(mo.blockArea, block => touchSectors(mo, radius, block));
-            return;
-        }
 
-        const noOverlap = (
-            rOld[0] > rNew[2] || rOld[2] < rNew[0] ||
-            rOld[1] > rNew[3] || rOld[3] < rNew[1]);
-        if (noOverlap) {
-            blockMap.regionTracer(rOld, block => block.mobjs.delete(mo));
-            blockMap.regionTracer(rNew, block => {
-                touchSectors(mo, radius, block);
-                block.mobjs.add(mo);
-            });
-        } else {
-            // TODO: is this actually more efficient than just deleting and adding like above?
-            mergedRegion[0] = Math.min(rNew[0], rOld[0]);
-            mergedRegion[1] = Math.min(rNew[1], rOld[1]);
-            mergedRegion[2] = Math.max(rNew[2], rOld[2]);
-            mergedRegion[3] = Math.max(rNew[3], rOld[3]);
-            blockMap.regionTracer(mergedRegion, (block, x, y) => {
-                const inOld = x >= rOld[0] && x < rOld[2] && y >= rOld[1] && y < rOld[3];
-                const inNew = x >= rNew[0] && x < rNew[2] && y >= rNew[1] && y < rNew[3];
-                if (!inOld && inNew) {
-                    touchSectors(mo, radius, block);
-                    block.mobjs.add(mo);
-                } else if (inOld && !inNew) {
-                    block.mobjs.delete(mo);
-                }
-            });
-        }
+        // I wrote this is a much more complex way to figure out the diff of rOld and rNew and only
+        // add/delete from block.mobjs on changes but it turns out it wasn't much more efficient so
+        // we just go with this for now. I also tried just inlining the regionTrace loop here to avoid
+        // a callback but it didn't seem to make a difference. JS runtimes are so fast.
+        blockMap.regionTracer(rOld, block => block.mobjs.delete(mo));
+        blockMap.regionTracer(rNew, block => {
+            touchSectors(mo, radius, block);
+            block.mobjs.add(mo);
+        });
 
         // update block area
         rOld[0] = rNew[0];
@@ -329,7 +306,6 @@ const updateBlockMapPosition = (() => {
         rOld[3] = rNew[3];
     }
 
-    const mergedRegion: BlockRegion = [0,0,0,0];
     return (mo: MapObject) => {
         const map = mo.map;
 
@@ -350,7 +326,6 @@ const updateBlockMapPosition = (() => {
                 map.sectorObjs.get(sector).add(mo);
             }
         });
-
         return sector;
     };
 })();
@@ -920,10 +895,10 @@ export class PlayerMapObject extends MapObject {
     }
 
     xyMove(): void {
-        if (this.reactiontime) {
-            return; // frozen from teleport so don't allow movement
+        if (!this.reactiontime) {
+            // frozen from teleport so don't allow movement
+            super.updatePosition();
         }
-        super.updatePosition();
         // always send a position changed event so that the UI updates rotation too. (see the /Camera/*.svelte listening to position changed)
         // We could add a "direction-changed" event but monsters update direction when they change sprite so we don't need it.
         this.applyPositionChanged();

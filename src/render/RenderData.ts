@@ -167,7 +167,10 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         rSectors.push(renderSector);
         secMap.set(renderSector.sector, renderSector);
 
+        // Would 242, 213, and 261 ever be applied to a single sector? Seems unlikely
         sector.transfer = (mapRuntime.linedefsByTag.get(sector.tag) ?? []).find(e => e.special === 242);
+        sector.floorLightTransfer = (mapRuntime.linedefsByTag.get(sector.tag) ?? []).find(e => e.special === 213);
+        sector.ceilLightTransfer = (mapRuntime.linedefsByTag.get(sector.tag) ?? []).find(e => e.special === 261);
 
         // fascinating little render hack: self-referencing sector. Basically a sector where all lines are two-sided
         // and both sides refer to the same sector. For doom, that sector would be invisible but the renderer fills in the

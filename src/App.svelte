@@ -134,9 +134,9 @@
     })
 
     let screenName = $derived(
+        $error ? 'error' :
         game ? 'game' :
         wad && showEndoom ? 'endoom':
-        $error ? 'error' :
         'home');
 
     const once = (fn: () => void) => (ev: Event) => {
