@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { type MapData, type LineDef, type Thing, type Action, type Sector } from "./map-data";
+import { type MapData, type LineDef, type Thing, type Action, type Sector, linedefSlope } from "./map-data";
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians, ticksPerSecond, tickTime } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
@@ -397,7 +397,41 @@ export class MapRuntime {
 
         for (const ld of this.data.linedefs) {
             if (ld.special === 252 || ld.special === 253) {
-                pusherAction(this, ld);
+                pusherAction(this, ld, linedefScrollSpeed(ld));
+            }
+
+            // NOTE we create new objects here because otherwise we update the zeroScroll obejct and all lines change
+            if (ld.special === 48) {
+                ld.scrollSpeed = { dx: 1, dy: 0 };
+            } else if (ld.special === 85) {
+                ld.scrollSpeed = { dx: -1, dy: 0 };
+            } else if (ld.special === 255) {
+                ld.scrollSpeed = { dx: ld.right.xOffset.initial, dy: ld.right.yOffset.initial };
+            } else if (ld.special === 1024) {
+                for (const line of this.linedefsByTag.get(ld.tag)) {
+                    line.scrollSpeed = { dx: ld.right.xOffset.initial / 8, dy: ld.right.yOffset.initial / 8 };
+                }
+            } else if (ld.special >= 250 && ld.special <= 253) {
+                const scrollSpeed = linedefScrollSpeed(ld);
+                for (const sector of this.sectorsByTag.get(ld.tag)) {
+                    sector.scrollers = sector.scrollers ?? [];
+                    sector.scrollers.push({ linedef: ld, scrollSpeed });
+                }
+            } else if (ld.special === 254 || ld.special === 1025) {
+                const rate = 1.0 / (ld.special === 254 ? 32 : 8);
+                const { dx, dy, length } = linedefSlope(ld);
+                const angle = Math.atan2(dy, dx);
+                for (const line of this.linedefsByTag.get(ld.tag)) {
+                    if (line === ld) {
+                        continue;
+                    }
+
+                    let { dx, dy } = linedefSlope(line);
+                    const angleBetween = angle - Math.atan2(dy, dx);
+                    dx = -Math.cos(angleBetween) * length * rate;
+                    dy = Math.sin(angleBetween) * length * rate;
+                    line.scrollSpeed = { dx, dy };
+                }
             }
         }
 
@@ -493,6 +527,14 @@ export class MapRuntime {
         this.addAction(action);
         return true;
     }
+}
+
+const linedefScrollSpeed = (ld: LineDef) =>{
+    const slope = linedefSlope(ld);
+    return {
+        dx: Math.sign(slope.dx) * slope.length / 32,
+        dy: Math.sign(slope.dy) * slope.length / 32,
+    };
 }
 
 const playerSpeeds = { // per-tick

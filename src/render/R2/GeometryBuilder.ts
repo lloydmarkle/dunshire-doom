@@ -363,16 +363,15 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
     };
 
     const applySectorSpecials = (rs: RenderSector, geo: BufferGeometry, ceiling: boolean) => {
-        for (let ld of rs.taggedLines) {
-            const needsScrolling = (ceiling && ld.special === 250)
-                || (!ceiling && (ld.special === 251 || ld.special == 253));
-            if (needsScrolling) {
-                for (let i = 0; i < geo.attributes.position.count; i++) {
-                     // draw floors/ceilings with direction flipped!!
-                    geo.attributes.doomOffset.array[i * 2 + 0] += -ld.scrollSpeed.dx;
-                    geo.attributes.doomOffset.array[i * 2 + 1] += -ld.scrollSpeed.dy;
-                }
-            }
+        const scrollers = ceiling
+            ? (rs.sector.scrollers ?? []).filter(e => e.linedef.special === 250)
+            : (rs.sector.scrollers ?? []).filter(e => e.linedef.special !== 250);
+        const dx = scrollers.reduce((dx, scroller) => dx += scroller.scrollSpeed.dx, 0);
+        const dy = scrollers.reduce((dy, scroller) => dy += scroller.scrollSpeed.dy, 0);
+        for (let i = 0; i < geo.attributes.position.count; i++) {
+            // draw floors/ceilings with direction flipped!!
+            geo.attributes.doomOffset.array[i * 2 + 0] += -dx;
+            geo.attributes.doomOffset.array[i * 2 + 1] += -dy;
         }
     };
 

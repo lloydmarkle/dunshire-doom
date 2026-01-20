@@ -1647,7 +1647,7 @@ export function exitLevel(mobj: MapObject, target: 'secret' | 'normal', nextMapO
 }
 
 // Pushers
-export function pusherAction(map: MapRuntime, linedef: LineDef) {
+export function pusherAction(map: MapRuntime, linedef: LineDef, scrollSpeed: { dx: number, dy: number }) {
     let specials: LineTraceHit[] = [];
     let movement = new Vector3();
 
@@ -1655,8 +1655,7 @@ export function pusherAction(map: MapRuntime, linedef: LineDef) {
     if (!sectors) {
         return;
     }
-    const { dx, dy } = linedef.scrollSpeed;
-    movement.set(dx, dy, 0);
+    movement.set(scrollSpeed.dx, scrollSpeed.dy, 0);
     const action = () => {
         // group mobjs by sector _before_ moving because otherwise the mobj may be put into another sector
         // that also moves. Actually, that can still happen if the mobj moves to a different pusher but from the
