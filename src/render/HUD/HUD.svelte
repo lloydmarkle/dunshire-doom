@@ -11,23 +11,24 @@
     const { maxHudScale, hudStyle } = useAppContext().settings;
     const { viewSize } = useDoom();
 
+    const yScale = (16 / 10) / (4 / 3);
     const { health, weapon, inventory } = player;
     $: weaponLights = $inventory.weapons.map(e => e?.keynum);
     const background = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
     const gfx = player.map.game.wad.graphic('STBAR');
     const offsetX = (320 - gfx.width) / 2;
     $: scale = Math.min($viewSize.width / gfx.width, $viewSize.height / gfx.height, $maxHudScale);
-    $: hudHeight = gfx.height * scale; // why *2? Because we are scaling by 2 in a css transform below
+    $: hudHeight = gfx.height * scale;
 </script>
 
 <HUDMessages {scale} topOffset={$hudStyle === 'top' ? hudHeight : 0} {player} />
 
 <div
     class="hud"
-    style:--st-top="{$hudStyle === 'bottom' ? $viewSize.height - hudHeight : 0}px"
+    style:--st-top="{$hudStyle === 'bottom' ? $viewSize.height - hudHeight - 6 * scale: 0}px"
     style:--st-bg="url({background})"
     style:--st-bg-offsetx="{offsetX}px"
-    style:--st-scale="{scale}"
+    style:--st-scale="{scale}, {yScale * scale}"
 >
     <!-- <Picture name={'STBAR'} /> -->
     <div class="ammo">
