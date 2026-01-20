@@ -30,7 +30,7 @@
         return window.location.href;
     }
 
-    export const menuCategories = (settingsMenu: any) => ({
+    export const menuCategories = (settingsMenu: MenuSetting[]) => ({
         Normal: settingsMenu.filter(e => e.cat === "normal"),
         Advanced: settingsMenu.filter(e => e.cat === "advanced"),
         Compatibility: settingsMenu.filter(e => e.cat === "compatibility"),
@@ -109,7 +109,7 @@
 <script lang="ts">
     import { fade, fly } from "svelte/transition";
     import { useAppContext, useDoom } from "../DoomContext";
-    import MenuItem from "./MenuItem.svelte";
+    import MenuItem, { type MenuSetting } from "./MenuItem.svelte";
     import CommandPalette from "./CommandPalette.svelte";
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
@@ -187,6 +187,7 @@
 
     import { configureGain, createSoundBufferCache, interruptFadeOut, stopSound } from "../SoundPlayer.svelte";
     import { onMount, tick } from "svelte";
+    import type { Writable } from "svelte/store";
     const { audio, soundGain } = useAppContext();
     const { maxSoundChannels } = useAppContext().settings;
     $: soundCache = createSoundBufferCache(audio, game.wad);

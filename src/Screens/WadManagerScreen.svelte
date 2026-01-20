@@ -4,66 +4,70 @@
     import { Icon } from '@steeze-ui/svelte-icon'
     import { ExclamationTriangle, MagnifyingGlass, Trash } from '@steeze-ui/heroicons'
     import WadDropbox from "../render/Components/WadDropbox.svelte";
-    import WadList from "../render/Components/WadList.svelte";
     import WadInfoScreen from "./WadInfoScreen.svelte";
     import { WadFile } from "../doom";
+    import { flip } from "svelte/animate";
 
-    export let wadStore: WadStore;
-    const wads = wadStore.wads;
+    let { wadStore }: { wadStore: WadStore } = $props();
+    const wads = $derived(wadStore.wads);
 
-    let confirmDelete = false;
-    let selectedPWads: WADInfo[] = [];
-    let searchText = '';
-    $: wadTextFilter = searchText.toLowerCase();
-    $: visibleWads = $wads.filter(e => e.name.includes(wadTextFilter));
-    $: confirmDelete = confirmDelete && selectedPWads.length > 0;
+    let searchText = $state('');
+    let wadTextFilter = $derived(searchText.toLowerCase());
+    let visibleWads = $derived($wads.filter(e => e.name.includes(wadTextFilter)));
 
+    let selectedPWadIndex = $state(-1);
+    let selectedPWad = $derived($wads[selectedPWadIndex]);
+    let selectAll = $state(false);
+    const changeSelectionBox = () => selectedPWadIndex = -1;
+
+    let confirmDelete = $state(false);
     function removeSelectedPWads() {
-        selectedPWads.forEach(wad => wadStore.removeWad(wad.name));
-        selectedPWads = [];
+        if (selectAll) {
+            visibleWads.forEach(wad => wadStore.removeWad(wad.name));
+        } else {
+            wadStore.removeWad(selectedPWad.name);
+        }
         confirmDelete = false;
-    }
-
-    let wadSelectCheckbox: HTMLInputElement;
-    function changeSelectionBox() {
-        confirmDelete = confirmDelete && wadSelectCheckbox.checked;
-        selectedPWads = !wadSelectCheckbox.checked ? [] :
-            [...visibleWads, ...selectedPWads].filter((e, i, arr) => arr.indexOf(e) === i);
     }
 
     const loadWadFile = (wadInfo: WADInfo) =>
         wadStore.fetchWad(wadInfo.name).then(buff => new WadFile(wadInfo.name, buff));
-    $: selectedWadFile = selectedPWads.length ? loadWadFile(selectedPWads[0]) : Promise.resolve();
+    let selectedWadFile = $derived(selectedPWad ? loadWadFile(selectedPWad) : Promise.resolve<WadFile>(null));
 
-    $: if (selectedPWads.length) {
+    $effect(() => {
         const params = new URLSearchParams(window.location.hash.substring(1));
-        params.set('inspect', selectedPWads[0].name);
+        if (selectedPWad) {
+            params.set('inspect', selectedPWad.name);
+        } else {
+            params.delete('inspect');
+        }
         window.location.hash = params.toString();
-    }
+    });
     function parseUrlHash(hash: string) {
         const params = new URLSearchParams(hash.substring(1));
         const pwadName = params.get('inspect');
-        if (pwadName && pwadName !== selectedPWads?.[0]?.name) {
-            selectedPWads = [$wads.find(e => e.name === pwadName)];
+        if (pwadName && pwadName !== selectedPWad?.name) {
+            selectedPWadIndex = $wads.findIndex(e => e.name === pwadName);
+            const element = document.querySelectorAll('.wad-list .wad-box').item(selectedPWadIndex);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
-    $: parseUrlHash(window.location.hash);
+    $effect.pre(() => parseUrlHash(window.location.hash));
 </script>
 
 <svelte:window on:popstate={() => parseUrlHash(window.location.hash)} />
 
 <div class="grid grid-cols-[max-content_1fr] grid-rows-1 max-h-full overflow-y-scroll">
     <div class="flex flex-col relative max-w-sm">
-        <div class="flex flex-wrap gap-4 p-2 items-center justify-start z-10 bg-base-300">
+        <div class="flex flex-wrap gap-4 p-2 items-center justify-start bg-base-300">
             <!-- <span class="text-xs">{selectedPWads.length} of {$wads.length} selected</span> -->
             <input type="checkbox" class="checkbox"
-                bind:this={wadSelectCheckbox}
-                checked={selectedPWads.length && visibleWads.every(wad => selectedPWads.includes(wad))}
-                indeterminate={selectedPWads.length && visibleWads.some(wad => !selectedPWads.includes(wad))}
-                on:change={changeSelectionBox}
+                bind:checked={selectAll}
+                indeterminate={selectedPWadIndex > -1 && !selectAll}
+                onchange={changeSelectionBox}
             />
 
-            <button class="btn" class:btn-disabled={!selectedPWads.length || confirmDelete} on:click={() => confirmDelete = true}>
+            <button class="btn" class:btn-disabled={!selectAll && selectedPWadIndex === -1} onclick={() => confirmDelete = true}>
                 <Icon src={Trash} theme='outline' size="12px" />
             </button>
 
@@ -79,37 +83,69 @@
             class="alert alert-warning flex absolute top-16"
         >
             <span><Icon src={ExclamationTriangle} theme='outline' size="24px" /></span>
-            <span>Remove {selectedPWads.length} wad{selectedPWads.length === 1 ? '' : 's'}?</span>
+            <span>Remove {selectAll ? visibleWads.length : 1} WAD{selectAll && visibleWads.length > 1 ? 's' : ''}?</span>
             <div class="flex gap-2 ms-auto">
-                <button class="btn" on:click={removeSelectedPWads}>Yes</button>
-                <button class="btn" on:click={() => confirmDelete = false}>No</button>
+                <button class="btn" onclick={removeSelectedPWads}>Yes</button>
+                <button class="btn" onclick={() => confirmDelete = false}>No</button>
             </div>
         </div>
         {/if}
 
         <div
-            class="wad-list overflow-scroll"
-            class:shift-down={confirmDelete}
+            class={["wad-list overflow-scroll", confirmDelete && 'shift-down']}
             style:--tr-shift-down="6rem"
         >
-            <WadList wads={visibleWads} bind:selected={selectedPWads} multiSelect={false} />
+            <ul class="flex flex-col gap-1 menu">
+                {#each visibleWads as wad, i (wad.name)}
+                    <li
+                        transition:fly={{ y:'-4rem' }}
+                        animate:flip={{ duration: 200 }}
+                        class="relative rounded-lg overflow-hidden z-10"
+                    >
+                        <a
+                            href="#tab=wads&inspect={wad.name}"
+                            onclick={() => selectedPWadIndex = i}
+                            class={[
+                                "wad-box px-6",
+                                (selectAll || i === selectedPWadIndex) && 'active border',
+                            ]}
+                            style:--tw-bg-opacity={.4}
+                            style:--wad-bg="url({wad.image})"
+                        >
+                            {wad.name}
+                            <span class="text-xs">[{wad.mapCount} map{wad.mapCount === 1 ? '' : 's'}{(wad.episodicMaps ? ' (episodic)' : '')}]</span>
+                        </a>
+                    </li>
+                {/each}
+            </ul>
         </div>
 
-        <div class="h-48 mt-auto">
+        {#if selectedPWad}
+        <div in:fly={{ y: '100%' }} class="h-48 mt-auto">
             <WadDropbox {wadStore} />
         </div>
+        {/if}
     </div>
 
     <div class="max-h-full overflow-scroll bg-base-100 px-4 relative">
-        {#await selectedWadFile}
-            <div class="flex justify-center pt-24">
-                <span class="loading loading-spinner loading-md"></span>
+        {#if selectAll}
+            <div class="flex flex-col items-center justify-center gap-4 h-full">
+                {visibleWads.length} WAD{visibleWads.length > 1 ? 's' : ''} selected.
             </div>
-        {:then wadFile}
-            {#if wadFile}
-                <WadInfoScreen {wadFile} wadInfo={selectedPWads[0]} />
-            {/if}
-        {/await}
+        {:else if !selectedPWad}
+            <WadDropbox {wadStore}>
+                <span>Inspect a WAD by selecting it.</span>
+                <div class="divider">OR</div>
+            </WadDropbox>
+        {:else}
+            {#await selectedWadFile}
+                <div class="flex justify-center pt-24">
+                    <span class="loading loading-spinner loading-md"></span>
+                </div>
+            {:then wadFile}
+                <WadInfoScreen {wadFile} wadInfo={selectedPWad} />
+            {/await}
+        {/if}
     </div>
 </div>
 
@@ -120,5 +156,21 @@
     }
     .shift-down {
         transform: translate(0, var(--tr-shift-down));
+    }
+
+    .wad-box {
+        padding-block: var(--wadlist-boxHeight, 1.5rem);
+    }
+
+    .wad-box:after {
+        content:'';
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(.4turn, var(--fallback-sc,oklch(var(--sc)/1)), var(--fallback-sc,oklch(var(--sc)/.5))),
+            var(--wad-bg);
+        background-position: 0% 30%;
+        background-size: cover;
+        z-index: -1;
     }
 </style>

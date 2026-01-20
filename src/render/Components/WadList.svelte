@@ -1,11 +1,10 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
-    import type { WADInfo } from "../../WadStore";
     import { flip } from 'svelte/animate';
+    import type { WADInfo } from "../../WadStore";
 
     export let wads: WADInfo[];
     export let selected: WADInfo[] = [];
-    export let multiSelect = true;
     export let highlightIndex = -1;
 
     $: if (highlightIndex > -1) {
@@ -13,14 +12,8 @@
         element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    $: activeOpacity = multiSelect ? .3 : .7;
     // for non-small lists (50 items), this can be slow
     function toggleSelected(pwad: WADInfo) {
-        if (!multiSelect) {
-            selected = selected.includes(pwad) ? [] : [pwad];
-            return;
-        }
-
         if (selected.includes(pwad)) {
             selected = selected.filter(pw => pw !== pwad);
         } else {
@@ -41,7 +34,7 @@
                 class="wad-box px-6 label cursor-pointer"
                 class:active={checked}
                 class:pulse-highlight={i === highlightIndex}
-                style:--tw-bg-opacity={activeOpacity}
+                style:--tw-bg-opacity={.3}
                 style:--wad-bg="url({wad.image})"
             >
                 <span class="label-text">
@@ -49,7 +42,6 @@
                     <span class="text-xs">[{wad.mapCount} map{wad.mapCount === 1 ? '' : 's'}{(wad.episodicMaps ? ' (episodic)' : '')}]</span>
                 </span>
                 <input type="checkbox" class="checkbox"
-                    class:hidden={!multiSelect}
                     {checked} on:change={() => toggleSelected(wad)} />
             </label>
         </li>

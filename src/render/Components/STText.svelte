@@ -8,7 +8,7 @@
 <div class="flex flex-wrap items-center">
     {#each utext as char, i}
         {#if char === ' '}
-            <span class="space" />
+            <span class="space"></span>
         {:else}
             <Picture name={`STCFN${utext.charCodeAt(i).toString().padStart(3, '0')}`} type='sprite' />
         {/if}

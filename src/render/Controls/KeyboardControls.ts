@@ -48,6 +48,7 @@ export const keyboardControls: Action<HTMLElement, Params> =
         );
     }
 
+    clearInputState();
     doc.addEventListener('keydown', keydown);
     doc.addEventListener('keyup', keyup);
     const update = (params: Params) => {
@@ -90,5 +91,11 @@ export const keyboardControls: Action<HTMLElement, Params> =
         } else {
             input[propFromFn[fn]] = false;
         }
+    }
+
+    function clearInputState() {
+        input.move.set(0, 0, 0);
+        Object.keys(propFromFn).filter(fn => fn[0] !== 'm')
+            .forEach(fn => input[propFromFn[fn]] = false);
     }
 };

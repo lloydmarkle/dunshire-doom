@@ -219,13 +219,9 @@
             if (recentlyUsed.items.length) {
                 const stackedGrid =
                     (before: ReturnType<typeof gridMover>, main: ReturnType<typeof gridMover>, after: ReturnType<typeof gridMover>) =>
-                    () => {
+                    (): KeyboardEventHandler<Window> => {
                         resetState();
                         resetState = main.monitor();
-                        tick().then(() => {
-                            const element = main.info.buttons.item($cursor);
-                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        });
                         return ev => {
                             if (ev.code === 'ArrowUp') {
                                 if (cursor.val - main.info.cols < 0) {
@@ -352,6 +348,7 @@
             md:grid-cols-3 lg:grid-cols-4 sm:gap-8"
         >
             {#each recentlyUsed.items as info, i (info.wad)}
+                {@const wadNames = info.wad.split('&').map(e => e .split('=')[1]).slice(1)}
                 <a
                     class="btn h-auto no-animation p-0 overflow-hidden shadow-2xl relative"
                     href="#{info.wad}&skill={info.skill}&map={info.map}"
@@ -360,12 +357,21 @@
                     on:pointerenter={cursorSection('recent', i)}
                 >
                     <img width="320" height="200" src={info.image} alt={info.wad} />
-                    <div
-                        class="absolute bottom-2 left-2 p-2 flex items-end text-secondary bg-black rounded-lg"
+
+                    <div class="absolute bottom-2 left-2 p-2 items-start flex flex-col gap-2 bg-black rounded-lg"
                         style:--tw-bg-opacity={.5}
                     >
-                        <span>{info.map}:</span>
-                        <span>{data.skills[info.skill - 1].alias}</span>
+                        <div
+                            class="flex items-end text-secondary"
+                        >
+                            <span>{info.map}:</span>
+                            <span>{data.skills[info.skill - 1].alias}</span>
+                        </div>
+                        <div>
+                        {#each wadNames as name, i}
+                            <div class="badge badge-secondary badge-xs">{name}</div>
+                        {/each}
+                        </div>
                     </div>
                 </a>
             {/each}

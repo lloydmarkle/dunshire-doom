@@ -1,42 +1,11 @@
 import { getContext } from 'svelte'
 import { MapTextures, type RenderSector } from './RenderData';
 import { Game, MapRuntime, type GameSettings, store, type Store, type DoomError, type Lump } from '../doom';
-import { derived, get, writable, type Writable } from 'svelte/store';
+import { derived, get, writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
 import { createFullscreenControls } from './Controls/FullscreenControls';
-
-interface RangeSetting extends BaseSetting<number> {
-    type: 'range';
-    min: number;
-    max: number;
-    step: number;
-}
-const range = (cat: MenuSettingCategory, val: Writable<number>, text: string, min: number, max: number, step: number): RangeSetting => ({ type: 'range', cat, min, max, step, val, text });
-
-interface OptionSetting<T> extends BaseSetting<T> {
-    type: 'option';
-    options: T[];
-}
-const option = <T>(cat: MenuSettingCategory, val: Writable<T>, text: string, options: T[]): OptionSetting<T> => ({ type: 'option', cat, options, val, text });
-
-interface ColorSetting extends BaseSetting<string> {
-    type: 'color';
-}
-const color = (cat: MenuSettingCategory, val: Writable<string>, text: string): ColorSetting => ({ type: 'color', cat, val, text });
-
-interface ToggleSetting extends BaseSetting<boolean> {
-    type: 'toggle';
-}
-const toggle = (cat: MenuSettingCategory, val: Writable<boolean>, text: string): ToggleSetting => ({ type: 'toggle', cat, val, text });
-
-type MenuSettingCategory = 'normal' | 'compatibility' | 'advanced' | 'debug' | 'experimental';
-interface BaseSetting<T> {
-    text: string;
-    cat: MenuSettingCategory;
-    val: Writable<T>;
-}
-export type MenuSetting = RangeSetting | OptionSetting<any> | ToggleSetting | ColorSetting;
+import { menuSetting } from './Menu/MenuItem.svelte';
 
 export const createDefaultSettings = () => {
     const gameSettings: GameSettings = {
@@ -166,7 +135,9 @@ export const createAppContext = () => {
     }
     Object.keys(settings).filter(k => typeof settings[k] === 'object').forEach(k => settings[k].subscribe(saveSettings));
 
+    const { range, option, toggle, color } = menuSetting;
     const settingsMenu = [
+        toggle('normal', settings.muted, 'Mute sound'),
         range('normal', settings.mainVolume, 'Main volume', 0, 1, .1),
         range('normal', settings.soundVolume, 'Sound volume', 0, 1, .1),
         range('normal', settings.musicVolume, 'Music volume', 0, 1, .1),

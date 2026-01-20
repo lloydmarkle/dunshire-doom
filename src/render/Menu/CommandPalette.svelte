@@ -10,8 +10,8 @@
 <script lang="ts">
     import { MagnifyingGlass } from "@steeze-ui/heroicons";
     import { Icon } from "@steeze-ui/svelte-icon";
-    import { useAppContext, useDoom, type MenuSetting } from "../DoomContext";
-    import MenuItem from "./MenuItem.svelte";
+    import { useAppContext, useDoom } from "../DoomContext";
+    import MenuItem, { type MenuSetting, menuSetting } from "./MenuItem.svelte";
     import { store } from "../../doom";
     import { applySoundsToDOM, menuSoundPlayer } from "./Menu.svelte";
     import { createSoundBufferCache } from "../SoundPlayer.svelte";
@@ -21,16 +21,15 @@
 
     const { wad } = useDoom();
     const { settingsMenu, editor, audio, soundGain } = useAppContext();
-    const { muted, simulate486 } = useAppContext().settings;
+    const { simulate486 } = useAppContext().settings;
 
     const inspectorEnabled = store($editor.active);
     inspectorEnabled.subscribe(val => $editor.active = val);
     const settingsIndex: (MenuSetting & { searchText: string })[] = [
         ...settingsMenu,
-        { type: 'toggle', cat: 'normal', val: muted, text: 'Mute sound' },
-        { type: 'toggle', cat: 'advanced', val: simulate486, text: '486 simulator' },
-        // { type: 'toggle', cat: 'advanced', val: fullscreen, text: 'Fullscreen' },
-        { type: 'toggle', cat: 'advanced', val: inspectorEnabled, text: 'Debug inspector' },
+        menuSetting.toggle('advanced', simulate486, '486 simulator'),
+        // menuSetting.toggle('advanced', fullScreenToggle, 'Full screen'),
+        menuSetting.toggle('advanced', inspectorEnabled, 'Debug inspector'),
     ].map<any>(e => ({ ...e, searchText: e.text.toLocaleLowerCase() + (e.type === 'option' ? (e as any).options.join(' ') : '') }));
 
     let activeItem = 0;

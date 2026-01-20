@@ -2,11 +2,14 @@
     import type { DoomWad, WadFile } from "../../doom";
     import MapPreview from './MapPreview.svelte';
 
-    export let wadFile: WadFile;
-    export let wad: DoomWad;
+    interface Props {
+        wadFile: WadFile;
+        wad: DoomWad;
+    }
+    let { wadFile, wad }: Props = $props();
 
-    const mapNames = [...wad.mapNames].sort();
-    let selectedMap = mapNames[0];
+    const mapNames = $derived([...wad.mapNames].sort());
+    let selectedMap = $derived(mapNames[0]);
 </script>
 
 <div class="flex flex-col gap-1">

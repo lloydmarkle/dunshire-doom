@@ -16,10 +16,9 @@
     $: if (wadFiles) {
         // store files in wad store
         for (const file of wadFiles) {
-            file.arrayBuffer().then(buff => {
-                const info  = wadStore.saveWad(file.name, buff);
-                toastMessage(`${info.name} added (${info.iwad ? 'IWAD' : 'PWAD'})`, messageTime);
-            });
+            file.arrayBuffer()
+                .then(buff => wadStore.saveWad(file.name, buff))
+                .then(info => toastMessage(`${info.name} added (${info.iwad ? 'IWAD' : 'PWAD'})`, messageTime));
         }
     }
 
@@ -32,14 +31,14 @@
             Promise.all([...ev.dataTransfer.items].map(async item => {
                 if (item.kind === "file") {
                     const file = item.getAsFile();
-                    const info = wadStore.saveWad(file.name, await file.arrayBuffer());
+                    const info = await wadStore.saveWad(file.name, await file.arrayBuffer());
                     toastMessage(`${info.name} added (${info.iwad ? 'IWAD' : 'PWAD'})`, messageTime);
                 }
             }));
         } else {
             // Use DataTransfer interface to access the file(s)
             [...ev.dataTransfer.files].forEach(async (file, i) => {
-                const info = wadStore.saveWad(file.name, await file.arrayBuffer());
+                const info = await wadStore.saveWad(file.name, await file.arrayBuffer());
                 toastMessage(`${info.name} added (${info.iwad ? 'IWAD' : 'PWAD'})`, messageTime);
             });
         }
@@ -62,6 +61,9 @@
         on:dragenter={() => fileDropActive = true}
         on:dragleave={() => fileDropActive = false}
     >
+
+    <slot />
+
     <label class="label md:text-lg" for="wad-file-drop">
         <span>
         Load a <a class="link link-primary" class:disable-pointer={fileDropActive} target="_blank" rel="noreferrer" href="https://zdoom.org/wiki/IWAD">DOOM WAD</a>

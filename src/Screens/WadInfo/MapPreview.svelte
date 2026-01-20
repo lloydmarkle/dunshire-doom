@@ -93,4 +93,4 @@
     on:touchmove|preventDefault
     on:wheel|preventDefault={mousewheel}
     bind:this={canv}
-/>
+></canvas>

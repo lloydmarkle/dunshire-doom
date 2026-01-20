@@ -240,7 +240,7 @@
                 class:show-dead-zone={showDeadZone}
                 class:extra-active={useButton || useLock}
                 class:dpad-move={!$analogMovement}
-            />
+            ></div>
             {/if}
         </div>
 
@@ -265,15 +265,15 @@
                 class="touchGradient border-2 border-accent border-opacity-40 rounded-full"
                 class:show-dead-zone={showDeadZone}
                 class:extra-active={attackButton || attackLock}
-            />
+            ></div>
             {/if}
         </div>
 
-        <button
+        <button title="weapon"
             class="touchGradient rounded-full absolute"
             style="--px:50%; --py:50%; --size:{$touchAreaSize * 1.2}px"
             on:click={() => showWeaponMenu = !showWeaponMenu}
-        />
+        ></button>
     </div>
 
     {#if showWeaponMenu && player}

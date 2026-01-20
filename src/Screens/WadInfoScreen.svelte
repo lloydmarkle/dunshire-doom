@@ -12,8 +12,11 @@
     // A SLADE inspired wad view. It's definitely not as complete and does not allow editing
     // but who knows... maybe someday?
 
-    export let wadInfo: WADInfo;
-    export let wadFile: WadFile;
+    interface Props {
+        wadInfo: WADInfo;
+        wadFile: WadFile;
+    }
+    let { wadInfo, wadFile }: Props = $props();
 
     let imageLumpRanges = [];
     function isGraphic(lump: Lump, index: number) {
@@ -32,29 +35,29 @@
         );
     }
 
-    $: wad = initializeWad(wadInfo.name, wadFile);
-    function initializeWad(name: string, file: WadFile) {
-        const wad = new DoomWad(name, [file]);
+    let wad = $derived.by(() => {
+        const wad = new DoomWad(wadInfo.name, [wadFile]);
         // we need a default palette to render graphics
         if (wad.palettes.length === 0) {
             wad.palettes.push(defaultPalette);
         }
 
         let rangeStart = -1;
-        for (let i = 0; i < file.lumps.length; i++) {
-            if (file.lumps[i].name.endsWith('_START') && rangeStart === -1) {
+        for (let i = 0; i < wadFile.lumps.length; i++) {
+            if (wadFile.lumps[i].name.endsWith('_START') && rangeStart === -1) {
                 rangeStart = i;
-            } else if (file.lumps[i].name.endsWith('_END') && rangeStart > 0) {
+            } else if (wadFile.lumps[i].name.endsWith('_END') && rangeStart > 0) {
                 imageLumpRanges.push([rangeStart, i]);
                 rangeStart = -1;
             }
         }
 
         return wad;
-    }
+    });
 
-    $: wadComponents = [
-        wad.mapNames.length ? [`Maps (${wad.mapNames.length})`, MapSection, false] : null,
+    let componentSection = $state(-1);
+    let wadComponents = $derived([
+        wad.mapNames.length ? [`Maps (${wad.mapNames.length})`, MapSection] : null,
         // wad.texturesNames.length ? ['Textures', ] : [],
         // wad.flatsNames.length ? ['Flats', ] : [],
         // wad.sprites.length ? ['Sprites', ] : [],
@@ -62,16 +65,16 @@
         // wad.graphics.length ? ['Graphics', ] : [],
         // wad.Sounds.length ? ['Sounds', ] : [],
         // wad.music.length ? ['Music', ] : [],
-    ].filter(e => e) as any;
+    ].filter(e => e) as any);
 
     const printBytes = (n: number) =>
         (n >> 20) > 0 ? (n / 1024 / 1024).toFixed(1) + 'MB' :
         (n >> 10) > 0 ? (n / 1024).toFixed(1) + 'KB' :
         n + 'B';
 
-    let searchText = '';
-    $: lowerCaseSearchText = searchText.toUpperCase();
-    $: filteredLumps = wadFile.lumps.filter(wad => wad.name.includes(lowerCaseSearchText));
+    let searchText = $state('');
+    let lowerCaseSearchText = $derived(searchText.toUpperCase());
+    let filteredLumps = $derived(wadFile.lumps.filter(wad => wad.name.includes(lowerCaseSearchText)));
 
     function lumpType(lump: Lump, index: number) {
         if (lump.name === 'ENDOOM') {
@@ -89,8 +92,8 @@
         return 'n/a';
     }
 
-    let selectedLump: Lump = null;
-    let selectedLumpIndex = 0;
+    let selectedLump = $state<Lump>(null);
+    let selectedLumpIndex = $state(-1);
     function select(lump: Lump, index: number) {
         selectedLump = lump;
         selectedLumpIndex = index;
@@ -100,15 +103,17 @@
         window.location.hash = params.toString();
     }
 
+    let lumpTable: HTMLTableElement;
     function parseUrlHash(hash: string) {
         const params = new URLSearchParams(hash.substring(1));
-        const lumpIndex = params.get('lump');
-        if (lumpIndex) {
-            const index = Number(lumpIndex);
-            select(wadFile.lumps[index], index);
+        const lumpIndex = Number(params.get('lump') ?? -1);
+        if (lumpIndex !== selectedLumpIndex) {
+            select(wadFile.lumps[lumpIndex], lumpIndex);
+            const element = lumpTable.querySelectorAll('tbody tr').item(lumpIndex);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
-    $: parseUrlHash(window.location.hash);
+    $effect(() => parseUrlHash(window.location.hash));
 </script>
 
 <svelte:window on:popstate={() => parseUrlHash(window.location.hash)} />
@@ -118,20 +123,19 @@
         <h2 class="text-2xl font-mono">{wadInfo.name}</h2>
         <span>{printBytes(wadFile.size)}, {wadFile.lumps.length} Lumps.</span>
     </div>
-    <div class="flex justify-end">
+    <div class="flex justify-end sm:min-w-36">
         <a class="btn btn-primary w-full" href="#wad={wadInfo.episodicMaps ? 'doom' : 'doom2'}&wad={wadInfo.name}&play">Play</a>
-        <button class="btn">Delete</button>
     </div>
 </section>
 
 <section>
-    {#each wadComponents as wc}
+    {#each wadComponents as [name, Component], i}
     <div class="collapse collapse-arrow bg-base-200">
-        <input type="checkbox" name="wad-content" on:change={() => wc[2] = !wc[2]} />
-        <div class="collapse-title text-xl font-medium">{wc[0]}</div>
+        <input type="checkbox" name="wad-content" onchange={() => componentSection = componentSection === i ? -1 : i} />
+        <div class="collapse-title text-xl font-medium">{name}</div>
         <div class="collapse-content max-h-[32rem]">
-            {#if wc[2]}
-                <svelte:component this={wc[1]} {wadFile} {wad} />
+            {#if componentSection === i}
+                <Component {wadFile} {wad} />
             {/if}
         </div>
     </div>
@@ -147,7 +151,7 @@
                 <Icon src={MagnifyingGlass} theme='outline' size="8px" />
             </label>
             <div class="bg-base-300 max-w-xs max-h-[32rem] overflow-y-scroll">
-                <table class="table table-xs">
+                <table class="table table-xs" bind:this={lumpTable}>
                     <!-- head -->
                     <thead>
                         <tr>
@@ -160,10 +164,12 @@
                     <tbody>
                         {#each wadFile.lumps as lump, i}
                         <tr
-                            class="cursor-pointer"
-                            class:bg-accent={selectedLump === lump}
-                            class:hidden={!filteredLumps.includes(lump)}
-                            on:click={() => select(lump, i)}
+                            class={[
+                                "cursor-pointer",
+                                selectedLumpIndex === i && 'bg-accent',
+                                !filteredLumps.includes(lump) && 'hidden'
+                            ]}
+                            onclick={() => select(lump, i)}
                         >
                             <th>{i}</th>
                             <td>{lump.name}</td>

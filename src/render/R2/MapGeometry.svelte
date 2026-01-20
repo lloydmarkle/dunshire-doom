@@ -79,7 +79,8 @@
     $: updateInspectors($editor);
 
     // magic https://stackoverflow.com/questions/49873459
-    const shadowBias = -0.004;
+    // it probably depends on light distance, intensity, and decay
+    const shadowBias = -0.0004;
 
     $: usePlayerLight = $playerLight !== '#000000';
     $: receiveShadow = usePlayerLight;
@@ -113,7 +114,7 @@
 </T.Mesh>
 
 <T.Mesh
-    on:click={hit(geometry)}
+    onclick={hit(geometry)}
     renderOrder={1}
     {geometry}
     {material}
@@ -126,7 +127,7 @@
 </T.Mesh>
 
 <T.Mesh
-    on:click={hit(translucentGeometry)}
+    onclick={hit(translucentGeometry)}
     renderOrder={1}
     geometry={translucentGeometry}
     material={tranMaterial.material}
