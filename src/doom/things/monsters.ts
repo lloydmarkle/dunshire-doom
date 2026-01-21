@@ -974,12 +974,12 @@ const precomputeCollisions = (() => {
         return true; // continue search
     }
 
-    return (mobj: MapObject) => {
+    return (mobj: MapObject, moveDistance = 0) => {
         _precomputedHits = [];
 
         self = mobj;
         traceParams.start = mobj.position;
-        traceParams.radius = mobj.info.radius + mobj.info.speed;
+        traceParams.radius = mobj.info.radius + mobj.info.speed + moveDistance;
         traceParams.height = mobj.info.height;
         // for perf: if we are not solid, skip hitting other mobjs. MSCP MAP14 was really slow without this because of the
         // hundreds of stacked cell packs on a sliding floor
@@ -992,7 +992,7 @@ const precomputeCollisions = (() => {
 const _nVec = new Vector3();
 const _centreMoveEnd = new Vector3();
 export function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
-    precomputeCollisions(mobj);
+    precomputeCollisions(mobj, move.length());
     return precomputedFindMoveBlocker(mobj, move, specialLines);
 }
 
@@ -1000,7 +1000,7 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
     // only check centre of object movement for special triggers (not edges like players do)
     _centreMoveEnd.copy(mobj.position).add(move);
     // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
-    const moveRadius = mobj.info.radius - 1;
+    const moveRadius = mobj.isMonster ? mobj.info.radius - 1 : mobj.info.radius;
     // compute highest and lowest floor we are touching because monsters cannot climb narrow steps
     // (players and floating monsters can though)
     const maxFloorChangeOK = (mobj.info.flags & MFFlags.MF_FLOAT) || maxFloorChange(mobj, move, moveRadius) <= maxStepSize;

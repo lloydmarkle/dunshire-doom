@@ -457,6 +457,8 @@ export interface SpecialDefinition {
 
 type TargetValueFunction = (map: MapRuntime, sector: Sector, linedef?: LineDef) => number;
 
+const reduceEmpty = <T>(arr: T[], fn: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T): T =>
+    arr.length === 0 ? undefined : arr.reduce(fn);
 const findLowestCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), maxZ)
 const lowestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
@@ -466,15 +468,15 @@ const highestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
 const highestNeighbourFloorInclusive = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor), sector.zFloor);
 const nextNeighbourCeilingUp = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).filter(sec => sec.zCeil > sector.zCeil).reduce((last, sec) => sec.zCeil < last.zCeil ? sec : last)?.zCeil ?? sector.zCeil;
+    reduceEmpty(map.data.sectorNeighbours(sector).filter(sec => sec.zCeil > sector.zCeil), (last, sec) => sec.zCeil < last.zCeil ? sec : last)?.zCeil ?? sector.zCeil;
 const nextNeighbourCeilingDown = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).filter(sec => sec.zCeil < sector.zCeil).reduce((last, sec) => sec.zCeil > last.zCeil ? sec : last)?.zCeil ?? sector.zCeil;
+    reduceEmpty(map.data.sectorNeighbours(sector).filter(sec => sec.zCeil < sector.zCeil), (last, sec) => sec.zCeil > last.zCeil ? sec : last)?.zCeil ?? sector.zCeil;
 const nextLowestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).filter(sec => sec.zFloor < sector.zFloor).reduce((last, sec) => sec.zFloor > last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
+    reduceEmpty(map.data.sectorNeighbours(sector).filter(sec => sec.zFloor < sector.zFloor), (last, sec) => sec.zFloor > last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
 const nextNeighbourFloorUp = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).filter(sec => sec.zFloor > sector.zFloor).reduce((last, sec) => sec.zFloor < last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
+    reduceEmpty(map.data.sectorNeighbours(sector).filter(sec => sec.zFloor > sector.zFloor), (last, sec) => sec.zFloor < last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
 const nextNeighbourFloorDown = (map: MapRuntime, sector: Sector) =>
-    map.data.sectorNeighbours(sector).filter(sec => sec.zFloor < sector.zFloor).reduce((last, sec) => sec.zFloor > last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
+    reduceEmpty(map.data.sectorNeighbours(sector).filter(sec => sec.zFloor < sector.zFloor), (last, sec) => sec.zFloor > last.zFloor ? sec : last)?.zFloor ?? sector.zFloor;
 const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
 const highestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
@@ -1660,7 +1662,7 @@ export function pusherAction(map: MapRuntime, linedef: LineDef, scrollSpeed: { d
         // group mobjs by sector _before_ moving because otherwise the mobj may be put into another sector
         // that also moves. Actually, that can still happen if the mobj moves to a different pusher but from the
         // little testing I've done (cchest MAP02), it's expected.
-        const sectorMobjs = sectors.map(sector => sectorObjects(map, sector).filter(e => e.zFloor <= sector.zFloor));
+        const sectorMobjs = sectors.map(sector => sectorObjects(map, sector).filter(e => e.zFloor <= sector.zFloor && !(e.info.flags & MFFlags.MF_NOCLIP)));
         for (const mobjs of sectorMobjs) {
             for (let i = 0; i < mobjs.length; i++) {
                 specials.length = 0;

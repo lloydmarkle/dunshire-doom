@@ -558,8 +558,8 @@ const loadMapMusicInfo = (mapName: string, lump: Lump): { [key: number]: string 
 const linedefScrollSpeed = (ld: LineDef) =>{
     const slope = linedefSlope(ld);
     return {
-        dx: Math.sign(slope.dx) * slope.length / 32,
-        dy: Math.sign(slope.dy) * slope.length / 32,
+        dx: Math.floor(slope.dx / 32),
+        dy: Math.floor(slope.dy / 32),
     };
 }
 
