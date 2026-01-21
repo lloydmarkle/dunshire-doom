@@ -413,7 +413,7 @@ export class MapRuntime {
                 }
             } else if (ld.special >= 250 && ld.special <= 253) {
                 const scrollSpeed = linedefScrollSpeed(ld);
-                for (const sector of this.sectorsByTag.get(ld.tag)) {
+                for (const sector of this.sectorsByTag.get(ld.tag) ?? []) {
                     sector.scrollers = sector.scrollers ?? [];
                     sector.scrollers.push({ linedef: ld, scrollSpeed });
                 }

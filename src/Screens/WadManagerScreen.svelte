@@ -7,6 +7,7 @@
     import WadInfoScreen from "./WadInfoScreen.svelte";
     import { WadFile } from "../doom";
     import { flip } from "svelte/animate";
+    import WadList from "./Launcher/WadList.svelte";
 
     let { wadStore }: { wadStore: WadStore } = $props();
     const wads = $derived(wadStore.wads);
@@ -48,7 +49,7 @@
         const pwadName = params.get('inspect');
         if (pwadName && pwadName !== selectedPWad?.name) {
             selectedPWadIndex = $wads.findIndex(e => e.name === pwadName);
-            const element = document.querySelectorAll('.wad-list .wad-box').item(selectedPWadIndex);
+            const element = document.querySelectorAll('.wad-list li').item(selectedPWadIndex);
             element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
@@ -92,32 +93,25 @@
         {/if}
 
         <div
-            class={["wad-list overflow-scroll", confirmDelete && 'shift-down']}
+            class={["wad-list overflow-scroll z-10", confirmDelete && 'shift-down']}
             style:--tr-shift-down="6rem"
         >
-            <ul class="flex flex-col gap-1 menu">
-                {#each visibleWads as wad, i (wad.name)}
-                    <li
-                        transition:fly={{ y:'-4rem' }}
-                        animate:flip={{ duration: 200 }}
-                        class="relative rounded-lg overflow-hidden z-10"
+            <WadList wads={visibleWads}>
+                {#snippet item(wad, i)}
+                    <a
+                        href="#tab=wads&inspect={wad.name}"
+                        onclick={() => selectedPWadIndex = i}
+                        class={[
+                            "p-6",
+                            (selectAll || i === selectedPWadIndex) && 'active border',
+                        ]}
+                        style:--tw-bg-opacity={.4}
                     >
-                        <a
-                            href="#tab=wads&inspect={wad.name}"
-                            onclick={() => selectedPWadIndex = i}
-                            class={[
-                                "wad-box px-6",
-                                (selectAll || i === selectedPWadIndex) && 'active border',
-                            ]}
-                            style:--tw-bg-opacity={.4}
-                            style:--wad-bg="url({wad.image})"
-                        >
-                            {wad.name}
-                            <span class="text-xs">[{wad.mapCount} map{wad.mapCount === 1 ? '' : 's'}{(wad.episodicMaps ? ' (episodic)' : '')}]</span>
-                        </a>
-                    </li>
-                {/each}
-            </ul>
+                        {wad.name}
+                        <span class="text-xs">[{wad.mapCount} map{wad.mapCount === 1 ? '' : 's'}{(wad.episodicMaps ? ' (episodic)' : '')}]</span>
+                    </a>
+                {/snippet}
+            </WadList>
         </div>
 
         {#if selectedPWad}
@@ -156,21 +150,5 @@
     }
     .shift-down {
         transform: translate(0, var(--tr-shift-down));
-    }
-
-    .wad-box {
-        padding-block: var(--wadlist-boxHeight, 1.5rem);
-    }
-
-    .wad-box:after {
-        content:'';
-        position: absolute;
-        inset: 0;
-        background:
-            linear-gradient(.4turn, var(--fallback-sc,oklch(var(--sc)/1)), var(--fallback-sc,oklch(var(--sc)/.5))),
-            var(--wad-bg);
-        background-position: 0% 30%;
-        background-size: cover;
-        z-index: -1;
     }
 </style>

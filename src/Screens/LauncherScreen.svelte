@@ -52,7 +52,6 @@
     import Picture from "../render/Components/Picture.svelte";
     import { Home, MagnifyingGlass } from "@steeze-ui/heroicons";
     import { Icon } from "@steeze-ui/svelte-icon";
-    import WadList from "../render/Components/WadList.svelte";
     import { useAppContext } from "../render/DoomContext";
     import { createSoundBufferCache } from "../render/SoundPlayer.svelte";
     import { onMount, tick } from "svelte";
@@ -60,6 +59,7 @@
     import type { KeyboardEventHandler } from "svelte/elements";
     import PreloadWad, { preloadedWads } from "./Launcher/PreloadWad.svelte";
     import { SpeakerWave, SpeakerXMark } from "@steeze-ui/heroicons";
+    import WadList from './Launcher/WadList.svelte';
 
     export let wads: WADInfo[];
     export let wadStore: WadStore;
@@ -74,21 +74,13 @@
     $: msfx = menuSounds.sfx;
     $: menuSounds.channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
     $: recentlyUsed = recentlyUsedGames(wads);
+    $: $musicTrack = wad ? (wad.optionalLump('D_DM2TTL') ?? wad.optionalLump('D_INTRO')) : null;
 
     const nullTransition = () => ({ duration: 0 });
     const [send, receive] = crossfade({
 		duration: 350,
 		fallback: nullTransition,
 	});
-
-    let searchText = '';
-    $: lowerCaseSearchText = searchText.toLowerCase();
-    $: filteredWads = pWads.filter(wad => wad.name.includes(lowerCaseSearchText));
-
-    let selectedIWad: WADInfo;
-    let selectedPWads: WADInfo[] = [];
-    let bgImage = '';
-    $: $musicTrack = wad ? (wad.optionalLump('D_DM2TTL') ?? wad.optionalLump('D_INTRO')) : null;
 
     let skullImage = 0;
     const skullImages = ['M_SKULL1', 'M_SKULL2'];
@@ -98,8 +90,26 @@
         return () => clearInterval(skullChanger);
     });
 
+    let searchText = '';
+    $: lowerCaseSearchText = searchText.toLowerCase();
+    $: filteredWads = pWads.filter(wad => wad.name.includes(lowerCaseSearchText));
+
+    const formatPWADUrl = (wad: WADInfo, selected: string[], hash: string) => {
+        const params = new URLSearchParams(hash.substring(1));
+        if (selected.find(w => w === wad.name)) {
+            params.delete('wad', wad.name);
+        } else {
+            params.append('wad', wad.name);
+        }
+        return '#' + params.toString();
+    }
+    const toggleWad = (wad: WADInfo) => () =>
+        window.location.hash = formatPWADUrl(wad, selectedPWads, window.location.hash);
+
+    let selectedIWad: WADInfo;
+    let selectedPWads: string[] = [];
+    let bgImage = '';
     let selectedWadName = '';
-    $: if (selectedIWad) selectedWadName = selectedIWad.name;
     let lastPwadsCount = 0;
     let lastIWad = '';
     let startPlaying = false;
@@ -110,8 +120,10 @@
 
         const wads = params.getAll('wad');
         selectedIWad = iwads.find(e => e.name === wads[0]);
-        selectedPWads = wads.map(p => pWads.find(e => e.name === p)).filter(e => e);
-        bgImage = selectedPWads.reduce<string>((img, pwad) => pwad.image ?? img, undefined) ?? selectedIWad?.image;
+        selectedWadName = selectedIWad?.name ?? selectedWadName;
+        const pwads = wads.map(p => pWads.find(e => e.name === p)).filter(e => e);
+        bgImage = pwads.reduce<string>((last, pwad) => pwad?.image?.length ? pwad.image : last, undefined) ?? selectedIWad?.image;
+        selectedPWads = pwads.map(e => e.name);
 
         if (selectedIWad?.name !== lastIWad) {
             (lastIWad ? msfx.swtchx : msfx.pistol)();
@@ -127,19 +139,14 @@
             mapName = urlMapName;
         }
 
-        let play = startPlaying;
+        let wasPlaying = startPlaying;
         startPlaying = params.has('play') || params.has('map');
-        if (play !== startPlaying) {
-            (play ? msfx.swtchx : msfx.pistol)();
+        if (wasPlaying !== startPlaying) {
+            (wasPlaying ? msfx.swtchx : msfx.pistol)();
         }
     }
     $: parseUrlHash(window.location.hash, iWads);
 
-    // TODO: the url state management in this component is a mess. The whole component is a mess really. It works but
-    // it feels like it could be written in a much cleaner and tidier way.
-    $: if (wad && selectedPWads && !startPlaying && !mapName) {
-        window.location.href = '#' + [selectedIWad, ...selectedPWads].filter(p => p).map(p => `wad=${p.name}`).join('&');
-    }
     $: screen =
         wad && startPlaying && mapNames.includes('E1M1') && !mapName ? 'select-episode' :
         wad && startPlaying ? 'select-skill' :
@@ -273,20 +280,28 @@
         });
 
         const wads = (): KeyboardEventHandler<Window> => {
+            const scrollTo = () => {
+                const element = rootNode.querySelectorAll<HTMLElement>('.dropdown ul button').item(cursor.val);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             const wadListController = captureCursor(-1, ev => {
                 if (ev.code === 'Enter' || ev.code === 'Return' || ev.code === 'Space') {
                     cursor.update(y => wrapAround(y, filteredWads.length));
-                    rootNode.querySelectorAll<HTMLElement>('.dropdown ul label').item(cursor.val).click();
+                    rootNode.querySelectorAll<HTMLElement>('.dropdown ul button').item(cursor.val).click();
                     rootNode.querySelector<HTMLElement>('.dropdown input').focus();
                     ev.preventDefault();
+                } else if (ev.code === 'Delete') {
+                    rootNode.querySelector<HTMLElement>('.dropdown .clear-selection').click();
                 } else if (ev.code === 'Escape') {
                     rootNode.querySelector<HTMLElement>('.card-actions .btn').focus();
                     searchText = '';
                     msfx.swtchx();
                 } else if (ev.code === 'ArrowDown') {
                     cursor.update(n => wrapAround(n + 1, filteredWads.length));
+                    scrollTo();
                 } else if (ev.code === 'ArrowUp') {
                     cursor.update(n => wrapAround(n - 1, filteredWads.length));
+                    scrollTo();
                 }
             })();
             const wadScreenController = captureCursor(0, ev => {
@@ -448,7 +463,7 @@
                     <div class="divider sm:divider-horizontal">+</div>
                     <div class="flex flex-wrap gap-2 p-4 bg-base-300 rounded-box place-items-center">
                         {#each selectedPWads as pwad}
-                            <div class="badge badge-primary badge-lg">{pwad.name}</div>
+                            <div class="badge badge-primary badge-lg">{pwad}</div>
                         {/each}
                     </div>
                     {/if}
@@ -473,13 +488,36 @@
                                 style:--wadlist-boxHeight=".5rem"
                             >
                                 <div class="flex flex-wrap gap-1 items-center px-4 py-2 z-10 bg-base-100 sticky top-0 shadow-2xl">
-                                    <button class="btn btn-sm" on:click={() => selectedPWads = []}>Clear selection</button>
+                                    <a class="clear-selection btn btn-sm" href="#wad={selectedWadName}">
+                                        Clear selection
+                                        {#if keyboardActive}
+                                            <kbd class="kbd kbd-xs uppercase">del</kbd>
+                                        {/if}
+                                    </a>
                                     <label class="input input-bordered input-sm flex items-center gap-2 ms-auto">
                                         <input type="text" class="grow" placeholder="Search" bind:value={searchText} />
                                         <Icon src={MagnifyingGlass} theme='outline' size="8px" />
                                     </label>
                                 </div>
-                                <WadList wads={filteredWads} bind:selected={selectedPWads} highlightIndex={$cursor} />
+
+                                <WadList wads={filteredWads}>
+                                    {#snippet item(wad, i)}
+                                        {@const checked = selectedPWads.includes(wad.name)}
+                                        <button
+                                            on:click={toggleWad(wad)}
+                                            class={[
+                                                "px-6",
+                                                i === $cursor && 'active',
+                                                checked && 'border'
+                                            ]}
+                                            style:--tw-bg-opacity={.4}
+                                        >
+                                            {wad.name}
+                                            <span class="text-xs">[{wad.mapCount} map{wad.mapCount === 1 ? '' : 's'}{(wad.episodicMaps ? ' (episodic)' : '')}]</span>
+                                            <input type="checkbox" class="checkbox" {checked}  />
+                                        </button>
+                                    {/snippet}
+                                </WadList>
                             </div>
                         </div>
                         {/if}
