@@ -11,6 +11,7 @@ import type { InventoryWeapon } from "./things/weapons";
 import { derived } from "svelte/store";
 import type { Sprite } from "./sprite";
 import { EventEmitter } from "./events";
+import type { Lump } from "../doom";
 
 export type LineSide = 'left' | 'right';
 export type WallTextureType = 'upper' | 'lower' | 'middle';
@@ -127,9 +128,10 @@ export class MapRuntime {
     readonly trev = store(1);
     players: MapObject[] = [];
     readonly objs = new Set<MapObject>();
+    readonly musicTrack: Store<string>;
+    readonly musicChangeSectors: { sector: Sector, track: string }[] = [];
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
     readonly disposables: (() => void)[] = [];
-    readonly musicTrack: Store<string>;
 
     // some caches to help speed up game computations
     readonly teleportMobjs: MapObject[] = [];
@@ -237,7 +239,10 @@ export class MapRuntime {
         if (!skillMatch) {
             return;
         }
-            // || (this.game.settings.skipInitialSpawn.val && thing.class !== 'S'
+        if (thing.type >= 14100 && thing.type <= 14164) {
+            return; // music changers do not get spawned
+        }
+
         const type = thing.type === 1 ? MapObjectIndex.MT_PLAYER :
             mapObjectInfo.findIndex(e => e.doomednum === thing.type);
         if (type === -1) {
@@ -447,6 +452,14 @@ export class MapRuntime {
                 this.stats.totalSecrets += 1;
             }
         }
+
+        this.musicChangeSectors.length = 0;
+        const musicInfo = loadMapMusicInfo(this.name, this.game.wad.optionalLump('MUSINFO'));
+        for (const thing of this.data.things.filter(e => e.type >= 14100 && e.type <= 14164)) {
+            const sector = this.data.findSector(thing.x, thing.y);
+            const track = musicInfo[thing.type - 14100] ?? mapMusicTrack(this.game, this.name);
+            this.musicChangeSectors.push({ sector, track });
+        }
     }
 
     updateCaches() {
@@ -527,6 +540,19 @@ export class MapRuntime {
         this.addAction(action);
         return true;
     }
+}
+
+const loadMapMusicInfo = (mapName: string, lump: Lump): { [key: number]: string } => {
+    const result = {};
+    if (!lump) {
+        return result;
+    }
+    const text = new TextDecoder().decode(lump.data).split('\n').map(e => e.trim()).filter(e => e);
+    for (let i = text.indexOf(mapName) + 1; i < text.length && isFinite(Number(text[i][0])); i++) {
+        const [num, track] = text[i].split(' ');
+        result[Number(num)] = track;
+    }
+    return result;
 }
 
 const linedefScrollSpeed = (ld: LineDef) =>{

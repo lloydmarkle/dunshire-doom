@@ -739,6 +739,8 @@ export class PlayerMapObject extends MapObject {
     nextWeapon: InventoryWeapon = null;
     hudMessage = store('');
 
+    private pendingMusicChange: [string, number] = null;
+
     constructor(readonly inventory: Store<PlayerInventory>, mobj: MapObject) {
         super(mobj.map, thingSpec(MapObjectIndex.MT_PLAYER), mobj.position, mobj.direction);
 
@@ -805,6 +807,22 @@ export class PlayerMapObject extends MapObject {
         // different from this.onGround because that depends on this.zFloor which takes into account surrounding sector
         // here we are only looking at the sector containing the player center
         const onGround = this.position.z <= sector.zFloor;
+        // Music changes
+        if (this.pendingMusicChange) {
+            this.pendingMusicChange[1] -= 1;
+            if (!this.pendingMusicChange[1]) {
+                this.map.musicTrack.set(this.pendingMusicChange[0]);
+                this.pendingMusicChange = null;
+            }
+        }
+        if (onGround && !this.pendingMusicChange) {
+            const musicChange = this.map.musicChangeSectors.find(e => e.sector === sector);
+            if (musicChange) {
+                this.pendingMusicChange = [musicChange.track, 30];
+            }
+        }
+
+        // sector specials (damaging floor, secrets, etc.)
         if (sector.type && onGround) {
             const haveRadiationSuit = this.inventory.val.items.radiationSuitTicks > 0;
             // only cause pain every 31st tick or about .89s

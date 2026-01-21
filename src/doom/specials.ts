@@ -310,7 +310,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
     if (ignoreLines.has(linedef.special)) {
         return;
     }
-    console.log('special',linedef.special)
+
     let action = doomSpecials[linedef.special]?.();
     if (action) {
         return action(mobj, linedef, trigger, side);
