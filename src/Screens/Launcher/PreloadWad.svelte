@@ -3,8 +3,8 @@
     type PreloadedWad = typeof preloadedWads[0];
 
     export const preloadedWads = $state([
-        { name: 'Freedoom Phase 1', link: '/remotes/freedoom1.zip', size: '10MB', installProgress: 0, notice: undefined },
-        { name: 'Freedoom Phase 2', link: '/remotes/freedoom2.zip', size: '10.5MB', installProgress: 0, notice: undefined },
+        { name: 'Freedoom Phase 1', link: './remotes/freedoom1.zip', size: '10MB', installProgress: 0, notice: undefined },
+        { name: 'Freedoom Phase 2', link: './remotes/freedoom2.zip', size: '10.5MB', installProgress: 0, notice: undefined },
     ]);
 </script>
 <script lang="ts">
@@ -44,7 +44,7 @@
     let modal: HTMLDialogElement;
     async function showModal() {
         modal.showModal();
-        wad.notice = wad.notice ?? fetch('/remotes/COPYING.txt').then(res => res.text());
+        wad.notice = wad.notice ?? fetch('./remotes/COPYING.txt').then(res => res.text());
     }
 
     let titlepic = $derived(wad.link.replace('.zip', '.titlepic.lump'));
