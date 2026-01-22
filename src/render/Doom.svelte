@@ -74,7 +74,7 @@
             }
 
             try {
-                game.tick(time - lastTickTime, tScale);
+                game.tick((time - lastTickTime) * tScale);
                 lastTickTime = time;
             } catch (e) {
                 $error = e;
