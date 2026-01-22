@@ -5,7 +5,7 @@ import { derived, get, writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
 import { createFullscreenControls } from './Controls/FullscreenControls';
-import { menuSetting } from './Menu/MenuItem.svelte';
+import { menuSetting } from './Menu/menu';
 
 export const createDefaultSettings = () => {
     const gameSettings: GameSettings = {

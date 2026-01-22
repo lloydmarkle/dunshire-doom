@@ -11,11 +11,12 @@
     import { MagnifyingGlass } from "@steeze-ui/heroicons";
     import { Icon } from "@steeze-ui/svelte-icon";
     import { useAppContext, useDoom } from "../DoomContext";
-    import MenuItem, { type MenuSetting, menuSetting } from "./MenuItem.svelte";
+    import MenuItem from "./MenuItem.svelte";
     import { store } from "../../doom";
     import { applySoundsToDOM, menuSoundPlayer } from "./Menu.svelte";
     import { createSoundBufferCache } from "../SoundPlayer.svelte";
     import { tick } from "svelte";
+    import { menuSetting, type MenuSetting } from "./menu";
 
     export let active: boolean;
 

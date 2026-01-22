@@ -109,7 +109,7 @@
 <script lang="ts">
     import { fade, fly } from "svelte/transition";
     import { useAppContext, useDoom } from "../DoomContext";
-    import MenuItem, { type MenuSetting } from "./MenuItem.svelte";
+    import MenuItem from "./MenuItem.svelte";
     import CommandPalette from "./CommandPalette.svelte";
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
@@ -120,7 +120,7 @@
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
     import TouchControlsMenu from "./TouchControlsMenu.svelte";
     import { Icon } from '@steeze-ui/svelte-icon'
-    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica, MagnifyingGlass } from '@steeze-ui/heroicons'
+    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica } from '@steeze-ui/heroicons'
 
     const { game } = useDoom();
     const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
@@ -188,6 +188,7 @@
     import { configureGain, createSoundBufferCache, interruptFadeOut, stopSound } from "../SoundPlayer.svelte";
     import { onMount, tick } from "svelte";
     import type { Writable } from "svelte/store";
+    import type { MenuSetting } from "./menu";
     const { audio, soundGain } = useAppContext();
     const { maxSoundChannels } = useAppContext().settings;
     $: soundCache = createSoundBufferCache(audio, game.wad);
