@@ -15,7 +15,7 @@ export interface Thing {
     type: number;
     flags: number;
 }
-function thingsLump(lump: Lump) {
+export function thingsLump(lump: Lump) {
     const len = 10;
     const num = Math.trunc(lump.data.length / len);
     if (num * len !== lump.data.length) {

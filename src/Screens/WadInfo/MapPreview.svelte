@@ -1,16 +1,18 @@
 <script lang="ts">
-    import { readMapVertexLinedefsAndSectors, type Vertex, type DoomWad } from "../../doom";
+    import { readMapVertexLinedefsAndSectors, type Vertex, type DoomWad, thingsLump } from "../../doom";
     import { defaultPalette } from "../../WadStore";
 
     export let wad: DoomWad;
     export let mapName: string;
 
     let canv: HTMLCanvasElement;
-    $: mapData = loadMapData(mapName);
+    $: mapData = loadMapData(mapName, canv);
     $: if (canv) drawMap(mapData, canv, zoom, offset);
 
-    function loadMapData(mapName: string) {
-        const { linedefs } = readMapVertexLinedefsAndSectors(wad.mapLumps.get(mapName));
+    function loadMapData(mapName: string, canvas: HTMLCanvasElement) {
+        const mapLumps = wad.mapLumps.get(mapName)
+        const { linedefs } = readMapVertexLinedefsAndSectors(mapLumps);
+        const things = thingsLump(mapLumps[1]);
 
         // figure out map dimensions
         let bounds = { top: -Infinity, bottom: Infinity, left: Infinity, right: -Infinity };
@@ -21,10 +23,12 @@
             bounds.right = Math.max(ld.v[0].x, ld.v[1].x, bounds.right);
         }
 
-        // TODO: this isn't right and we don't zoom on the pointer/touch position and we don't set a reasonable
-        // default zoom. Overall sloppy.
-        offset.x = (bounds.right - bounds.left) / 2;
-        offset.y = (bounds.top - bounds.bottom) / 2;
+        if (canvas) {
+            zoom = 10;
+            const player = things.findLast(e => e.type === 1);
+            offset.x = (canvas.clientWidth / 2) + player.x - bounds.left;
+            offset.y = (canvas.clientHeight / 4) + bounds.top - player.y;
+        }
         return { linedefs, bounds };
     }
 
@@ -34,8 +38,10 @@
         const { bounds, linedefs } = map;
         const width = (bounds.right - bounds.left);
         const height = (bounds.top - bounds.bottom);
-        const tScale = Math.min(height, width) / (canvasSize * zoom);
+        const tScale = Math.min(height, width) / (Math.min(canvas.clientHeight, canvas.clientWidth) * zoom);
         const palette = wad.palettes[0] ?? defaultPalette;
+        // this offset still isn't' right but it's close
+        const cOffset = { x: canvas.width / 2, y: canvas.height / 4 };
 
         // draw linedefs onto image (scale coordinates based on canvasSize and map dimensions)
         const g = canvas.getContext("2d");
@@ -50,11 +56,10 @@
                 palette[96];
             g.strokeStyle = '#' + lineColour.getHexString();
 
-            let x1 = (offset.x + ld.v[0].x - bounds.left) * tScale;
-            let y1 = (offset.y + bounds.top - ld.v[0].y) * tScale;
-            let x2 = (offset.x + ld.v[1].x - bounds.left) * tScale;
-            let y2 = (offset.y + bounds.top - ld.v[1].y) * tScale;
-
+            let x1 = (ld.v[0].x - bounds.left - offset.x) * tScale + cOffset.x;
+            let y1 = (bounds.top - ld.v[0].y - offset.y) * tScale + cOffset.y;
+            let x2 = (ld.v[1].x - bounds.left - offset.x) * tScale + cOffset.x;
+            let y2 = (bounds.top - ld.v[1].y - offset.y) * tScale + cOffset.y;
             g.beginPath();
             g.moveTo(x1 + canvasPadding, y1 + canvasPadding);
             g.lineTo(x2 + canvasPadding, y2 + canvasPadding);
@@ -63,24 +68,25 @@
     }
 
     const maxZoom = 300;
-    let zoom = 60;
+    let zoom = 2;
     function mousewheel(ev: WheelEvent) {
         zoom = Math.max(1, Math.min(maxZoom, zoom + ev.deltaY * (zoom / maxZoom)));
     }
 
-    let dragStart: DOMPoint;
     let offset = { x: 0, y: 0 };
-    const pointerdown = (ev: PointerEvent) => dragStart = new DOMPoint(ev.clientX, ev.clientY);
-    const pointerup = () => dragStart = undefined;
+    let lastDrag: DOMPoint;
+    const pointerdown = (ev: PointerEvent) => lastDrag = new DOMPoint(ev.clientX, ev.clientY);
+    const pointerup = () => lastDrag = undefined;
     function pointermove(ev: PointerEvent) {
-        if (!dragStart) {
+        if (!lastDrag) {
             return;
         }
         // a crude way to change map position. It would be nicer to drag with momentum but we'd need to apply physics
         // and have some kind of RAF and for such a small feature, it just doesn't seem worth it right now.
         let p = new DOMPoint(ev.clientX, ev.clientY);
-        offset.x += (dragStart.x - p.x);
-        offset.y += (dragStart.y - p.y);
+        offset.x += (lastDrag.x - p.x) * zoom;
+        offset.y += (lastDrag.y - p.y) * zoom;
+        lastDrag = p;
     }
 </script>
 
@@ -88,6 +94,7 @@
     width={canvasSize} height={canvasSize}
     on:pointerdown={pointerdown}
     on:pointerup={pointerup}
+    on:pointerleave={pointerup}
     on:pointercancel={pointerup}
     on:pointermove={pointermove}
     on:touchmove|preventDefault
