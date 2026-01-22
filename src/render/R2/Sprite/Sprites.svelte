@@ -31,7 +31,7 @@
     // }
 
     const { editor, settings } = useAppContext();
-    const { playerLight, interpolateMovement, monsterAI, cameraMode, useTextures } = settings;
+    const { playerLight, interpolateMovement, monsterAI, cameraMode } = settings;
 
     function hit(ev) {
         if (!ev.instanceId) {
@@ -92,10 +92,9 @@
     }
     $: updateInspectorUniforms($editor);
 
-    function updateExtraLightUniforms(extraLight: number) {
-        $uniforms.doomExtraLight.value = extraLight;
+    const updateExtraLightUniforms = (extraLight: number) =>
+        $uniforms.doomExtraLight.value =
         $tranUniforms.doomExtraLight.value = extraLight;
-    }
     $: updateExtraLightUniforms($extraLight / 255);
 
     function updateCameraMode(cameraMode: string) {

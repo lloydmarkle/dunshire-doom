@@ -53,10 +53,10 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
     // (like lighting and shadows)
 
     const uniforms = store({
-        dInspect: { value: [-1, -1] } as IUniform,
-        doomExtraLight: { value: 0 } as IUniform,
-        doomFakeContrast: { value: 0 } as IUniform,
-        time: { value: 0 } as IUniform,
+        dInspect: { value: [-1, -1] } as IUniform<[number, number]>,
+        doomExtraLight: { value: 0 } as IUniform<number>,
+        doomFakeContrast: { value: 0 } as IUniform<number>,
+        time: { value: 0 } as IUniform<number>,
         // map lighting info
         tLightMap: { value: lighting.lightMap },
         tLightMapWidth: { value: lighting.lightMap.image.width },
@@ -134,10 +134,9 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             .replace('#include <lights_fragment_begin>', `
             #include <lights_fragment_begin>
 
-            float depth = gl_FragDepth * (1.0 - vSectorLightLevel);
-            float light = doomExtraLight + clamp(vSectorLightLevel - depth, 0.0, 1.0);
-            light = ceil(light * 252.0 / 4.0 - .5) * 4.0 / 252.0;
-            light = 1.0 - cos(light * 3.14159265 * .5);
+            float depth = pow(1.0 - pow(gl_FragDepth, vSectorLightLevel * 4.5), 6.0);
+            float light = doomExtraLight + clamp(vSectorLightLevel * depth, 0.0, 1.0);
+            light = ceil(light * 400.0 / 4.0 - .5) * 4.0 / 400.0;
             material.diffuseContribution.rgb *= clamp(light, 0.0, 1.0);
 
             totalEmissiveRadiance += doomInspectorEmissive;

@@ -1,12 +1,13 @@
 <script lang="ts">
     import { Color, CubeTexture, DataTexture, NearestFilter, SRGBColorSpace } from "three";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import { T, useThrelte } from "@threlte/core";
     import { randInt } from "three/src/math/MathUtils";
 
     const { scene } = useThrelte();
     const { textures } = useDoom();
     const { map, skyColor } = useDoomMap();
+    const lightScale = useAppContext().settings.lightScale;
 
     const sky1 = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'].map(e => `MAP${e}`);
     const sky2 = ['12', '13', '14', '15', '16', '17', '18', '19', '20'].map(e => `MAP${e}`);
@@ -166,4 +167,4 @@
     // scene.background = new Color('magenta');
 </script>
 
-<T.AmbientLight color={'white'} intensity={4} />
+<T.AmbientLight color={'white'} intensity={4 * $lightScale} />

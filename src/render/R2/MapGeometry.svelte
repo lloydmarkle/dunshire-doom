@@ -60,8 +60,7 @@
 
     const updateExtraLight = (extraLight: number) =>
         $tranUniforms.doomExtraLight.value =
-        $uniforms.doomExtraLight.value =
-        extraLight;
+        $uniforms.doomExtraLight.value = extraLight;
     $: updateExtraLight($extraLight / 255);
 
     function updateInspectors(edit: typeof $editor) {

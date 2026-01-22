@@ -49,6 +49,7 @@
     let menuRoot: HTMLDivElement;
     $: if (!searchText && recentlyUsed.length) tick().then(() => applySoundsToDOM(menuRoot, sounds));
 
+    let largeStep = false;
     const wrapAround = (n: number, max: number) => n > max - 1 ? 0 : n < 0 ? max - 1 : n;
     const slide = (item: MenuSetting, direction: -1 | 1) => {
         if (!item) {
@@ -66,7 +67,8 @@
             });
         } else if (item.type === 'range') {
             sounds.sfx.stnmov();
-            item.val.update(v => Math.max(item.min, Math.min(item.max, v + item.step * direction)));
+            const step = item.step * direction * (largeStep ? 5 : 1);
+            item.val.update(v => Math.max(item.min, Math.min(item.max, v + step)));
         } else if (item.type === 'toggle') {
             sounds.sfx.pistol();
             item.val.update(v => !v);
@@ -96,6 +98,7 @@
             active = true;
             tick().then(() => searchBox.focus());
         }
+        largeStep = ev.shiftKey;
         if (keys[ev.code] && !ev.metaKey && !ev.altKey && !ev.ctrlKey) {
             ev.preventDefault();
             keys[ev.code]?.();
@@ -105,6 +108,7 @@
         if (!active) {
             return;
         }
+        largeStep = ev.shiftKey;
         switch (ev.code) {
             case 'Escape':
                 active = false;
