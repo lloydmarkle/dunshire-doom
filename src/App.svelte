@@ -167,7 +167,7 @@
             <div class="absolute inset-0">
                 <ENDOOM {wad} />
                 <div class="absolute top-0 bg-base-100 rounded-box shadow-xl">
-                    <a href="/#" class="btn btn-lg">Close</a>
+                    <a href="#" class="btn btn-lg">Close</a>
                 </div>
             </div>
         {:else if screenName === 'game'}
