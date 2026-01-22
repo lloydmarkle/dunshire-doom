@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+
+## [0.11.0] - 2025-01-22
+This is a kind of large release. It's been brewing on and off (mostly off) for a year so this list may be incomplete.
+
+### Added
+- Home screen split into play/wads/setting.
+- Home screen now has "recently played maps" section to help pickup progress (no save games support yet!)
+- Play DOOM sound effects when navigating menus
+- A crude wad explorer to show wad lumps and browse contents
+- Keyboard shortcuts on most menus
+- Several new config settings: status bar scale, monster height checks, stuck monsters,
+- 2-click Freedoom installation for new users
+- ENDOOM support
+- Support for most BOOM lindefs (still missing some pushers, sky transfers, and friction) also MUSINFO
+- Some light diminishing. We don't use COLORMAP so it's not accurate but it's still a visual improvement
+- Playback ogg music in WADs
+- Support for ["ghost" monsters](https://doomwiki.org/wiki/Ghost_monster)
+
+### Changed
+- Upgrade to Svelte 5 and Threlte 8.
+- Voodoo dolls pick up items (they don't take damage or change view height though!)
+- Mobile improvements: simpler controls, full screen menus, hud on top, nicer default settings
+
+### Fixed
+- Sound propagation bug (TNT)
+- Arch-Vile no longer appears to move while resurrecting enemies
+- Fix objects teleporting on top of each other
+- Berserk now gives 100% health
+- Prevent a crash when map didn't have par time
+
 ## [0.10.1] - 2025-01-21
 
 ### Fixed
