@@ -39,7 +39,8 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * ~~Sound playback, in general, doesn't feel quite right (sounds are too soft or interrupted too often)~~
 * Holes in floor/ceiling geometry in some maps (eg. Doom2 MAP25~~, Plutonia MAP25 and MAP29~~)
 * Load/Save games
-* Lighting effects (like ~~[fake contrast](https://doomwiki.org/wiki/Fake_contrast)~~ and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))
+* ~~Lighting effects (like [fake contrast](https://doomwiki.org/wiki/Fake_contrast) and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))~~
+* Palette controlled lighting
 * Automap
 * AI performance on large maps
 * ~~Fullscreen mode~~
@@ -52,14 +53,14 @@ Nice to haves:
 * Nightmare monster respawn (and other nightmare monster behaviours)
 * More HUD options
 * Spin off src/doom into it's own project to make it easier to re-use (or rewrite)
-* Improve the intro and menu UI. I don't have a design in mind, I just don't love what's there. It would be really fun to build something DOOM themed.
+* ~~Improve the intro and menu UI. I don't have a design in mind, I just don't love what's there. It would be really fun to build something DOOM themed.~~
 * Cleanup FIXMEs and TODOs
 
 Long term maybe worth exploring ideas:
 
 * Re-write src/doom in Zig and compile to WASM (for fun?)
 * Support other DOOM engine games (Heretic, Hexen, Strife)
-* More Boom compatibility like switches, platforms, lights, etc. At least enough to play the community chest maps, ancient aliens, or sunlust.
+* ~~More Boom compatibility like switches, platforms, lights, etc. At least enough to play the community chest maps, ancient aliens, or sunlust.~~
 * Generate BSP, SEGS, and SSECTOR nodes for large maps that don't have them
 * Build a few maps that work in orthographic projection and package as an actual game
 
