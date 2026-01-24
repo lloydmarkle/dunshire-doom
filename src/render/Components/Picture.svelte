@@ -6,6 +6,7 @@
     type ImageType = 'wall' | 'flat' | 'sprite' | 'any';
     export function imageDataUrl(wad: DoomWad, name: string, type: ImageType, format = 'image/png') {
         if (wad !== lastWad) {
+            lastWad = wad;
             cache.clear();
         }
 

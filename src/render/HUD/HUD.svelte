@@ -1,14 +1,15 @@
 <script lang="ts">
-    import type { PlayerMapObject } from "../../doom";
+    import { ticksPerSecond, type PlayerMapObject } from "../../doom";
     import Picture, { imageDataUrl } from "../Components/Picture.svelte";
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";
     import HUDMessages from "./HUDMessages.svelte";
     import STNumber from "../Components/STNumber.svelte";
     import { useAppContext, useDoom } from "../DoomContext";
+    import STText from "../Components/STText.svelte";
 
     export let player: PlayerMapObject;
-    const { maxHudScale, hudStyle } = useAppContext().settings;
+    const { maxHudScale, hudStyle, extendedHud } = useAppContext().settings;
     const { viewSize } = useDoom();
 
     const yScale = (16 / 10) / (4 / 3);
@@ -19,6 +20,29 @@
     const offsetX = (320 - gfx.width) / 2;
     $: scale = Math.min($viewSize.width / gfx.width, $viewSize.height / gfx.height, $maxHudScale);
     $: hudHeight = gfx.height * scale;
+
+    let timeText = formatTime(0);
+    let killText = '';
+    let itemText = '';
+    let secretText = '';
+    const tickN = player.map.game.time.tickN;
+    const tick = player.map.game.time.tick;
+    $: if ($extendedHud && $tick) {
+        timeText = formatTime(player.map.game.time.elapsed);
+    }
+    $: if ($extendedHud && $tickN) {
+        killText = `${player.stats.kills}/${player.map.stats.totalKills}`;
+        itemText = `${player.stats.items}/${player.map.stats.totalItems}`;
+        secretText = `${player.stats.secrets}/${player.map.stats.totalSecrets}`;
+    }
+    function formatTime(dt: number) {
+        dt = Math.max(0, dt);
+        let hours = String(Math.floor(dt / 3600) % 24).padStart(2, '0');
+        let minutes = String(Math.floor(dt / 60) % 60).padStart(2, '0');
+        let seconds = String(Math.floor(dt % 60)).padStart(2, '0');
+        let ms = String(Math.floor(dt * 1000) % 1000).padStart(3, '0');
+        return hours + ':' + minutes + ':' + seconds + '.' + ms;
+    }
 </script>
 
 <HUDMessages {scale} topOffset={$hudStyle === 'top' ? hudHeight : 0} {player} />
@@ -30,6 +54,16 @@
     style:--st-bg-offsetx="{offsetX}px"
     style:--st-scale="{scale}, {yScale * scale}"
 >
+    {#if $extendedHud}
+        <div class="-top-5">
+            <span><STText text={timeText} /></span>
+            <span class="flex gap-2">
+                <span><STText text="K {killText}" /></span>
+                <span><STText text="I {itemText}" /></span>
+                <span><STText text="S {secretText}" /></span>
+            </span>
+        </div>
+    {/if}
     <!-- <Picture name={'STBAR'} /> -->
     <div class="ammo">
         {#if $inventory.ammo[$weapon.ammoType]}
@@ -88,7 +122,6 @@
 <style>
     div {
         position: absolute;
-        top: 0px;
         display: inline-block;
         line-height: 0;
     }

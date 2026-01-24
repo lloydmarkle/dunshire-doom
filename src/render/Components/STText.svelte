@@ -1,8 +1,8 @@
 <script lang="ts">
     import Picture from "./Picture.svelte";
 
-    export let text: string;
-    $: utext = text.toUpperCase()
+    let { text }: { text: string } = $props();
+    let utext = $derived(text.toUpperCase());
 </script>
 
 <div class="flex flex-wrap items-center">
