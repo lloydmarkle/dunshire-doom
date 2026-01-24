@@ -295,15 +295,11 @@ export class MapRuntime {
 
     timeStep(time: GameTime) {
         this.stats.elapsedTime += time.delta;
-        this.input.evaluate(time.delta);
+        this.input.evaluate(time);
         this.player.updateViewHeight(time);
-
-        if (time.isTick) {
-            this.tick();
-        }
     }
 
-    private tick() {
+    tick() {
         this.actions.forEach(action => action());
 
         // update wall/flat animations
@@ -624,7 +620,7 @@ class GameInput {
             }));
     }
 
-    evaluate(delta: number) {
+    evaluate(time: GameTime) {
         if (this.player.isDead) {
             // wait till view height gets close to the ground before we allow restarting (so that the player doesn't miss out!)
             // also make sure the use/attack button has been freshly pressed since dying
@@ -688,7 +684,7 @@ class GameInput {
         this.input.move.z = Math.max(-1, Math.min(1, this.input.move.z));
 
         const freeFly = this.player.info.flags & MFFlags.MF_NOGRAVITY;
-        const dt = delta * delta / tickTime;
+        const dt = time.delta * time.delta / tickTime;
         let speed = this.input.slow ? playerSpeeds['crawl?'] :
             this.alwaysRun.val !== this.input.run ? playerSpeeds['run'] : playerSpeeds['walk'];
         if (this.player.onGround || freeFly) {
@@ -705,8 +701,9 @@ class GameInput {
                 this.player.velocity.addScaledVector(this.upVec(), this.input.move.z * speed * dt);
             }
             if (freeFly) {
-                // apply separate friction during freefly
-                this.player.velocity.multiplyScalar(0.95);
+                // apply separate friction during freefly (also scale friction slightly for lower timescale)
+                const friction = .95 + (time.scale < 1 ? .05 * (1 - time.scale) : 0);
+                this.player.velocity.multiplyScalar(friction);
             }
         } else {
             this.player.velocity.z -= playerSpeeds['gravity'] * dt;

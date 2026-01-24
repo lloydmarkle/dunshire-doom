@@ -47,7 +47,7 @@
     function timeFromTicks(ticks: number) {
         return (ticks / ticksPerSecond).toFixed(2);
     }
-    const velocityPerTick = (vel: number) => vel * tickTime * 60 / $timescale;
+    const velocityPerTick = (vel: number) => vel * tickTime * (1 / player.map.game.time.delta);
 </script>
 
 <div class="root" style="right: {$editor.active ? '25em' : '0'}">

@@ -25,7 +25,6 @@ export const createDefaultSettings = () => {
         shotTraceSeconds: store(0),
         maxLostSouls: store(20),
         randomNumbers: store('table'),
-        timescale: store(1),
         monsterAI: store('enabled'),
         cameraMode: store('1p'),
     };
@@ -85,6 +84,7 @@ export const createDefaultSettings = () => {
         lightScale: writable(1),
         pixelScale: writable(1),
         fov: writable(72),
+        timescale: store(1),
         interpolateMovement: store(true),
         useTextures: store(true),
         wireframe: writable<'off' | 'visible' | 'all'>('off'),

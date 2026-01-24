@@ -11,7 +11,6 @@ import { throwDoomError } from "./error";
 
 export type GameTime = Game['time'];
 export interface GameSettings {
-    timescale: Store<number>;
     freelook: Store<boolean>;
     pistolStart: Store<boolean>;
     moveChecksZ: Store<boolean>;
@@ -91,12 +90,12 @@ export class Game implements SoundEmitter {
     private nextTickTime = 0; // seconds
     time = {
         playTime: 0,
+        scale: 1,
         elapsed: 0, // seconds
         delta: 0, // seconds
         tickN: store(0),
         tick: store(0), // tick as a real number
         partialTick: store(0), // TODO: remove when we remove R1
-        isTick: false, // if we have elapsed a tick (1/35 of a second)
     }
 
     readonly input: ControllerInput = {
@@ -122,22 +121,23 @@ export class Game implements SoundEmitter {
         readonly mode: 'solo' | 'coop' | 'deathmatch' = 'solo',
     ) {}
 
-    tick(delta: number) {
+    tick(delta: number, timescale = 1) {
         if (delta > 2) {
             // if time is too long (maybe a big GC or switch tab?), just skip it and try again next time
             console.warn('time interval too long', delta);
             return;
         }
 
-        const dt = Math.min(delta, physicsTickTime);
-        delta += this.remainingTime;
-        while (delta > dt) {
-            delta -= dt;
-            this.time.delta = dt;
-            this.time.elapsed += dt;
-            this.time.isTick = this.time.elapsed > this.nextTickTime;
+        this.time.scale = timescale;
+        let scaledDelta = delta * timescale + this.remainingTime;
+        const step = Math.min(scaledDelta, delta, physicsTickTime);
+        while (scaledDelta >= step) {
+            scaledDelta -= step;
+            this.time.delta = step;
+            this.time.elapsed += step;
             this.time.tick.set(1 + this.time.elapsed / tickTime);
-            if (this.time.isTick) {
+            const isTick = this.time.elapsed > this.nextTickTime;
+            if (isTick) {
                 this.nextTickTime += tickTime;
                 this.time.tickN.update(tick => tick += 1);
                 this.time.partialTick.set(0);
@@ -148,6 +148,9 @@ export class Game implements SoundEmitter {
 
             try {
                 this.map.val?.timeStep(this.time);
+                if (isTick) {
+                    this.map.val?.tick();
+                }
             } catch (exception) {
                 throwDoomError({
                     code: 4,
@@ -156,7 +159,7 @@ export class Game implements SoundEmitter {
                 });
             }
         }
-        this.remainingTime = delta;
+        this.remainingTime = scaledDelta;
     }
 
     resetInventory() {
