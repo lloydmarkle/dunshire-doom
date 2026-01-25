@@ -7,7 +7,7 @@ import { Vector3 } from "three";
 import { SoundIndex } from "./doom-things-info";
 import { MapData, type Sector } from "./map-data";
 import { type RNG, TableRNG, tickTime } from "./math";
-import type { GameLogicFailure, InvalidMap, MissingMap } from "./error";
+import { throwDoomError } from "./error";
 
 export type GameTime = Game['time'];
 export interface GameSettings {
@@ -149,12 +149,11 @@ export class Game implements SoundEmitter {
             try {
                 this.map.val?.timeStep(this.time);
             } catch (exception) {
-                const err: GameLogicFailure = {
+                throwDoomError({
                     code: 4,
                     details: { game: this, exception },
                     message: 'Logical error',
-                };
-                throw err;
+                });
             }
         }
         this.remainingTime = delta;
@@ -169,22 +168,22 @@ export class Game implements SoundEmitter {
 
         const lumps = this.wad.mapLumps.get(mapName);
         if (!lumps) {
-            throw {
+            throwDoomError({
                 code: 2,
                 details: { mapName, game: this },
                 message: `Map not found: ${name}`,
-            } as MissingMap;
+            });
         }
 
         try {
             const mapData = new MapData(lumps);
             this.map.set(new MapRuntime(mapName, mapData, this));
         } catch (exception) {
-            throw {
+            throwDoomError({
                 code: 1,
                 details: { mapName, exception, game: this },
                 message: `Invalid map: ${mapName}; ${exception.message}`
-            } as InvalidMap;
+            });
         }
         this.intermission.set(null);
         return this.map.val;

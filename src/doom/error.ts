@@ -1,43 +1,32 @@
 // A standard error class to help the UI show meaningful error messages
 import { Game } from "../doom";
 
-interface BaseDoomError {
-    code: number;
+type BaseDoomError<N extends number, T> = {
     message: string;
-    details: any;
-}
+    code: N;
+    details: T;
+};
 
-export interface InvalidMap extends BaseDoomError {
-    code: 1;
-    details: {
-        game: Game,
-        mapName: string;
-        exception: Error,
-    },
-}
+export interface InvalidMap extends BaseDoomError<1, {
+    game: Game,
+    mapName: string;
+    exception: Error,
+}> {}
 
-export interface MissingMap extends BaseDoomError {
-    code: 2
-    details: {
-        game: Game,
-        mapName: string;
-    },
-}
+export interface MissingMap extends BaseDoomError<2, {
+    game: Game,
+    mapName: string;
+}> {}
 
-export interface MissingWads extends BaseDoomError {
-    code: 3;
-    details: {
-        succeededWads: string[];
-        failedWads: [string, Error][];
-    },
-}
+export interface MissingWads extends BaseDoomError<3, {
+    succeededWads: string[];
+    failedWads: [string, Error][];
+}> {}
 
-export interface GameLogicFailure extends BaseDoomError {
-    code: 4;
-    details: {
-        game: Game,
-        exception: Error,
-    },
-}
+export interface GameLogicFailure extends BaseDoomError<4, {
+    game: Game,
+    exception: Error,
+}> {}
 
 export type DoomError = InvalidMap | MissingMap | MissingWads | GameLogicFailure;
+export const throwDoomError = (t: DoomError) => { throw t; };
