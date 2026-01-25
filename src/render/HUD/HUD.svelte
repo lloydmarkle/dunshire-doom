@@ -57,24 +57,15 @@
 >
     {#if $extendedHud}
         <div
-            style:--stat-block-top={$hudStyle === 'bottom' ? "-1.2rem" : "1.8rem"}
+            style:--stat-block-top={$hudStyle === 'bottom' ? "-.8rem" : "2rem"}
             style:--stat-block-flex-direction={$hudStyle === 'bottom' ? "column" : "column-reverse"}
             class="stat-block"
         >
-            <span class="stat-time"><STText text={timeText} /></span>
+            <span class="stat-time">{timeText}</span>
             <span class="flex gap-2">
-                <STText text="K" />
-                <span class="stat-counter" class:stat-complete={killCount === player.map.stats.totalKills}>
-                    <STText text="{killCount}/{player.map.stats.totalKills}" />
-                </span>
-                <STText text="I" />
-                <span class="stat-counter" class:stat-complete={itemCount === player.map.stats.totalItems}>
-                    <STText text="{itemCount}/{player.map.stats.totalItems}" />
-                </span>
-                <STText text="S" />
-                <span class="stat-counter" class:stat-complete={secretCount === player.map.stats.totalSecrets}>
-                    <STText text="{secretCount}/{player.map.stats.totalSecrets}" />
-                </span>
+                K <span class="stat-counter" class:stat-complete={killCount === player.map.stats.totalKills}>{killCount}/{player.map.stats.totalKills}</span>
+                I <span class="stat-counter" class:stat-complete={killCount === player.map.stats.totalItems}>{itemCount}/{player.map.stats.totalItems}</span>
+                S <span class="stat-counter" class:stat-complete={killCount === player.map.stats.totalSecrets}>{secretCount}/{player.map.stats.totalSecrets}</span>
             </span>
         </div>
     {/if}
@@ -138,15 +129,22 @@
         display: flex;
         flex-direction: var(--stat-block-flex-direction);
         top: var(--stat-block-top);
+        font-family: monospace;
+        font-size: .4rem;
+        line-height: .4rem;
+        color: #f60001;
     }
     .stat-time {
-        filter: contrast(150%) saturate(.6) hue-rotate(120deg) brightness(2.5);
+        color: #78ff70;
+        filter: drop-shadow(.5px .5px #0c1808);
     }
     .stat-counter {
-        filter: contrast(200%) saturate(.5) hue-rotate(46deg) brightness(3);
+        color: #ffff75;
+        filter: drop-shadow(.5px .5px #742d01);
     }
     .stat-complete {
-        filter: contrast(150%) saturate(.5) hue-rotate(200deg) brightness(2);
+        color: #ababff;
+        filter: drop-shadow(.5px .5px #01019b);
     }
 
     div {
