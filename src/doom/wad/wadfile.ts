@@ -95,7 +95,7 @@ const fixLumpName = (name: string) => {
 }
 
 export const lumpString = (buff: Uint8Array, offset: number, length: number) =>
-    fixLumpName(String.fromCharCode(...buff.subarray(offset, offset + length)));
+    fixLumpName(new TextDecoder().decode(buff.subarray(offset, offset + length)));
 
 // Nifty little hack! https://stackoverflow.com/questions/50179214
 export const int16 = (num: number) => (num << 16) >> 16;

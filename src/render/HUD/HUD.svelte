@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { ticksPerSecond, type PlayerMapObject } from "../../doom";
+    import { type PlayerMapObject } from "../../doom";
     import Picture, { imageDataUrl } from "../Components/Picture.svelte";
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";
@@ -22,18 +22,9 @@
     $: hudHeight = gfx.height * scale;
 
     let timeText = formatTime(0);
-    let killText = '';
-    let itemText = '';
-    let secretText = '';
-    const tickN = player.map.game.time.tickN;
     const tick = player.map.game.time.tick;
     $: if ($extendedHud && $tick) {
         timeText = formatTime(player.map.game.time.elapsed);
-    }
-    $: if ($extendedHud && $tickN) {
-        killText = `${player.stats.kills}/${player.map.stats.totalKills}`;
-        itemText = `${player.stats.items}/${player.map.stats.totalItems}`;
-        secretText = `${player.stats.secrets}/${player.map.stats.totalSecrets}`;
     }
     function formatTime(dt: number) {
         dt = Math.max(0, dt);
@@ -42,6 +33,16 @@
         let seconds = String(Math.floor(dt % 60)).padStart(2, '0');
         let ms = String(Math.floor(dt * 1000) % 1000).padStart(3, '0');
         return hours + ':' + minutes + ':' + seconds + '.' + ms;
+    }
+
+    let killCount = 0;
+    let itemCount = 0;
+    let secretCount = 0;
+    const tickN = player.map.game.time.tickN;
+    $: if ($extendedHud && $tickN) {
+        killCount = player.stats.kills;
+        itemCount = player.stats.items;
+        secretCount = player.stats.secrets;
     }
 </script>
 
@@ -55,12 +56,25 @@
     style:--st-scale="{scale}, {yScale * scale}"
 >
     {#if $extendedHud}
-        <div class="-top-5">
-            <span><STText text={timeText} /></span>
+        <div
+            style:--stat-block-top={$hudStyle === 'bottom' ? "-1.2rem" : "1.8rem"}
+            style:--stat-block-flex-direction={$hudStyle === 'bottom' ? "column" : "column-reverse"}
+            class="stat-block"
+        >
+            <span class="stat-time"><STText text={timeText} /></span>
             <span class="flex gap-2">
-                <span><STText text="K {killText}" /></span>
-                <span><STText text="I {itemText}" /></span>
-                <span><STText text="S {secretText}" /></span>
+                <STText text="K" />
+                <span class="stat-counter" class:stat-complete={killCount === player.map.stats.totalKills}>
+                    <STText text="{killCount}/{player.map.stats.totalKills}" />
+                </span>
+                <STText text="I" />
+                <span class="stat-counter" class:stat-complete={itemCount === player.map.stats.totalItems}>
+                    <STText text="{itemCount}/{player.map.stats.totalItems}" />
+                </span>
+                <STText text="S" />
+                <span class="stat-counter" class:stat-complete={secretCount === player.map.stats.totalSecrets}>
+                    <STText text="{secretCount}/{player.map.stats.totalSecrets}" />
+                </span>
             </span>
         </div>
     {/if}
@@ -120,6 +134,21 @@
 </div>
 
 <style>
+    .stat-block {
+        display: flex;
+        flex-direction: var(--stat-block-flex-direction);
+        top: var(--stat-block-top);
+    }
+    .stat-time {
+        filter: contrast(150%) saturate(.6) hue-rotate(120deg) brightness(2.5);
+    }
+    .stat-counter {
+        filter: contrast(200%) saturate(.5) hue-rotate(46deg) brightness(3);
+    }
+    .stat-complete {
+        filter: contrast(150%) saturate(.5) hue-rotate(200deg) brightness(2);
+    }
+
     div {
         position: absolute;
         display: inline-block;

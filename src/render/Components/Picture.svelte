@@ -1,17 +1,33 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
     // cache image url so we don't always create a new image context when we load a new image
-    const cache = new Map<string, string>();
+    const imageCache = new Map<string, string>();
+    const picutreCache = new Map<string, Picture>();
     let lastWad: DoomWad;
+
+    function loadData(wad: DoomWad, name: string, type: ImageType) {
+        const key = name + type;
+        let pic = picutreCache.get(key);
+        if (pic) {
+            return pic;
+        }
+
+        pic = wad.graphic(name);
+        if (pic) {
+            picutreCache.set(key, pic);
+        }
+        return pic;
+    }
 
     type ImageType = 'wall' | 'flat' | 'sprite' | 'any';
     export function imageDataUrl(wad: DoomWad, name: string, type: ImageType, format = 'image/png') {
         if (wad !== lastWad) {
             lastWad = wad;
-            cache.clear();
+            picutreCache.clear();
+            imageCache.clear();
         }
 
         const key = name + type;
-        let dataUrl = cache.get(key);
+        let dataUrl = imageCache.get(key);
         if (dataUrl) {
             return dataUrl;
         }
@@ -26,7 +42,7 @@
 
         dataUrl = pictureDataUrl(px, format);
         if (dataUrl.length) {
-            cache.set(key, dataUrl);
+            imageCache.set(key, dataUrl);
         }
         return dataUrl;
     }
@@ -56,15 +72,16 @@
     import { useDoom } from "../DoomContext";
     import type { DoomWad, Picture } from "../../doom";
 
-    export let name: string;
-    export let type: ImageType = 'any';
-    export let wad: DoomWad = null;
+    interface Props {
+        name: string;
+        type?: ImageType;
+        wad?: DoomWad;
+    }
+    let { name, type = 'any', wad = useDoom().wad }: Props = $props();
 
-    wad = wad ?? useDoom().wad;
-
-    $: gfx = wad.graphic(name);
-    $: dataUrl = imageDataUrl(wad, name, type);
-    $: style = type === 'sprite' ? `transform: translate(0px, ${-gfx.yOffset + .5 * gfx.height}px)` : '';
+    let gfx = $derived(loadData(wad, name, type));
+    let dataUrl = $derived(imageDataUrl(wad, name, type));
 </script>
 
-<img {style} src={dataUrl} alt={name} />
+<img src={dataUrl} alt={name}
+    style={type === 'sprite' ? `transform: translate(0px, ${-gfx.yOffset + .5 * gfx.height}px)` : ''} />
