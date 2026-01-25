@@ -187,7 +187,6 @@
 
     import { configureGain, createSoundBufferCache, interruptFadeOut, stopSound } from "../SoundPlayer.svelte";
     import { onMount, tick } from "svelte";
-    import type { Writable } from "svelte/store";
     import type { MenuSetting } from "./menu";
     const { audio, soundGain } = useAppContext();
     const { maxSoundChannels } = useAppContext().settings;

@@ -30,12 +30,13 @@
     const fadeOutTime = 0.005;
     const minGain = 0.000000001;
     export const interruptFadeOut = .01;
-    export function configureGain(node: GainNode, t: number, value: number, buffer: AudioBuffer) {
+    export function configureGain(node: GainNode, t: number, value: number, buffer: AudioBuffer, playbackRate = 1) {
         // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
+        const duration = buffer.duration / playbackRate;
         node.gain.setValueAtTime(minGain, t);
         node.gain.exponentialRampToValueAtTime(value, t + fadeInTime);
-        node.gain.setValueAtTime(value, t + buffer.duration - fadeOutTime);
-        node.gain.exponentialRampToValueAtTime(minGain, t + buffer.duration);
+        node.gain.setValueAtTime(value, t + duration - fadeOutTime);
+        node.gain.exponentialRampToValueAtTime(minGain, t + duration);
         return node;
     }
 
@@ -69,10 +70,11 @@
     // https://web.archive.org/web/20211127055143/http://www.trilobite.org/doom/doom_metrics.html
     const verticalMeters = 0.03048;
 
+    $: playbackRate = Math.min(timescale, 1.5) * .7 + .3;
     function gainNode(t: number, value: number, buffer: AudioBuffer) {
         // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
         const node = audio.createGain();
-        return configureGain(node, t, value, buffer);
+        return configureGain(node, t, value, buffer, playbackRate);
     }
 
     const defaultPosition = new Vector3();
@@ -151,7 +153,7 @@
 
             this.soundNode = audio.createBufferSource();
             this.soundNode.buffer = soundBuffer(snd);
-            this.soundNode.playbackRate.value = timescale;
+            this.soundNode.playbackRate.value = playbackRate;
             this.soundNode.addEventListener('ended', this.deactivate);
             // A controversial feature? https://doomwiki.org/wiki/Random_sound_pitch_removed
             if (snd >= SoundIndex.sfx_sawup && snd <= SoundIndex.sfx_sawhit) {
@@ -242,9 +244,6 @@
 
     $: channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
     $: soundChannels = Array.from({ length: $maxSoundChannels }, () => new SoundChannel());
-    // Adjust sound playback speed as timescale changes.
-    // In practice, this probably doesn't matter but it's cool we can do it.
-    $: soundChannels.forEach(sc => sc.soundNode?.playbackRate?.exponentialRampToValueAtTime(timescale, audio.currentTime + .1));
 
     let lastSetDistanceTick = -1;
     soundEmitter.onSound((snd, location) => {
