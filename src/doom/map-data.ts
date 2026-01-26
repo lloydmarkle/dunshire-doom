@@ -131,7 +131,8 @@ function fixTextureName(name: string) {
     return !name || name.startsWith('-') || uname === 'AASTINKY' || uname === 'AASHITTY' ? undefined : name.toUpperCase();
 }
 
-export interface Sector {
+// TODO: when more specials get migrated, we should have some kind of common special type that has at least a discriminator
+export interface Sector<TSpecial = any> {
     num: number;
     tag: number;
     type: number;
@@ -150,7 +151,7 @@ export interface Sector {
     ceilLightTransfer: LineDef;
     // Game processing data
     center: Vector3;
-    specialData: any;
+    specialData: TSpecial;
     soundC: number;
     soundTarget: MapObject;
     portalSegs: Seg[];

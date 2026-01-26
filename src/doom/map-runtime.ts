@@ -491,15 +491,16 @@ export class MapRuntime {
         if (special && trigger !== 'W') {
             // TODO: if special is already triggered (eg. by walking over a line) the switch shouldn't trigger
             if (this.tryToggle(special, linedef, 'upper')) {
-                return;
+                return special;
             }
             if (this.tryToggle(special, linedef, 'middle')) {
-                return;
+                return special;
             }
             if (this.tryToggle(special, linedef, 'lower')) {
-                return;
+                return special;
             }
         }
+        return special;
     }
 
     private tryToggle(special: SpecialDefinition, linedef: LineDef, prop: WallTextureType) {

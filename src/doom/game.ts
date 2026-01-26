@@ -33,10 +33,6 @@ export interface GameSettings {
 }
 export type Skill = 1 | 2 | 3 | 4 | 5;
 
-// Using a fixed time slice for physics makes it SOOOO much easier to reason about player movement and for the times we
-// need to convert it to DOOM's standard 35 tics
-const physicsTickTime = 1 / 60;
-
 // player info persisted between levels
 interface PlayerInfo extends Omit<PlayerInventory, 'keys' | 'items'> {
     health: number;
@@ -97,6 +93,8 @@ export class Game implements SoundEmitter {
         tick: store(0), // tick as a real number
         partialTick: store(0), // TODO: remove when we remove R1
     }
+    // helpful for tests to allow long time deltas
+    maxTimeDeltaSeconds = 2;
 
     readonly input: ControllerInput = {
         move: new Vector3(),
@@ -122,7 +120,7 @@ export class Game implements SoundEmitter {
     ) {}
 
     tick(delta: number, timescale = 1) {
-        if (delta > 2) {
+        if (delta > this.maxTimeDeltaSeconds) {
             // if time is too long (maybe a big GC or switch tab?), just skip it and try again next time
             console.warn('time interval too long', delta);
             return;
@@ -130,7 +128,7 @@ export class Game implements SoundEmitter {
 
         this.time.scale = timescale;
         let scaledDelta = delta * timescale + this.remainingTime;
-        const step = Math.min(scaledDelta, delta, physicsTickTime);
+        const step = Math.min(scaledDelta, delta, tickTime);
         while (scaledDelta >= step) {
             scaledDelta -= step;
             this.time.delta = step;

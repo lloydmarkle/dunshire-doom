@@ -9,14 +9,14 @@
     "build-dev": "vite build --minify false",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "test": "mocha"
+    "test": "mocha --spec **/test/doom/**/*.test.ts",
+    "test-all": "mocha --spec **/*.test.ts"
   },
   "mocha": {
     "loader": "ts-node/esm",
     "require": [
       "./src/test/bootstrap.ts"
     ],
-    "spec": "**/*.test.ts",
     "recursive": true
   },
   "devDependencies": {
@@ -26,14 +26,16 @@
     "@threlte/core": "^8.3.1",
     "@threlte/extras": "^9.7.1",
     "@tsconfig/svelte": "^4.0.1",
-    "@types/mocha": "^10.0.9",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
     "@types/three": "^0.182.0",
     "autoprefixer": "^10.4.17",
+    "chai": "^6.2.2",
     "daisyui": "^4.12.10",
     "fflate": "^0.8.2",
     "iconv-lite": "^0.6.3",
     "js-yaml": "^4.1.0",
-    "mocha": "^10.8.2",
+    "mocha": "^11.3.0",
     "mus2midi": "^1.0.8",
     "postcss": "^8.4.33",
     "rollup-plugin-visualizer": "^6.0.5",

@@ -6,10 +6,10 @@ import { DoomWad, MapData, WadFile } from '../doom';
 console.time = () => {};
 console.timeEnd = () => {};
 const params = {
-    special: 254,
+    special: 1,
     // special: [0x3000, 0x3400],
     wadNames: [
-        // 'doom', 'doom2',
+        'doom', 'doom2',
         // 'tnt', 'plutonia',
         // 'freedoom1' ,'freedoom2',
         // 'SIGIL_v1_21', 'SIGIL_II_V1_0',
@@ -17,9 +17,9 @@ const params = {
         // 'CChest2',
         // 'EARTH',
         // 'SCYTHE',
-        'MSCP_v1a',
-        'AV',
-        'aaliens_v1_2',
+        // 'MSCP_v1a',
+        // 'AV',
+        // 'aaliens_v1_2',
         // 'sunlust',
         // 'cosmogenesis', 'oversaturationrc1',
         // 'sunder 2510',
@@ -39,7 +39,7 @@ describe('map scanning', () => {
                 const lds = md.linedefs.filter(ld => ld.special >= special[0] && ld.special < special[1]);
                 if (lds.length) {
                     console.log('found', wadName, map, lds.map(ld => [ld.num, ld.special, ld.tag, JSON.stringify(ld.v)]));
-                    // return;
+                    return;
                 }
             }
         }

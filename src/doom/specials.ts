@@ -583,6 +583,59 @@ function crunchAndDamageMapObject(mobj: MapObject) {
     return hitSolid;
 }
 
+type Mover<T> = (map: MapRuntime, sector: Sector<T>) => boolean;
+const movers: { [key: string]: Mover<any> } = {
+    'door': (map, sector: Sector<DoorState>) => {
+        const state = sector.specialData;
+        if (state.ticks) {
+            if (!--state.ticks) {
+                state.direction = -state.direction;
+                playDoorSound(map, sector);
+            }
+            return true;
+        }
+
+        // move door
+        let original = sector.zCeil;
+        sector.zCeil += state.speed * state.direction;
+
+        let finished = false;
+        if (sector.zCeil > state.topHeight) {
+            finished = state.fn === 'closeWaitOpen' || state.fn === 'openAndStay';
+            state.ticks = state.waitDelay;
+            sector.zCeil = state.topHeight;
+        } else if (sector.zCeil < state.bottomHeight) {
+            finished = state.fn === 'openWaitClose' || state.fn === 'closeAndStay';
+            state.ticks = state.waitDelay;
+            sector.zCeil = state.bottomHeight;
+        }
+
+        // crush (and reverse direction)
+        const mobjs = sectorObjects(map, sector);
+        if (state.direction === -1) {
+            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
+            if (crushing.length) {
+                let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
+                if (hitSolid) {
+                    // force door to open
+                    state.direction = 1;
+                    sector.zCeil = original;
+                    playDoorSound(map, sector);
+                    return true;
+                }
+            }
+        }
+
+        mobjs.forEach(mobj => mobj.sectorChanged(sector));
+        map.events.emit('sector-z', sector);
+        if (finished) {
+            sector.specialData = null;
+            return false;
+        }
+        return true;
+    },
+}
+
 // Doors
 const keyMissingMessage = (playerKeys: string, def: ReturnType<typeof doorDefinition>) => {
     const compareKeys = def.differentiateSkullKeys ? playerKeys : playerKeys.toUpperCase();
@@ -606,27 +659,37 @@ const keyMissingMessage = (playerKeys: string, def: ReturnType<typeof doorDefini
 };
 
 type DoorFunction = 'openWaitClose' | 'openAndStay' | 'closeAndStay' | 'closeWaitOpen';
-const doorDefinition = (trigger: string, keys: string, speed: number, closeDelay: number, func: DoorFunction, differentiateSkullKeys = false) => ({
-    function: func,
+const doorDefinition = (trigger: string, keys: string, speed: number, delay: number, fn: DoorFunction, differentiateSkullKeys = false) => ({
     trigger: trigger[0] as TriggerType,
+    monsterTrigger: trigger.includes('m'),
     repeatable: (trigger[1] === 'R'),
-    speed,
-    sounds: speed < 8 ? [SoundIndex.sfx_doropn, SoundIndex.sfx_dorcls] : [SoundIndex.sfx_bdopn, SoundIndex.sfx_bdcls],
     keys: (differentiateSkullKeys ? keys : keys.toUpperCase()).split(''),
     differentiateSkullKeys,
-    closeDelay,
-    monsterTrigger: trigger.includes('m'),
+    makeState: (map: MapRuntime, sector: Sector) => doorState(fn, delay, speed,
+        (fn === 'openAndStay' || fn === 'openWaitClose') ? 1 : -1,
+        ((fn === 'openAndStay' || fn === 'openWaitClose') ? offset(findLowestCeiling, - 4) : ceilingHeight)(map, sector),
+        floorHeight(map, sector)),
 });
+
+const doorState = (fn: DoorFunction, waitDelay: number, speed: number, direction: number, topHeight: number, bottomHeight: number) =>
+    ({ fn, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0 });
+type DoorState = ReturnType<typeof doorState>;
+
+const doorSound = (state: DoorState) =>
+    !state ? SoundIndex.sfx_None :
+    state.speed < 8 && state.direction > 0 ? SoundIndex.sfx_doropn :
+    state.speed < 8 ? SoundIndex.sfx_dorcls :
+    state.direction > 0 ? SoundIndex.sfx_bdopn : SoundIndex.sfx_bdcls;
+const playDoorSound = (map: MapRuntime, sector: Sector) =>
+    map.game.playSound(doorSound(sector.specialData), sector);
 
 const createDoorAction =
         (def: ReturnType<typeof doorDefinition>) =>
         (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
-    const map = mobj.map;
-    const validTrigger = (
+    const validTrigger =
         def.trigger === trigger
         // treat P === S because P is a special case (local door) and does not need a sector tag
-        || (trigger === 'S' && def.trigger === 'P')
-    )
+        || (trigger === 'S' && def.trigger === 'P');
     if (!validTrigger) {
         return;
     }
@@ -643,98 +706,38 @@ const createDoorAction =
         linedef.special = 0; // one time action so clear special
     }
 
-    const doorSound = (sector: Sector) =>
-        sector.specialData && mobj.map.game.playSound(sector.specialData > 0 ? def.sounds[0] : def.sounds[1], sector);
-
     // TODO: I really don't love the "DoorFunction" as a string. It might be fun to try to break it down into smaller functions to control start/stop actions
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
     let triggered = false;
+    const map = mobj.map;
     const sectors = def.trigger === 'P' ? [linedef.left.sector] : map.data.sectors.filter(e => e.tag === linedef.tag)
     for (const sector of sectors) {
-        if (sector.specialData !== null) {
+        if (sector.specialData) {
             if (def.trigger === 'P') {
-                if (mobj.isMonster && sector.specialData <= 0) {
+                const st = sector.specialData as DoorState;
+                if (mobj.isMonster && st.direction > 0) {
                     continue; // monsters don't close doors
                 }
-                // push doors can be interrupted:
-                // close->open doors should go back open
-                // open->close doors should close
-                // other types continue along
-                if (def.function === 'closeWaitOpen') {
-                    sector.specialData = (sector.specialData === 0) ? 1 : -sector.specialData;
+                // some doors can be interrupted, others continue along
+                if (st.fn === 'closeWaitOpen' || 'openWaitClose') {
+                    st.direction = -st.direction;
+                    st.ticks = 0;
                 }
-                if (def.function === 'openWaitClose') {
-                    sector.specialData = (sector.specialData === 0) ? -1 : -sector.specialData;
-                }
-                doorSound(sector);
             }
             continue;
         }
+
         triggered = true;
-        sector.specialData = def.function === 'openAndStay' || def.function === 'openWaitClose' ? 1 : -1;
-        doorSound(sector);
-
-        const topHeight =sector.specialData === -1
-            ? sector.zCeil : (findLowestCeiling(map, sector) - 4);
-        let ticks = 0;
+        sector.specialData = def.makeState(map, sector);
+        playDoorSound(map, sector);
         const action = () => {
-            if (sector.specialData === 0) {
-                // waiting
-                if (ticks--) {
-                    return;
-                }
-                if (def.function === 'closeWaitOpen' || def.function === 'openWaitClose') {
-                    sector.specialData = def.function === 'openWaitClose' ? -1 : 1;
-                }
-                doorSound(sector);
-                return;
-            }
-
-            // move door
-            const mobjs = sectorObjects(map, sector);
-            let original = sector.zCeil;
-            sector.zCeil += def.speed * sector.specialData;
-
-            let finished = false;
-            if (sector.zCeil > topHeight) {
-                // hit ceiling
-                finished = def.function === 'closeWaitOpen' || def.function === 'openAndStay';
-                ticks = def.closeDelay;
-                sector.zCeil = topHeight;
-                sector.specialData = 0;
-            } else if (sector.zCeil < sector.zFloor) {
-                // hit floor
-                finished = def.function === 'openWaitClose' || def.function === 'closeAndStay';
-                ticks = def.closeDelay;
-                sector.zCeil = sector.zFloor;
-                sector.specialData = 0;
-            }
-
-            // crush (and reverse direction)
-            if (sector.specialData === -1) {
-                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-                if (crushing.length) {
-                    let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
-                    if (hitSolid) {
-                        // force door to open
-                        sector.specialData = 1;
-                        sector.zCeil = original;
-                        return;
-                    }
-                }
-            }
-
-            if (finished) {
+            if (!movers['door'](map, sector)) {
                 map.removeAction(action);
-                sector.specialData = null;
             }
-            mobjs.forEach(mobj => mobj.sectorChanged(sector));
-            map.events.emit('sector-z', sector);
-        };
+        }
         map.addAction(action);
     }
-
     return triggered ? def : undefined;
 };
 
@@ -789,7 +792,7 @@ const createLiftAction =
         let ticks = 0;
         const action = () => {
             if (ticks) {
-                ticks--;
+                ticks -= 1;
                 return;
             }
             if (nextSound) {
@@ -797,7 +800,6 @@ const createLiftAction =
                 nextSound = null;
             }
 
-            const mobjs = sectorObjects(map, sector);
             // move lift
             let finished = false;
             let original = sector.zFloor;
@@ -820,6 +822,7 @@ const createLiftAction =
                 direction = -1;
             }
 
+            const mobjs = sectorObjects(map, sector);
             if (direction === 1) {
                 const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
                 if (crushing.length) {
