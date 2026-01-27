@@ -1080,7 +1080,7 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
                 specialLines?.push(hit);
             }
 
-            if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
+            if (!blocking && newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
                 if (specialLines && hit.line.special) {
                     const startSide = signedLineDistance(hit.line.v, mobj.position) < 0 ? -1 : 1;
                     const endSide = signedLineDistance(hit.line.v, _centreMoveEnd) < 0 ? -1 : 1;

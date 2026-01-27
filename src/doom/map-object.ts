@@ -90,7 +90,6 @@ const bodyMover: Mover = (() => {
                     (self.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
                     (start.z - back.zFloor <= maxStepSize);
 
-                // console.log('[sz,ez], [f,t,cf,do]',self.id,[start.z, back.zFloor], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
                 if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
                     // only players trigger specials during move, monsters trigger then as part of ai routines (A_Chase)
                     // NB: if we decide to change this, we'll need to be careful about things like MT_BLOOD
@@ -413,29 +412,32 @@ export class MapObject {
         this.mover = (this.info.flags & MFFlags.MF_MISSILE) ? missileMover : bodyMover;
         // only players, monsters, and dropped things are moveable which affects how we choose zFloor and zCeil
         const moveable = this.isMonster || (this.info.flags & MFFlags.MF_DROPPED) || spec.moType === MapObjectIndex.MT_PLAYER;
-        const highestZFloor = !moveable
-            ? (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor
-            : (sector: Sector, zFloor: number) => {
-                const ceil = lowestZCeil(sector, sector.zCeil);
+        const nonMoverZFloor = (sector: Sector, zFloor: number) => (this.sector ?? sector).zFloor;
+        const highestFittingZFloor = !moveable ? nonMoverZFloor
+            : (sector: Sector, zFloor: number, zCeil: number) => {
                 this.sectorMap.forEach((n, sec) => {
                     const floor = (sector === sec) ? zFloor : sec.zFloor;
                     const step = floor - this.position.z;
                     // only allow step if it's small and we can fit in the ceiling/floor gap
                     // (see imp near sector 75 in E1M7)
-                    if (step >= 0 && step <= maxStepSize && ceil - floor >= this.info.height) {
+                    if (step >= 0 && step <= maxStepSize && zCeil - floor >= this.info.height) {
                         zFloor = Math.max(floor, zFloor);
                     }
                 });
+                return zFloor;
+            };
+        const highestZFloor = !moveable ? nonMoverZFloor
+            : (sector: Sector, zFloor: number) => {
+                this.sectorMap.forEach((n, sec) =>
+                    zFloor = (sector === sec) ? zFloor : Math.max(sec.zFloor, zFloor));
                 return zFloor;
             };
 
         const lowestZCeil = !moveable
             ? (sector: Sector, zCeil: number) => (this.sector ?? sector).zCeil
             : (sector: Sector, zCeil: number) => {
-                this.sectorMap.forEach((n, sec) => {
-                    const ceil = (sector === sec) ? zCeil : sec.zCeil;
-                    zCeil = Math.min(ceil, zCeil);
-                });
+                this.sectorMap.forEach((n, sec) =>
+                    zCeil = (sector === sec) ? zCeil : Math.min(sec.zCeil, zCeil));
                 return zCeil;
             };
 
@@ -474,7 +476,7 @@ export class MapObject {
             this._zFloor = fromCeiling && !this.isDead //<-- for keens
                 ? this.zCeil - this.info.height
                 // we want the sector with the highest floor which means we float a little when standing on an edge
-                : highestZFloor(sector, sector.zFloor);
+                : highestFittingZFloor(sector, sector.zFloor, this._zCeil);
             if (!this._sector) {
                 // first time setting sector so set zpos based on sector containing the object center
                 this.position.z = sector.zFloor;

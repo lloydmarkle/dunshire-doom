@@ -177,18 +177,18 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     206: () => flatMoverAction(ceilingDefinition('SR', -1, 1, highestNeighbourFloor)),
 
     // Elevators (kind of a moving floor that also moves the ceiling)
-    227: () => elevatorAction(elevatorDefinition('W1', 1, nextNeighbourFloorUp)),
-    228: () => elevatorAction(elevatorDefinition('WR', 1, nextNeighbourFloorUp)),
-    229: () => elevatorAction(elevatorDefinition('S1', 1, nextNeighbourFloorUp)),
-    230: () => elevatorAction(elevatorDefinition('SR', 1, nextNeighbourFloorUp)),
-    231: () => elevatorAction(elevatorDefinition('W1', 1, nextNeighbourFloorDown)),
-    232: () => elevatorAction(elevatorDefinition('WR', 1, nextNeighbourFloorDown)),
-    233: () => elevatorAction(elevatorDefinition('S1', 1, nextNeighbourFloorDown)),
-    234: () => elevatorAction(elevatorDefinition('SR', 1, nextNeighbourFloorDown)),
-    235: () => elevatorAction(elevatorDefinition('W1', 1, triggerFloor)),
-    236: () => elevatorAction(elevatorDefinition('WR', 1, triggerFloor)),
-    237: () => elevatorAction(elevatorDefinition('S1', 1, triggerFloor)),
-    238: () => elevatorAction(elevatorDefinition('SR', 1, triggerFloor)),
+    227: () => flatMoverAction(elevatorDefinition('W1', 1, nextNeighbourFloorUp)),
+    228: () => flatMoverAction(elevatorDefinition('WR', 1, nextNeighbourFloorUp)),
+    229: () => flatMoverAction(elevatorDefinition('S1', 1, nextNeighbourFloorUp)),
+    230: () => flatMoverAction(elevatorDefinition('SR', 1, nextNeighbourFloorUp)),
+    231: () => flatMoverAction(elevatorDefinition('W1', 1, nextNeighbourFloorDown)),
+    232: () => flatMoverAction(elevatorDefinition('WR', 1, nextNeighbourFloorDown)),
+    233: () => flatMoverAction(elevatorDefinition('S1', 1, nextNeighbourFloorDown)),
+    234: () => flatMoverAction(elevatorDefinition('SR', 1, nextNeighbourFloorDown)),
+    235: () => flatMoverAction(elevatorDefinition('W1', 1, triggerFloor)),
+    236: () => flatMoverAction(elevatorDefinition('WR', 1, triggerFloor)),
+    237: () => flatMoverAction(elevatorDefinition('S1', 1, triggerFloor)),
+    238: () => flatMoverAction(elevatorDefinition('SR', 1, triggerFloor)),
 
     // Lifts
     // Some combination of the unofficial doom spec https://www.gamers.org/dhs/helpdocs/dmsp1666.html
@@ -742,6 +742,7 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
     'flat': (map, sector: Sector<FlatState>) => {
         const state = sector.specialData;
         let original = sector[state.prop];
+        let ceilingGap = sector.zCeil - sector.zFloor;
         sector[state.prop] += state.direction * state.speed;
         playMoveSound(map, sector);
 
@@ -750,16 +751,22 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
         if (finished) {
             sector[state.prop] = state.target;
         }
+        if (state.elevator) {
+            sector.zCeil = sector.zFloor + ceilingGap;
+        }
 
         // crush
         const mobjs = sectorObjects(map, sector);
-        if (state.direction === 1) {
+        if (state.checkCrush) {
             const crunch = state.crush ? crunchAndDamageMapObject : crunchMapObject;
             const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
             if (crushing.length) {
                 let hitSolid = crushing.reduce((res, mo) => crunch(mo) || res, false);
                 if (hitSolid) {
                     sector[state.prop] = original;
+                    if (state.elevator) {
+                        sector.zCeil = sector.zFloor + ceilingGap;
+                    }
                     return;
                 }
             }
@@ -881,9 +888,11 @@ const flatMoverDefinition = (trigger: string, direction: number, speed: number, 
     trigger: trigger[0] as TriggerType,
     monsterTrigger: trigger.includes('m'),
     repeatable: (trigger[1] === 'R'),
+    elevator: false,
     makeState: (map: MapRuntime, sector: Sector, linedef?: LineDef) => {
         const target = targetFn(map, sector, linedef);
-        return { mover: 'flat', speed, direction, target, prop, crush, change: effect?.(map, sector, linedef, target) };
+        const checkCrush = direction < 0 && prop === 'zCeil' || direction > 0 && prop === 'zFloor';
+        return { mover: 'flat', elevator: false, checkCrush, speed, direction, target, prop, crush, change: effect?.(map, sector, linedef, target) };
     },
 });
 const floorDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, crush = false) =>
@@ -891,10 +900,8 @@ const floorDefinition = (trigger: string, direction: number, speed: number, effe
 const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction, effect: EffectFunction = undefined, crush = false) =>
     flatMoverDefinition(trigger, direction, speed, effect, targetFn, 'zCeil', crush);
 const elevatorDefinition = (trigger: string, speed: number, targetFn: TargetValueFunction) => ({
-    trigger: trigger[0] as TriggerType,
-    repeatable: (trigger[1] === 'R'),
-    targetFn,
-    speed,
+    ...flatMoverDefinition(trigger, 0, speed, null, targetFn, 'zFloor', false),
+    elevator: true,
 });
 
 const flatMoverAction =
@@ -920,6 +927,11 @@ const flatMoverAction =
         triggered = true;
 
         const state = def.makeState(mobj.map, sector, linedef);
+        if (def.elevator) {
+            state.checkCrush = true;
+            state.elevator = def.elevator;
+            state.direction = Math.sign(state.target - sector.zFloor)
+        }
         if (state.direction > 0 && state.change) {
             applyChangeEffect(map, sector, state.change);
         }
@@ -928,72 +940,6 @@ const flatMoverAction =
     }
     return triggered ? def : undefined;
 };
-
-const elevatorAction =
-        (def: ReturnType<typeof elevatorDefinition>) =>
-        (mobj: MapObject, linedef: LineDef,  trigger: TriggerType): SpecialDefinition | undefined => {
-    const map = mobj.map;
-    if (def.trigger !== trigger) {
-        return;
-    }
-    if (mobj.isMonster) {
-        return;
-    }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
-
-    // it would be nice to re-use flatMoverAction here (create one for ceiling and one for floor)
-    // but this one computes it's own direction and is just different enough that I'm not sure how to
-    // combine them nicely
-    let triggered = false;
-    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
-    for (const sector of sectors) {
-        if (sector.specialData !== null) {
-            continue;
-        }
-
-        triggered = true;
-        sector.specialData = def;
-
-        const target = def.targetFn(map, sector, linedef);
-        let ceilGap = sector.zCeil - sector.zFloor;
-        let direction = Math.sign(target - sector.zFloor);
-        const action = () => {
-            const mobjs = sectorObjects(map, sector);
-            let finished = false;
-            let originalFloor = sector.zFloor;
-            sector.zFloor += direction * def.speed;
-            playMoveSound(map, sector);
-
-            if ((direction > 0 && sector.zFloor > target) || (direction < 0 && sector.zFloor < target)) {
-                finished = true;
-                sector.zFloor = target;
-            }
-
-            // crush
-            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-            if (crushing.length) {
-                let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
-                if (hitSolid) {
-                    sector.zFloor = originalFloor;
-                    return;
-                }
-            }
-
-            sector.zCeil = sector.zFloor + ceilGap;
-            mobjs.forEach(mobj => mobj.sectorChanged(sector));
-            map.events.emit('sector-z', sector);
-            if (finished) {
-                map.game.playSound(SoundIndex.sfx_pstop, sector);
-                sector.specialData = null;
-                map.removeAction(action);
-            }
-        }
-        map.addAction(action);
-    }
-    return triggered ? def : undefined;
-}
 
 // Crusher Ceilings
 const crusherCeilingDefinition = (trigger: string, speed: number, triggerType: 'start' | 'stop', silent = false) => ({
