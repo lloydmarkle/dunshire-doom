@@ -195,46 +195,46 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     // and doomwiki https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
     // Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
     // We call them "floors" and keep lifts as strictly something moves and can reverse
-    10: () => createLiftAction(liftDefinition('W1m', 105, 4, lowestNeighbourFloor, floorHeight)),
-    21: () => createLiftAction(liftDefinition('S1', 105, 4, lowestNeighbourFloor, floorHeight)),
-    53: () => createLiftAction(liftDefinition('W1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
-    54: () => createLiftAction(liftDefinition('W1', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
-    62: () => createLiftAction(liftDefinition('SR', 105, 4, lowestNeighbourFloor, floorHeight)),
-    87: () => createLiftAction(liftDefinition('WR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
-    88: () => createLiftAction(liftDefinition('WRm', 105, 4, lowestNeighbourFloor, floorHeight)),
-    89: () => createLiftAction(liftDefinition('WR', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
+    10: () => applySpecial(liftDefinition('W1m', 105, 4, lowestNeighbourFloor, floorHeight)),
+    21: () => applySpecial(liftDefinition('S1', 105, 4, lowestNeighbourFloor, floorHeight)),
+    53: () => applySpecial(liftDefinition('W1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+    54: () => applySpecial(liftDefinition('W1', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
+    62: () => applySpecial(liftDefinition('SR', 105, 4, lowestNeighbourFloor, floorHeight)),
+    87: () => applySpecial(liftDefinition('WR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+    88: () => applySpecial(liftDefinition('WRm', 105, 4, lowestNeighbourFloor, floorHeight)),
+    89: () => applySpecial(liftDefinition('WR', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
     // 95 is moved to floorActions but is that correct? I could only find this linedef at the end of
     // Sigil E5M4 and sigil E6M6. Floor actions work just fine so may be it's okay?
     // 95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, lowestNeighbourFloor, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
     // FIXME: should these be speed 4 or 8?
-    120: () => createLiftAction(liftDefinition('WR', 105, 8, lowestNeighbourFloor, floorHeight)),
-    121: () => createLiftAction(liftDefinition('W1', 105, 8, lowestNeighbourFloor, floorHeight)),
-    122: () => createLiftAction(liftDefinition('S1', 105, 8, lowestNeighbourFloor, floorHeight)),
-    123: () => createLiftAction(liftDefinition('SR', 105, 8, lowestNeighbourFloor, floorHeight)),
+    120: () => applySpecial(liftDefinition('WR', 105, 8, lowestNeighbourFloor, floorHeight)),
+    121: () => applySpecial(liftDefinition('W1', 105, 8, lowestNeighbourFloor, floorHeight)),
+    122: () => applySpecial(liftDefinition('S1', 105, 8, lowestNeighbourFloor, floorHeight)),
+    123: () => applySpecial(liftDefinition('SR', 105, 8, lowestNeighbourFloor, floorHeight)),
     // Extended lifts
-    162: () => createLiftAction(liftDefinition('S1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
-    181: () => createLiftAction(liftDefinition('SR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
-    163: () => createLiftAction(liftDefinition('S1', 0, 0, floorHeight, floorHeight, 'stop')),
-    182: () => createLiftAction(liftDefinition('SR', 0, 0, floorHeight, floorHeight, 'stop')),
+    162: () => applySpecial(liftDefinition('S1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+    181: () => applySpecial(liftDefinition('SR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+    163: () => applySpecial(liftDefinition('S1', 0, 0, floorHeight, floorHeight, 'stop')),
+    182: () => applySpecial(liftDefinition('SR', 0, 0, floorHeight, floorHeight, 'stop')),
 
     // Crushers
-    6: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', 2, 'start')),
-    25: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', 1, 'start')),
-    49: () => createCrusherCeilingAction(crusherCeilingDefinition('S1', 1, 'start')),
-    57: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', 0, 'stop')),
-    73: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', 1, 'start')),
-    74: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', 0, 'stop')),
-    77: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', 2, 'start')),
-    141: () => createCrusherCeilingAction(crusherCeilingDefinition('W1', 1, 'start')),
+    6: () => applySpecial(crusherCeilingDefinition('W1', 2, 'start')),
+    25: () => applySpecial(crusherCeilingDefinition('W1', 1, 'start')),
+    49: () => applySpecial(crusherCeilingDefinition('S1', 1, 'start')),
+    57: () => applySpecial(crusherCeilingDefinition('W1', 0, 'stop')),
+    73: () => applySpecial(crusherCeilingDefinition('WR', 1, 'start')),
+    74: () => applySpecial(crusherCeilingDefinition('WR', 0, 'stop')),
+    77: () => applySpecial(crusherCeilingDefinition('WR', 2, 'start')),
+    141: () => applySpecial(crusherCeilingDefinition('W1', 1, 'start')),
     // Extended crushers
-    150: () => createCrusherCeilingAction(crusherCeilingDefinition('WR', 1, 'start', true)),
-    164: () => createCrusherCeilingAction(crusherCeilingDefinition('S1', 2, 'start', false)),
-    165: () => createCrusherCeilingAction(crusherCeilingDefinition('S1', 1, 'start', true)),
-    168: () => createCrusherCeilingAction(crusherCeilingDefinition('S1', 0, 'stop')),
-    183: () => createCrusherCeilingAction(crusherCeilingDefinition('SR', 2, 'start')),
-    184: () => createCrusherCeilingAction(crusherCeilingDefinition('SR', 1, 'start')),
-    185: () => createCrusherCeilingAction(crusherCeilingDefinition('SR', 1, 'start', true)),
-    188: () => createCrusherCeilingAction(crusherCeilingDefinition('SR', 0, 'stop')),
+    150: () => applySpecial(crusherCeilingDefinition('WR', 1, 'start', true)),
+    164: () => applySpecial(crusherCeilingDefinition('S1', 2, 'start', false)),
+    165: () => applySpecial(crusherCeilingDefinition('S1', 1, 'start', true)),
+    168: () => applySpecial(crusherCeilingDefinition('S1', 0, 'stop')),
+    183: () => applySpecial(crusherCeilingDefinition('SR', 2, 'start')),
+    184: () => applySpecial(crusherCeilingDefinition('SR', 1, 'start')),
+    185: () => applySpecial(crusherCeilingDefinition('SR', 1, 'start', true)),
+    188: () => applySpecial(crusherCeilingDefinition('SR', 0, 'stop')),
 
     // Lighting
     12: () => createLightingAction(createLightingDefinition('W1', maxNeighbourLight)),
@@ -335,7 +335,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
             [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
             'start',
             Boolean((linedef.special & 0x0040) >> 6));
-        action = createCrusherCeilingAction(def);
+        action = applySpecial(def);
     } else if (linedef.special >= 0x3000 && linedef.special < 0x3400) {
         // stair builders
         const monsterTrigger = ((linedef.special & 0x0020) >> 5) ? 'm' : '';
@@ -362,7 +362,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
             lowTarget,
             hightTarget,
             (hightTarget === highestNeighbourFloorInclusive) ? 'perpetual' : 'normal');
-        action = createLiftAction(def);
+        action = applySpecial(def);
     } else if (linedef.special >= 0x3800 && linedef.special < 0x3c00) {
         // generalized locked doors
         const doorFunction = (['openWaitClose', 'openAndStay'] as DoorFunction[])[(linedef.special & 0x0020) >> 5];
@@ -827,52 +827,6 @@ const createDoorAction =
     return triggered ? def : undefined;
 };
 
-// Lifts
-const liftDefinition = (trigger: string, waitTicks: number, speed: number, targetLowFn: TargetValueFunction, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal') => ({
-    trigger: trigger[0] as TriggerType,
-    repeatable: (trigger[1] === 'R'),
-    stopper: actionType === 'stop',
-    monsterTrigger: trigger.includes('m'),
-    makeState: (map: MapRuntime, sector: Sector) => liftState(waitTicks, actionType === 'perpetual', speed, -1, targetHighFn(map, sector), targetLowFn(map, sector)),
-});
-const liftState = (waitDelay: number, perpetual: boolean, speed: number, direction: number, topHeight: number, bottomHeight: number) =>
-    ({ mover: 'lift', perpetual, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0, nextSound: SoundIndex.sfx_pstart });
-type LiftState = ReturnType<typeof liftState>;
-
-const createLiftAction =
-        (def: ReturnType<typeof liftDefinition>) =>
-        (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
-    if (def.trigger !== trigger) {
-        return;
-    }
-    if (mobj.isMonster && !def.monsterTrigger) {
-        return;
-    }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
-
-    let triggered = false;
-    const sectors = mobj.map.sectorsByTag.get(linedef.tag) ?? [];
-    for (const sector of sectors) {
-        if (def.stopper || sector.specialData !== null) {
-            // sector is already running an action so don't add another one
-            if (def.stopper) {
-                mobj.map.removeAction(sector);
-            } else {
-                mobj.map.addAction(sector);
-            }
-            // TODO: should triggered be true here?
-            continue;
-        }
-
-        triggered = true;
-        sector.specialData = def.makeState(mobj.map, sector);
-        mobj.map.addAction(sector);
-    }
-    return triggered ? def : undefined;
-};
-
 // Moving floors, ceilings, and elevators
 const flatMoverDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, prop: 'zCeil' | 'zFloor', crush: boolean) => ({
     trigger: trigger[0] as TriggerType,
@@ -1041,11 +995,32 @@ const crusherCeilingDefinition = (trigger: string, speed: number, triggerType: '
     makeState: (map: MapRuntime, sector: Sector) => crusherState(speed, silent, ceilingHeight(map, sector), offset(floorHeight, 8)(map, sector)),
 });
 const crusherState = (speed: number, silent: boolean, topHeight: number, bottomHeight: number) =>
-    ({ mover: 'crusher', silent, originalSpeed: speed, speed, direction: -1, topHeight, bottomHeight, nextSound: SoundIndex.sfx_pstart, vanillaMode: false });
+    ({ mover: 'crusher' as MoverType, silent, originalSpeed: speed, speed, direction: -1, topHeight, bottomHeight, nextSound: SoundIndex.sfx_pstart, vanillaMode: false });
 type CrusherState = ReturnType<typeof crusherState>;
 
-const createCrusherCeilingAction =
-        (def: ReturnType<typeof crusherCeilingDefinition>) =>
+// Lifts
+const liftDefinition = (trigger: string, waitTicks: number, speed: number, targetLowFn: TargetValueFunction, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal') => ({
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    stopper: actionType === 'stop',
+    monsterTrigger: trigger.includes('m'),
+    makeState: (map: MapRuntime, sector: Sector) => liftState(waitTicks, actionType === 'perpetual', speed, -1, targetHighFn(map, sector), targetLowFn(map, sector)),
+});
+const liftState = (waitDelay: number, perpetual: boolean, speed: number, direction: number, topHeight: number, bottomHeight: number) =>
+    ({ mover: 'lift' as MoverType, perpetual, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0, nextSound: SoundIndex.sfx_pstart });
+type LiftState = ReturnType<typeof liftState>;
+
+interface MoverState {
+    mover: MoverType;
+}
+interface SpecialDefinition2 extends SpecialDefinition {
+    monsterTrigger: boolean;
+    trigger: string;
+    stopper: boolean;
+    makeState: (map: MapRuntime, sector: Sector) => MoverState;
+}
+const applySpecial =
+        (def: SpecialDefinition2) =>
         (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
     if (def.trigger !== trigger) {
         return;
@@ -1064,12 +1039,13 @@ const createCrusherCeilingAction =
         // NOTE: E3M4 has an interesting behaviour in the outdoor room because a sector has only 1 special data.
         // If you start the crusher before flipping the switch, you cannot flip the switch to get the bonus items.
         // gzDoom actually handles this but chocolate doom (and I assume the original) did not
-        if (def.stopper || sector.specialData !== null) {
+        if (def.stopper || sector.specialData) {
             if (def.stopper) {
                 mobj.map.removeAction(sector);
             } else {
                 mobj.map.addAction(sector);
             }
+            // TODO: should triggered be true here?
             continue;
         }
 

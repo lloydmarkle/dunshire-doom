@@ -208,14 +208,12 @@ describe('linedef specials (E1M1)', () => {
 });
 
 describe('linedef specials (E2M2)', () => {
-    let monster: MapObject;
     let game: Game;
     let map: MapRuntime;
     before(() => {
         let testGame = initGame('doom.wad', 'E2M2');
         game = testGame.game;
         map = testGame.map;
-        monster = [...map.objs.values()].find(e => e.isMonster);
     });
 
     describe('crushers', () => {
@@ -275,11 +273,25 @@ describe('linedef specials (E2M2)', () => {
             let tics = waitUntil(game, () => sec.zCeil === 72);
             waitTime(game); // wait an extra tick to get the stop sound because reversing crushers takes 1 tic
             expect(sounds).to.have.ordered.members([
-                ...Array(Math.ceil(tics / 8)).fill(SoundIndex.sfx_stnmov),
+                ...Array(Math.floor(tics / 8)).fill(SoundIndex.sfx_stnmov),
                 SoundIndex.sfx_pstop,
             ]);
         });
 
         // it might be nice to have a stop and resume test
+    });
+
+    it('special 20 raises floor to nearest neightbour and plays move and stop sounds', () => {
+        let sounds = [];
+        const sec = map.data.sectors.find(e => e.num === 1);
+        game.onSound((snd, position) => position === sec ? sounds.push(snd) : null);
+        map.triggerSpecial(map.data.linedefs.find(e => e.num === 1336), map.player, 'S', 1);
+
+        let tics = waitUntil(game, () => sec.zFloor === 64);
+        waitTime(game); // wait an extra tick to get the stop sound
+        expect(sounds).to.have.ordered.members([
+            ...Array(Math.floor(tics / 8)).fill(SoundIndex.sfx_stnmov),
+            SoundIndex.sfx_pstop,
+        ]);
     });
 });
