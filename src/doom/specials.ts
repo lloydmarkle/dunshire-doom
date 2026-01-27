@@ -2,7 +2,7 @@
 import { type MapObject, PlayerMapObject } from "./map-object";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
-import { zeroVec, type LineDef, type Sector, linedefSlope, type LineTraceHit, type TraceParams, baseMoveTrace } from "./map-data";
+import { zeroVec, type LineDef, type Sector, type LineTraceHit, type TraceParams, baseMoveTrace } from "./map-data";
 import { _T, type MessageId } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
@@ -306,6 +306,10 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
 
 // General
 type SpecialAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1) => SpecialDefinition | undefined;
+// Push, Switch, Walk, Gun (shoot)
+export type TriggerType = 'P' | 'S' | 'W' | 'G';
+const maxZ = 32000;
+
 export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1) {
     if (ignoreLines.has(linedef.special)) {
         return;
@@ -329,8 +333,8 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         const def = crusherCeilingDefinition(
             triggerType + monsterTrigger,
             [1, 2, 4, 8][(linedef.special & 0x0018) >> 3],
-            'start');
-        def.silent = Boolean((linedef.special & 0x0040) >> 6);
+            'start',
+            Boolean((linedef.special & 0x0040) >> 6));
         action = createCrusherCeilingAction(def);
     } else if (linedef.special >= 0x3000 && linedef.special < 0x3400) {
         // stair builders
@@ -440,7 +444,6 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
     }
     console.warn('unsupported linedef special:', linedef.special);
 }
-
 const ignoreLines = new Set([
     // scrollers can be walked over but they don't do anything (they don't start/stop) so ignore them
     48, 85, 255, 250, 251, 252, 253, 254,
@@ -448,17 +451,19 @@ const ignoreLines = new Set([
     213, 242, 261,
 ]);
 
-// Push, Switch, Walk, Gun (shoot)
-export type TriggerType = 'P' | 'S' | 'W' | 'G';
-const maxZ = 32000;
 export interface SpecialDefinition {
     repeatable: boolean;
 }
 
-type TargetValueFunction = (map: MapRuntime, sector: Sector, linedef?: LineDef) => number;
-
 const reduceEmpty = <T>(arr: T[], fn: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T): T =>
     arr.length === 0 ? undefined : arr.reduce(fn);
+
+// Flat mover target value functions
+type TargetValueFunction = (map: MapRuntime, sector: Sector, linedef?: LineDef) => number;
+const offset = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
+const triggerFloor = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector.zFloor
+const floorHeight = (map: MapRuntime, sector: Sector) => sector.zFloor;
+const ceilingHeight = (map: MapRuntime, sector: Sector) => sector.zCeil;
 const findLowestCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), maxZ)
 const lowestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
@@ -481,11 +486,6 @@ const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
 const highestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), -maxZ);
-
-const triggerFloor = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector.zFloor
-const floorHeight = (map: MapRuntime, sector: Sector) => sector.zFloor;
-const ceilingHeight = (map: MapRuntime, sector: Sector) => sector.zCeil;
-
 const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     let target = maxZ;
     // https://www.doomworld.com/forum/topic/95030-why-does-raise-floor-by-shortest-lower-texture-only-half-work-on-older-ports/#comment-1770824
@@ -501,7 +501,6 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     }
     return sector.zFloor + target;
 };
-const offset = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
 
 type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector | undefined;
 const triggerModel = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector;
@@ -583,7 +582,7 @@ function crunchAndDamageMapObject(mobj: MapObject) {
     return hitSolid;
 }
 
-type MoverType = 'door' | 'lift';
+type MoverType = 'door' | 'lift' | 'crusher';
 export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Sector<any>) => void } = {
     'door': (map, sector: Sector<DoorState>) => {
         const state = sector.specialData;
@@ -683,6 +682,49 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
         map.events.emit('sector-z', sector);
         if (finished) {
             sector.specialData = null;
+        }
+    },
+    'crusher': (map, sector: Sector<CrusherState>) => {
+        const state = sector.specialData;
+        if (!state.vanillaMode || !state.silent) {
+            playMoveSound(map, sector);
+        }
+
+        let finished = false;
+        sector.zCeil += state.speed * state.direction;
+        if (sector.zCeil < state.bottomHeight) {
+            sector.zCeil = state.bottomHeight;
+            finished = true;
+        }
+        if (sector.zCeil > state.topHeight) {
+            sector.zCeil = state.topHeight;
+            finished = true;
+        }
+
+        // crush
+        const mobjs = sectorObjects(map, sector);
+        if (state.direction === -1) {
+            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
+            if (crushing.length) {
+                const hitSolid = crushing.reduce((res, mo) => crunchAndDamageMapObject(mo) || res, false);
+                // vanilla fast crushers (speed of 2) and generalized slow and normal crushers
+                // go even slower when they crush something
+                const slowSpeed = state.vanillaMode ? 2 : 4;
+                if (hitSolid && state.speed < slowSpeed && state.speed === state.originalSpeed) {
+                    state.speed /= 8;
+                }
+            }
+        }
+
+        mobjs.forEach(mobj => mobj.sectorChanged(sector));
+        map.events.emit('sector-z', sector);
+        if (finished) {
+            if (state.vanillaMode || !state.silent) {
+                map.game.playSound(SoundIndex.sfx_pstop, sector);
+            }
+            // crushers keep going
+            state.speed = state.originalSpeed;
+            state.direction = -state.direction;
         }
     },
 }
@@ -863,8 +905,8 @@ const flatMoverAction =
     if (mobj.isMonster) {
         return;
     }
-    // vanilla doom specials apply effects immediately while
-    // boom generalized specials seem to apply at the end.
+    // vanilla doom specials apply effects immediately (sector 94 of DOOM 2 MAP12)
+    // while boom generalized specials seem to apply at the end.
     // Not sure why
     const isVanillaSpecial = linedef.special < 0x100;
     if (!def.repeatable) {
@@ -994,19 +1036,17 @@ const elevatorAction =
 const crusherCeilingDefinition = (trigger: string, speed: number, triggerType: 'start' | 'stop', silent = false) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
-    direction: -1,
-    targetHighFn: ceilingHeight,
-    targetLowFn: offset(floorHeight, 8),
-    stopper: triggerType === 'stop',
-    speed,
     monsterTrigger: trigger.includes('m'),
-    silent,
+    stopper: triggerType === 'stop',
+    makeState: (map: MapRuntime, sector: Sector) => crusherState(speed, silent, ceilingHeight(map, sector), offset(floorHeight, 8)(map, sector)),
 });
+const crusherState = (speed: number, silent: boolean, topHeight: number, bottomHeight: number) =>
+    ({ mover: 'crusher', silent, originalSpeed: speed, speed, direction: -1, topHeight, bottomHeight, nextSound: SoundIndex.sfx_pstart, vanillaMode: false });
+type CrusherState = ReturnType<typeof crusherState>;
 
 const createCrusherCeilingAction =
         (def: ReturnType<typeof crusherCeilingDefinition>) =>
         (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
-    const map = mobj.map;
     if (def.trigger !== trigger) {
         return;
     }
@@ -1019,69 +1059,24 @@ const createCrusherCeilingAction =
     }
 
     let triggered = false;
-    const sectors = map.sectorsByTag.get(linedef.tag) ?? [];
+    const sectors = mobj.map.sectorsByTag.get(linedef.tag) ?? [];
     for (const sector of sectors) {
         // NOTE: E3M4 has an interesting behaviour in the outdoor room because a sector has only 1 special data.
         // If you start the crusher before flipping the switch, you cannot flip the switch to get the bonus items.
         // gzDoom actually handles this but chocolate doom (and I assume the original) did not
         if (def.stopper || sector.specialData !== null) {
             if (def.stopper) {
-                map.removeAction(sector.specialData);
+                mobj.map.removeAction(sector);
             } else {
-                map.addAction(sector.specialData);
+                mobj.map.addAction(sector);
             }
             continue;
         }
 
         triggered = true;
-        const low = def.targetLowFn(map, sector);
-        const high = def.targetHighFn(map, sector);
-        let direction = def.direction;
-
-        const action = () => {
-            const mobjs = sectorObjects(map, sector);
-            if (!vanillaSpecial || !def.silent) {
-                playMoveSound(map, sector);
-            }
-
-            let finished = false;
-            let original = sector.zCeil;
-            sector.zCeil += def.speed * direction;
-            if (sector.zCeil < low) {
-                finished = true;
-                sector.zCeil = low;
-            }
-            if (sector.zCeil > high) {
-                finished = true;
-                sector.zCeil = high;
-            }
-
-            // crush
-            if (direction === -1) {
-                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-                if (crushing.length) {
-                    const hitSolid = crushing.reduce((res, mo) => crunchAndDamageMapObject(mo) || res, false);
-                    // vanilla fast crushers (speed of 2) and generalized slow and normal crushers
-                    // go even slower when they crush something
-                    const slowSpeed = vanillaSpecial ? 2 : 4;
-                    if (hitSolid && def.speed < slowSpeed) {
-                        sector.zCeil = original + (def.speed / 8) * direction
-                    }
-                }
-            }
-
-            mobjs.forEach(mobj => mobj.sectorChanged(sector));
-            map.events.emit('sector-z', sector);
-            if (finished) {
-                if (!def.silent) {
-                    map.game.playSound(SoundIndex.sfx_pstop, sector);
-                }
-                // crushers keep going
-                direction = -direction;
-            }
-        };
-        sector.specialData = action;
-        map.addAction(action);
+        sector.specialData = def.makeState(mobj.map, sector);
+        sector.specialData.vanillaMode = vanillaSpecial;
+        mobj.map.addAction(sector);
     }
     return triggered ? def : undefined;
 };

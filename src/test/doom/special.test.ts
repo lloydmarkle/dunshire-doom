@@ -8,6 +8,14 @@ import { expect } from 'chai';
 const waitTime = (game: Game, ticks = 1) =>
     // add just a little time to make sure we process all tics and don't get bitten by a rounding error
     game.tick(tickTime * ticks + .000001);
+const waitUntil = (game: Game, fn: () => boolean) => {
+    let ticks = 0;
+    while (!fn() && ticks < 1000) {
+        waitTime(game);
+        ticks += 1;
+    }
+    return ticks;
+}
 
 const initGame = (wadName: string, mapName: string) => {
     const buff = fs.readFileSync(path.join(process.env.WADROOT, wadName));
@@ -22,12 +30,11 @@ const initGame = (wadName: string, mapName: string) => {
 
 // These tests are not great unit tests. If one fails, several tests after amy fail depending on what parts of the
 // map they are touching. Still, it give me some confidence to refactor specials
-describe('linedef specials', () => {
+describe('linedef specials (E1M1)', () => {
     let monster: MapObject;
     let game: Game;
     let map: MapRuntime;
     before(() => {
-        // DOOM 1
         let testGame = initGame('doom.wad', 'E1M2');
         game = testGame.game;
         map = testGame.map;
@@ -183,5 +190,82 @@ describe('linedef specials', () => {
         });
         // TODO: door states: openwaitclose, openstay, etc.
         // TODO: A Close and Stay Closed will rest on the head until it leaves the door sector.
+    });
+});
+
+describe('linedef specials (E2M2)', () => {
+    let monster: MapObject;
+    let game: Game;
+    let map: MapRuntime;
+    before(() => {
+        let testGame = initGame('doom.wad', 'E2M2');
+        game = testGame.game;
+        map = testGame.map;
+        monster = [...map.objs.values()].find(e => e.isMonster);
+    });
+
+    describe('crushers', () => {
+        it('special 77 lowers to floor+8 and back to original height', () => {
+            const sec = map.data.sectors.find(e => e.num === 2);
+            expect(sec.zCeil).to.equal(136);
+
+            map.triggerSpecial(map.data.linedefs.find(e => e.num === 1564), map.player, 'W', 1);
+            waitTime(game, 32);
+            expect(sec.zCeil).to.equal(64 + 8);
+
+            // goes back up (need an extra tick because doom platforms pause for one tick when they reach destination)
+            waitTime(game);
+            waitTime(game, 32);
+            expect(sec.zCeil).to.equal(136);
+
+            // clear special
+            sec.specialData = null;
+            waitTime(game);
+        });
+
+        it('special 73 lowers at slower speed and goes even slower when hitting an object', () => {
+            const sec = map.data.sectors.find(e => e.num === 2);
+            expect(sec.zCeil).to.equal(136);
+
+            map.triggerSpecial(map.data.linedefs.find(e => e.num === 1606), map.player, 'W', 1);
+            waitTime(game, 32);
+            expect(sec.zCeil).to.equal(104);
+
+            // move player into crusher
+            game.settings.invicibility.set(true);
+            map.player.position.set(352, -320, 64);
+            map.player.applyPositionChanged();
+
+            // and check we've only moved 1/8 as fast as before (we moved 1 unit per tick before so now we only move 5 total)
+            // the +1 is because the first tick crushes but does not slow down until next tick
+            waitTime(game, 32 + 1);
+            expect(sec.zCeil).to.equal(99);
+        });
+
+        it('damages mobjs (every 4th tick)', () => {
+            map.player.position.set(352, -320, 64);
+            map.player.applyPositionChanged();
+            game.settings.invicibility.set(false);
+            let health = map.player.health.val;
+
+            waitTime(game, 4);
+            expect(map.player.health.val + 10).to.equal(health);
+            game.settings.invicibility.set(true);
+        });
+
+        it('plays sounds every 8 tics during move and at stops', () => {
+            let sounds = [];
+            const sec = map.data.sectors.find(e => e.num === 2);
+            game.onSound((snd, position) => position === sec ? sounds.push(snd) : null);
+
+            let tics = waitUntil(game, () => sec.zCeil === 72);
+            waitTime(game); // wait an extra tick to get the stop sound because reversing crushers takes 1 tic
+            expect(sounds).to.have.ordered.members([
+                ...Array(Math.ceil(tics / 8)).fill(SoundIndex.sfx_stnmov),
+                SoundIndex.sfx_pstop,
+            ]);
+        });
+
+        // it might be nice to have a stop and resume test
     });
 });
