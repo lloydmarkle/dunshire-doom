@@ -9,22 +9,28 @@ const waitTime = (game: Game, ticks = 1) =>
     // add just a little time to make sure we process all tics and don't get bitten by a rounding error
     game.tick(tickTime * ticks + .000001);
 
+const initGame = (wadName: string, mapName: string) => {
+    const buff = fs.readFileSync(path.join(process.env.WADROOT, wadName));
+    const wad = new DoomWad(wadName, [new WadFile(wadName, buff.buffer)]);
+    const settings = createDefaultSettings();
+    settings.monsterAI.set('disabled');
+    const game = new Game(wad, 4, settings);
+    game.maxTimeDeltaSeconds = 20;
+    const map = game.startMap(mapName);
+    return { game, map };
+}
+
+// These tests are not great unit tests. If one fails, several tests after amy fail depending on what parts of the
+// map they are touching. Still, it give me some confidence to refactor specials
 describe('linedef specials', () => {
     let monster: MapObject;
     let game: Game;
     let map: MapRuntime;
     before(() => {
         // DOOM 1
-        const wadName = 'doom.wad';
-        const mapName = 'E1M2';
-        const buff = fs.readFileSync(path.join(process.env.WADROOT, wadName));
-        const wad = new DoomWad(wadName, [new WadFile(wadName, buff.buffer)]);
-        const settings = createDefaultSettings();
-        settings.monsterAI.set('disabled');
-        game = new Game(wad, 4, settings);
-        game.maxTimeDeltaSeconds = 20;
-        map = game.startMap(mapName);
-
+        let testGame = initGame('doom.wad', 'E1M2');
+        game = testGame.game;
+        map = testGame.map;
         monster = [...map.objs.values()].find(e => e.isMonster);
     });
 
@@ -45,8 +51,54 @@ describe('linedef specials', () => {
             expect(sec.specialData).to.be.null;
         });
 
-        // TODO: hit something?
-        // TODO: sounds?
+        it('special 62 activated by switch lowers, raises, then re-lowers when blocked', () => {
+            const sec = map.data.sectors.find(e => e.num === 137);
+            expect(sec.zFloor).to.equal(248);
+
+            map.triggerSpecial(map.data.linedefs.find(e => e.num === 178), map.player, 'S', 1);
+            waitTime(game, 64);
+            expect(sec.zFloor).to.equal(0);
+            // put monster onto lift
+            monster.position.set(-1536, 1664, 0);
+            monster.applyPositionChanged();
+
+            // lift goes up, is blocked, and goes back down
+            waitTime(game, 105 + 60);
+            expect(sec.zFloor).to.equal(48);
+            waitTime(game, 12);
+            expect(sec.zFloor).to.equal(0);
+        });
+
+        it('platforms play start and stop sounds at top and bottom', () => {
+            let sounds = [];
+            const sec = map.data.sectors.find(e => e.num === 109);
+            game.onSound((snd, position) => position === sec ? sounds.push(snd) : null);
+
+            map.triggerSpecial(map.data.linedefs.find(e => e.num === 289), map.player, 'W', 1);
+            waitTime(game, 32);
+
+            // platform goes back up
+            waitTime(game, 105 + 32 + 1 + 1);
+            expect(sounds).to.have.ordered.members([
+                SoundIndex.sfx_pstart, SoundIndex.sfx_pstop,
+                SoundIndex.sfx_pstart, SoundIndex.sfx_pstop,
+            ]);
+        });
+
+        it('special 89 stops platforms', () => {
+            let { game, map } = initGame('doom.wad', 'E2M2');
+            const sec = map.data.sectors.find(e => e.num === 61);
+
+            expect(sec.zFloor).to.equal(0);
+            map.triggerSpecial(map.data.linedefs.find(e => e.num === 1515), map.player, 'W', 1);
+            waitTime(game, 10);
+            const zFloorCapture = sec.zFloor;
+            expect(zFloorCapture).to.be.lessThan(0);
+
+            map.triggerSpecial(map.data.linedefs.find(e => e.num === 1549), map.player, 'W', 1);
+            waitTime(game, 10);
+            expect(sec.zFloor).to.be.equal(zFloorCapture);
+        });
     });
 
     describe('door', () => {

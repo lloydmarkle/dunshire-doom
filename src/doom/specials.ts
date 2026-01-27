@@ -583,8 +583,8 @@ function crunchAndDamageMapObject(mobj: MapObject) {
     return hitSolid;
 }
 
-type Mover<T> = (map: MapRuntime, sector: Sector<T>) => boolean;
-const movers: { [key: string]: Mover<any> } = {
+type MoverType = 'door' | 'lift';
+export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Sector<any>) => void } = {
     'door': (map, sector: Sector<DoorState>) => {
         const state = sector.specialData;
         if (state.ticks) {
@@ -592,7 +592,7 @@ const movers: { [key: string]: Mover<any> } = {
                 state.direction = -state.direction;
                 playDoorSound(map, sector);
             }
-            return true;
+            return;
         }
 
         // move door
@@ -621,7 +621,7 @@ const movers: { [key: string]: Mover<any> } = {
                     state.direction = 1;
                     sector.zCeil = original;
                     playDoorSound(map, sector);
-                    return true;
+                    return;
                 }
             }
         }
@@ -630,9 +630,60 @@ const movers: { [key: string]: Mover<any> } = {
         map.events.emit('sector-z', sector);
         if (finished) {
             sector.specialData = null;
-            return false;
         }
-        return true;
+    },
+    'lift': (map, sector: Sector<LiftState>) => {
+        const state = sector.specialData;
+        if (state.ticks) {
+            state.ticks -= 1;
+            return;
+        }
+        if (state.nextSound) {
+            map.game.playSound(state.nextSound, sector);
+            state.nextSound = null;
+        }
+
+        // move lift
+        let finished = false;
+        let original = sector.zFloor;
+        sector.zFloor += state.speed * state.direction;
+
+        if (sector.zFloor < state.bottomHeight) {
+            state.nextSound = SoundIndex.sfx_pstart;
+            map.game.playSound(SoundIndex.sfx_pstop, sector);
+            state.ticks = state.waitDelay;
+            sector.zFloor = state.bottomHeight;
+            state.direction = 1;
+        } else if (sector.zFloor > state.topHeight) {
+            state.nextSound = SoundIndex.sfx_pstart;
+            map.game.playSound(SoundIndex.sfx_pstop, sector);
+            finished = !state.perpetual;
+            state.ticks = state.waitDelay;
+            sector.zFloor = state.topHeight;
+            state.direction = -1;
+        }
+
+        const mobjs = sectorObjects(map, sector);
+        if (state.direction === 1) {
+            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
+            if (crushing.length) {
+                let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
+                if (hitSolid) {
+                    // switch direction
+                    state.nextSound = SoundIndex.sfx_pstart;
+                    state.direction = -1;
+                    state.ticks = 0;
+                    sector.zFloor = original;
+                    return;
+                }
+            }
+        }
+
+        mobjs.forEach(mobj => mobj.sectorChanged(sector));
+        map.events.emit('sector-z', sector);
+        if (finished) {
+            sector.specialData = null;
+        }
     },
 }
 
@@ -670,9 +721,8 @@ const doorDefinition = (trigger: string, keys: string, speed: number, delay: num
         ((fn === 'openAndStay' || fn === 'openWaitClose') ? offset(findLowestCeiling, - 4) : ceilingHeight)(map, sector),
         floorHeight(map, sector)),
 });
-
 const doorState = (fn: DoorFunction, waitDelay: number, speed: number, direction: number, topHeight: number, bottomHeight: number) =>
-    ({ fn, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0 });
+    ({ mover: 'door', fn, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0 });
 type DoorState = ReturnType<typeof doorState>;
 
 const doorSound = (state: DoorState) =>
@@ -710,8 +760,7 @@ const createDoorAction =
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
     let triggered = false;
-    const map = mobj.map;
-    const sectors = def.trigger === 'P' ? [linedef.left.sector] : map.data.sectors.filter(e => e.tag === linedef.tag)
+    const sectors = def.trigger === 'P' ? [linedef.left.sector] : mobj.map.data.sectors.filter(e => e.tag === linedef.tag)
     for (const sector of sectors) {
         if (sector.specialData) {
             if (def.trigger === 'P') {
@@ -729,14 +778,9 @@ const createDoorAction =
         }
 
         triggered = true;
-        sector.specialData = def.makeState(map, sector);
-        playDoorSound(map, sector);
-        const action = () => {
-            if (!movers['door'](map, sector)) {
-                map.removeAction(action);
-            }
-        }
-        map.addAction(action);
+        sector.specialData = def.makeState(mobj.map, sector);
+        playDoorSound(mobj.map, sector);
+        mobj.map.addAction(sector);
     }
     return triggered ? def : undefined;
 };
@@ -745,20 +789,17 @@ const createDoorAction =
 const liftDefinition = (trigger: string, waitTicks: number, speed: number, targetLowFn: TargetValueFunction, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal') => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
-    speed,
-    direction: -1,
-    perpetual: actionType === 'perpetual',
-    targetLowFn,
-    targetHighFn,
     stopper: actionType === 'stop',
     monsterTrigger: trigger.includes('m'),
-    waitTicks,
+    makeState: (map: MapRuntime, sector: Sector) => liftState(waitTicks, actionType === 'perpetual', speed, -1, targetHighFn(map, sector), targetLowFn(map, sector)),
 });
+const liftState = (waitDelay: number, perpetual: boolean, speed: number, direction: number, topHeight: number, bottomHeight: number) =>
+    ({ mover: 'lift', perpetual, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0, nextSound: SoundIndex.sfx_pstart });
+type LiftState = ReturnType<typeof liftState>;
 
 const createLiftAction =
         (def: ReturnType<typeof liftDefinition>) =>
         (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
-    const map = mobj.map;
     if (def.trigger !== trigger) {
         return;
     }
@@ -770,83 +811,22 @@ const createLiftAction =
     }
 
     let triggered = false;
-    const sectors = map.sectorsByTag.get(linedef.tag) ?? [];
+    const sectors = mobj.map.sectorsByTag.get(linedef.tag) ?? [];
     for (const sector of sectors) {
         if (def.stopper || sector.specialData !== null) {
-            if (def.stopper) {
-                map.removeAction(sector.specialData);
-            } else {
-                map.addAction(sector.specialData);
-            }
             // sector is already running an action so don't add another one
-            // TODO: should we triggered be true here?
+            if (def.stopper) {
+                mobj.map.removeAction(sector);
+            } else {
+                mobj.map.addAction(sector);
+            }
+            // TODO: should triggered be true here?
             continue;
         }
 
         triggered = true;
-        const low = def.targetLowFn(map, sector);
-        const high = def.targetHighFn(map, sector);
-        let direction = def.direction;
-
-        let nextSound = SoundIndex.sfx_pstart;
-        let ticks = 0;
-        const action = () => {
-            if (ticks) {
-                ticks -= 1;
-                return;
-            }
-            if (nextSound) {
-                map.game.playSound(nextSound, sector);
-                nextSound = null;
-            }
-
-            // move lift
-            let finished = false;
-            let original = sector.zFloor;
-            sector.zFloor += def.speed * direction;
-
-            if (sector.zFloor < low) {
-                // hit bottom
-                nextSound = SoundIndex.sfx_pstart;
-                map.game.playSound(SoundIndex.sfx_pstop, sector);
-                ticks = def.waitTicks;
-                sector.zFloor = low;
-                direction = 1;
-            } else if (sector.zFloor > high) {
-                // hit top
-                nextSound = SoundIndex.sfx_pstart;
-                map.game.playSound(SoundIndex.sfx_pstop, sector);
-                finished = !def.perpetual;
-                ticks = def.waitTicks;
-                sector.zFloor = high;
-                direction = -1;
-            }
-
-            const mobjs = sectorObjects(map, sector);
-            if (direction === 1) {
-                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-                if (crushing.length) {
-                    let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
-                    if (hitSolid) {
-                        // switch direction
-                        nextSound = SoundIndex.sfx_pstart;
-                        direction = -1;
-                        ticks = 0;
-                        sector.zFloor = original;
-                        return;
-                    }
-                }
-            }
-
-            mobjs.forEach(mobj => mobj.sectorChanged(sector));
-            map.events.emit('sector-z', sector);
-            if (finished) {
-                map.removeAction(action);
-                sector.specialData = null;
-            }
-        };
-        sector.specialData = action;
-        map.addAction(action);
+        sector.specialData = def.makeState(mobj.map, sector);
+        mobj.map.addAction(sector);
     }
     return triggered ? def : undefined;
 };

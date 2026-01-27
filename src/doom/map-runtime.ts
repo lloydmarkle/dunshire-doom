@@ -3,7 +3,7 @@ import { type MapData, type LineDef, type Thing, type Action, type Sector, lined
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians, ticksPerSecond, tickTime } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
-import { pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
+import { moverActions, pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { type Game, type GameTime, type ControllerInput } from "./game";
 import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
@@ -107,7 +107,7 @@ interface ShotTrace {
 }
 
 export class MapRuntime {
-    private actions = new Set<Action>();
+    private actions = new Set<Action | Sector>();
     private animatedTextures = new Map<string, AnimatedTexture>();
     private animatedFlats = new Map<string, AnimatedTexture2>();
 
@@ -300,7 +300,16 @@ export class MapRuntime {
     }
 
     tick() {
-        this.actions.forEach(action => action());
+        this.actions.forEach(action => {
+            // this is kind of ugly BUT I think there is a path out of it if we eliminate functions
+            if (typeof action === 'function') {
+                action()
+            } else if (action['specialData']) {
+                moverActions[action.specialData.mover](this, action);
+            } else if (action) {
+                this.actions.delete(action);
+            }
+        });
 
         // update wall/flat animations
         this.animatedTextures.forEach(anim => {
@@ -364,13 +373,15 @@ export class MapRuntime {
         this.animatedTextures.set(key, { index, line, side, prop, frames, speed });
     }
 
-    addAction(action: Action) {
+    addAction(action: Action | Sector) {
         if (typeof action === 'function') {
+            this.actions.add(action);
+        } else if (action['specialData']) {
             this.actions.add(action);
         }
     }
 
-    removeAction(action: Action) {
+    removeAction(action: Action | Sector) {
         this.actions.delete(action);
     }
 
