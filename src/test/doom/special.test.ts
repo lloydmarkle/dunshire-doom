@@ -191,6 +191,20 @@ describe('linedef specials (E1M1)', () => {
         // TODO: door states: openwaitclose, openstay, etc.
         // TODO: A Close and Stay Closed will rest on the head until it leaves the door sector.
     });
+
+    it('special 9 applies the "donut" effect', () => {
+        const ring = map.data.sectors.find(e => e.num === 175);
+        const hole = map.data.sectors.find(e => e.num === 176);
+
+        map.triggerSpecial(map.data.linedefs.find(e => e.num === 604), map.player, 'S', 1);
+        let tic1 = waitUntil(game, () => ring.zFloor === 128);
+        expect(tic1).to.be.equal(48);
+        let tic2 = waitUntil(game, () => hole.zFloor === 128);
+        expect(tic2).to.be.equal(208 - tic1);
+
+        expect(ring.floorFlat).to.equal('FLOOR5_3');
+        expect(hole.floorFlat).to.equal('FLOOR4_8');
+    })
 });
 
 describe('linedef specials (E2M2)', () => {

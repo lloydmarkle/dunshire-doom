@@ -1376,7 +1376,7 @@ const applyTeleportAction =
 const donut =
         (trigger: string) =>
         (mobj: MapObject, linedef: LineDef, hitTrigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
-    const def = { trigger, repeatable: (trigger[1] === 'R') };
+    const def = { trigger: trigger[0], repeatable: (trigger[1] === 'R') };
     const map = mobj.map;
     if (hitTrigger !== def.trigger) {
         return;
@@ -1434,8 +1434,7 @@ const donut =
                 finished = true;
                 donut.zFloor = target;
             } else {
-                // FIXME: should this be pillar or donut (or both)?
-                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(pillar, donut.zFloor, pillar.zCeil));
+                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(donut, donut.zFloor, donut.zCeil));
                 if (crushing.length) {
                     // stop movement if we hit something
                     donut.zFloor= original;
