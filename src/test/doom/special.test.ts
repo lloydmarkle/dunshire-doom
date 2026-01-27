@@ -289,6 +289,8 @@ describe('linedef specials (E2M2)', () => {
 
         let tics = waitUntil(game, () => sec.zFloor === 64);
         waitTime(game); // wait an extra tick to get the stop sound
+
+        expect(sec.floorFlat).to.equal('FLOOR3_3');
         expect(sounds).to.have.ordered.members([
             ...Array(Math.floor(tics / 8)).fill(SoundIndex.sfx_stnmov),
             SoundIndex.sfx_pstop,

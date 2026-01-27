@@ -77,13 +77,13 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     24: () => flatMoverAction(floorDefinition('G1', 1, 1, null, lowestNeighbourCeiling)),
     30: () => flatMoverAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture)),
     36: () => flatMoverAction(floorDefinition('W1', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    37: () => flatMoverAction(floorDefinition('W1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
+    37: () => flatMoverAction(floorDefinition('W1', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
     38: () => flatMoverAction(floorDefinition('W1', -1, 1, null, lowestNeighbourFloor)),
     45: () => flatMoverAction(floorDefinition('SR', -1, 1, null, highestNeighbourFloor)),
     55: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
     56: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
     58: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 24))),
-    59: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), offset(floorHeight, 24))),
+    59: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
     60: () => flatMoverAction(floorDefinition('SR', -1, 1, null, lowestNeighbourFloor)),
     64: () => flatMoverAction(floorDefinition('SR', 1, 1, null, lowestNeighbourCeiling)),
     65: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
@@ -92,12 +92,12 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     71: () => flatMoverAction(floorDefinition('S1', -1, 4, null, offset(highestNeighbourFloor, 8))),
     82: () => flatMoverAction(floorDefinition('WR', -1, 1, null, lowestNeighbourFloor)),
     83: () => flatMoverAction(floorDefinition('WR', -1, 1, null, highestNeighbourFloor)),
-    84: () => flatMoverAction(floorDefinition('WR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
+    84: () => flatMoverAction(floorDefinition('WR', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
     91: () => flatMoverAction(floorDefinition('WR', 1, 1, null, lowestNeighbourCeiling)),
     92: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 24))),
-    93: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel),  offset(floorHeight, 24))),
+    93: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel),  offset(floorHeight, 24))),
     94: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    95: () => flatMoverAction(floorDefinition('WR', 1, 0.5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    95: () => flatMoverAction(floorDefinition('WR', 1, 0.5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
     96: () => flatMoverAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
     98: () => flatMoverAction(floorDefinition('WR', -1, 4, null, offset(highestNeighbourFloor, 8))),
     101: () => flatMoverAction(floorDefinition('S1', 1, 1, null, lowestNeighbourCeiling)),
@@ -110,45 +110,45 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     132: () => flatMoverAction(floorDefinition('SR', 1, 4, null, nextNeighbourFloorUp)),
     140: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 512))),
     // Extended floors
-    78: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), floorHeight)),
+    78: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
     142: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 512))),
     147: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 512))),
-    153: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), floorHeight)),
-    154: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), floorHeight)),
+    153: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
+    154: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
     158: () => flatMoverAction(floorDefinition('S1', 1, 1, null, shortestLowerTexture)),
-    159: () => flatMoverAction(floorDefinition('S1', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
-    160: () => flatMoverAction(floorDefinition('S1', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), offset(floorHeight, 24))),
+    159: () => flatMoverAction(floorDefinition('S1', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
+    160: () => flatMoverAction(floorDefinition('S1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
     161: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 24))),
     176: () => flatMoverAction(floorDefinition('SR', 1, 1, null, shortestLowerTexture)),
-    177: () => flatMoverAction(floorDefinition('SR', -1, 1, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), lowestNeighbourFloor)),
+    177: () => flatMoverAction(floorDefinition('SR', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
     178: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 512))),
-    179: () => flatMoverAction(floorDefinition('SR', 1, 1, effect([assignFloorFlat, assignSectorType], triggerModel), offset(floorHeight, 24))),
+    179: () => flatMoverAction(floorDefinition('SR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
     180: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 24))),
-    189: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([assignFloorFlat, assignSectorType], triggerModel), floorHeight)),
-    190: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([assignFloorFlat, assignSectorType], triggerModel), floorHeight)),
+    189: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
+    190: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
     219: () => flatMoverAction(floorDefinition('W1', -1, 1, null, nextNeighbourFloorDown)),
     220: () => flatMoverAction(floorDefinition('WR', -1, 1, null, nextNeighbourFloorDown)),
     221: () => flatMoverAction(floorDefinition('S1', -1, 1, null, nextNeighbourFloorDown)),
     222: () => flatMoverAction(floorDefinition('SR', -1, 1, null, nextNeighbourFloorDown)),
-    239: () => flatMoverAction(floorDefinition('W1', 0, 0, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), floorHeight)),
-    240: () => flatMoverAction(floorDefinition('WR', 0, 0, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), floorHeight)),
-    241: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([assignFloorFlat, assignSectorType], numModel('zFloor')), floorHeight)),
+    239: () => flatMoverAction(floorDefinition('W1', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
+    240: () => flatMoverAction(floorDefinition('WR', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
+    241: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
     // More moving floors
     // Note: DOOM wiki calls these lifts https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
     // but they seem to better match a moving floor
-    14: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
-    15: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
-    20: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-    22: () => flatMoverAction(floorDefinition('W1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-    47: () => flatMoverAction(floorDefinition('G1', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-    66: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
-    67: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
-    68: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([assignFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    14: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    15: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
+    20: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    22: () => flatMoverAction(floorDefinition('W1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    47: () => flatMoverAction(floorDefinition('G1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+    66: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
+    67: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    68: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
     // More Extended moving floors
-    143: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
-    144: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
-    148: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat], triggerModel), offset(floorHeight, 24))),
-    149: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([assignFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    143: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
+    144: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    148: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
+    149: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
 
     // 211 	Ext 	SR 	-- 	Inst 	None 	-- 	No 	Ceiling (toggle)
     // 212 	Ext 	WR 	-- 	Inst 	None 	-- 	No 	Ceiling (toggle)
@@ -322,9 +322,9 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
 
     const changeEffects = (model: SectorSelectorFunction) => [
         null,
-        effect([assignFloorFlat, zeroSectorType], model),
-        effect([assignFloorFlat], model),
-        effect([assignFloorFlat, assignSectorType], model),
+        effect([copyFloorFlat, zeroSectorType], model),
+        effect([copyFloorFlat], model),
+        effect([copyFloorFlat, copySectorType], model),
     ]
     const triggerType = ['W1', 'WR', 'S1', 'SR', 'G1', 'GR', 'P1', 'PR'][linedef.special & 0x0007];
     if (linedef.special >= 0x2f80 && linedef.special < 0x3000) {
@@ -502,15 +502,15 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     return sector.zFloor + target;
 };
 
-type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector | undefined;
+type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef, target: number) => Sector | undefined;
 const triggerModel = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector;
 const numModel =
     (targetProperty: 'zFloor' | 'zCeil') =>
-    (map: MapRuntime, sector: Sector, linedef: LineDef) => {
+    (map: MapRuntime, sector: Sector, linedef: LineDef, target: number) => {
         let line: LineDef = null;
         for (const ld of map.data.linedefs) {
             if (ld.left) {
-                if (ld.left.sector === sector && ld.right.sector[targetProperty] === sector[targetProperty]) {
+                if (ld.left.sector === sector && ld.right.sector[targetProperty] === target) {
                     line = (line && line.num < ld.num) ? line : ld;
                 }
             }
@@ -525,24 +525,36 @@ const playMoveSound = (map: MapRuntime, sector: Sector) => {
 }
 
 // effects
-type EffectFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => void;
-type SectorEffectFunction = (map: MapRuntime, from: Sector, to: Sector) => void;
+interface ChangeEffect {
+    newFloorFlat?: string;
+    newSectorType?: number;
+}
+type EffectFunction = (map: MapRuntime, sector: Sector, linedef: LineDef, target: number) => ChangeEffect;
+type SectorEffectFunction = (change: ChangeEffect, from?: Sector) => void;
 const effect =
     (effects: SectorEffectFunction[], select: SectorSelectorFunction) =>
-    (map: MapRuntime, to: Sector, linedef: LineDef) => {
-        const from = select(map, to, linedef);
+    (map: MapRuntime, to: Sector, linedef: LineDef, target: number) => {
+        const from = select(map, to, linedef, target);
         if (from) {
-            effects.forEach(fx => fx(map, from, to))
+            const change: ChangeEffect = {};
+            effects.forEach(fx => fx(change, from));
+            return change;
         }
     };
-
-const assignFloorFlat = (map: MapRuntime, from: Sector, to: Sector) => {
-    to.floorFlat = from.floorFlat;
-    map.events.emit('sector-flat', to);
-    map.initializeFlatTextureAnimation(to, 'floorFlat');
+const applyChangeEffect = (map: MapRuntime, to: Sector, change?: ChangeEffect) => {
+    if (change.newSectorType) {
+        to.type = change.newSectorType;
+    }
+    if (change.newFloorFlat) {
+        to.floorFlat = change.newFloorFlat;
+        map.events.emit('sector-flat', to);
+        map.initializeFlatTextureAnimation(to, 'floorFlat');
+    }
 }
-const assignSectorType = (map: MapRuntime, from: Sector, to: Sector) => to.type = from.type;
-const zeroSectorType = (map: MapRuntime, from: Sector, to: Sector) => to.type = 0;
+
+const copyFloorFlat: SectorEffectFunction = (change: ChangeEffect, from: Sector) => change.newFloorFlat = from.floorFlat;
+const copySectorType: SectorEffectFunction = (change: ChangeEffect, from: Sector) => change.newSectorType = from.type;
+const zeroSectorType: SectorEffectFunction = (change: ChangeEffect) => change.newSectorType = 0;
 
 const sectorObjects = (map: MapRuntime, sector: Sector) => [...map.sectorObjs.get(sector)];
 
@@ -582,7 +594,7 @@ function crunchAndDamageMapObject(mobj: MapObject) {
     return hitSolid;
 }
 
-type MoverType = 'door' | 'lift' | 'crusher';
+type MoverType = 'door' | 'lift' | 'crusher' | 'flat';
 export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Sector<any>) => void } = {
     'door': (map, sector: Sector<DoorState>) => {
         const state = sector.specialData;
@@ -727,6 +739,42 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
             state.direction = -state.direction;
         }
     },
+    'flat': (map, sector: Sector<FlatState>) => {
+        const state = sector.specialData;
+        let original = sector[state.prop];
+        sector[state.prop] += state.direction * state.speed;
+        playMoveSound(map, sector);
+
+        const finished = (state.direction > 0 && sector[state.prop] > state.target)
+            || (state.direction < 0 && sector[state.prop] < state.target);
+        if (finished) {
+            sector[state.prop] = state.target;
+        }
+
+        // crush
+        const mobjs = sectorObjects(map, sector);
+        if (state.direction === 1) {
+            const crunch = state.crush ? crunchAndDamageMapObject : crunchMapObject;
+            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
+            if (crushing.length) {
+                let hitSolid = crushing.reduce((res, mo) => crunch(mo) || res, false);
+                if (hitSolid) {
+                    sector[state.prop] = original;
+                    return;
+                }
+            }
+        }
+
+        mobjs.forEach(mobj => mobj.sectorChanged(sector));
+        map.events.emit('sector-z', sector);
+        if (finished) {
+            if (state.direction < 0 && state.change) {
+                applyChangeEffect(map, sector, state.change);
+            }
+            map.game.playSound(SoundIndex.sfx_pstop, sector);
+            sector.specialData = null;
+        }
+    },
 }
 
 // Doors
@@ -828,15 +876,15 @@ const createDoorAction =
 };
 
 // Moving floors, ceilings, and elevators
+type FlatState = ReturnType<ReturnType<typeof flatMoverDefinition>['makeState']>;
 const flatMoverDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, prop: 'zCeil' | 'zFloor', crush: boolean) => ({
     trigger: trigger[0] as TriggerType,
+    monsterTrigger: trigger.includes('m'),
     repeatable: (trigger[1] === 'R'),
-    direction,
-    targetFn,
-    speed,
-    crush,
-    effect,
-    prop,
+    makeState: (map: MapRuntime, sector: Sector, linedef?: LineDef) => {
+        const target = targetFn(map, sector, linedef);
+        return { mover: 'flat', speed, direction, target, prop, crush, change: effect?.(map, sector, linedef, target) };
+    },
 });
 const floorDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, crush = false) =>
     flatMoverDefinition(trigger, direction, speed, effect, targetFn, 'zFloor', crush);
@@ -856,13 +904,9 @@ const flatMoverAction =
     if (def.trigger !== trigger) {
         return;
     }
-    if (mobj.isMonster) {
+    if (mobj.isMonster && !def.monsterTrigger) {
         return;
     }
-    // vanilla doom specials apply effects immediately (sector 94 of DOOM 2 MAP12)
-    // while boom generalized specials seem to apply at the end.
-    // Not sure why
-    const isVanillaSpecial = linedef.special < 0x100;
     if (!def.repeatable) {
         linedef.special = 0;
     }
@@ -870,52 +914,17 @@ const flatMoverAction =
     let triggered = false;
     const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
-        if (sector.specialData !== null) {
+        if (sector.specialData) {
             continue;
         }
-
         triggered = true;
-        if (isVanillaSpecial) {
-            def.effect?.(map, sector, linedef);
+
+        const state = def.makeState(mobj.map, sector, linedef);
+        if (state.direction > 0 && state.change) {
+            applyChangeEffect(map, sector, state.change);
         }
-
-        sector.specialData = def;
-        const target = def.targetFn(map, sector, linedef);
-        const action = () => {
-            const mobjs = sectorObjects(map, sector);
-            let finished = false;
-            let original = sector[def.prop];
-            sector[def.prop] += def.direction * def.speed;
-            playMoveSound(map, sector);
-
-            if ((def.direction > 0 && sector[def.prop] > target) || (def.direction < 0 && sector[def.prop] < target)) {
-                finished = true;
-                sector[def.prop] = target;
-            }
-
-            // crush
-            if (def.direction === 1) {
-                const crunch = def.crush ? crunchAndDamageMapObject : crunchMapObject;
-                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-                if (crushing.length) {
-                    let hitSolid = crushing.reduce((res, mo) => crunch(mo) || res, false);
-                    if (hitSolid) {
-                        sector.zFloor = original;
-                        return;
-                    }
-                }
-            }
-
-            mobjs.forEach(mobj => mobj.sectorChanged(sector));
-            map.events.emit('sector-z', sector);
-            if (finished) {
-                map.game.playSound(SoundIndex.sfx_pstop, sector);
-                sector.specialData = null;
-                map.removeAction(action);
-                def.effect?.(map, sector, linedef);
-            }
-        }
-        map.addAction(action);
+        sector.specialData = state;
+        mobj.map.addAction(sector);
     }
     return triggered ? def : undefined;
 };
@@ -1017,7 +1026,7 @@ interface SpecialDefinition2 extends SpecialDefinition {
     monsterTrigger: boolean;
     trigger: string;
     stopper: boolean;
-    makeState: (map: MapRuntime, sector: Sector) => MoverState;
+    makeState: (map: MapRuntime, sector: Sector, linedef?: LineDef) => MoverState;
 }
 const applySpecial =
         (def: SpecialDefinition2) =>
@@ -1028,7 +1037,7 @@ const applySpecial =
     if (mobj.isMonster && !def.monsterTrigger) {
         return;
     }
-    const vanillaSpecial = linedef.special < 0x100;
+    const isVanillaSpecial = linedef.special < 0x100;
     if (!def.repeatable) {
         linedef.special = 0;
     }
@@ -1050,8 +1059,8 @@ const applySpecial =
         }
 
         triggered = true;
-        sector.specialData = def.makeState(mobj.map, sector);
-        sector.specialData.vanillaMode = vanillaSpecial;
+        sector.specialData = def.makeState(mobj.map, sector, linedef);
+        sector.specialData.vanillaMode = isVanillaSpecial;
         mobj.map.addAction(sector);
     }
     return triggered ? def : undefined;
@@ -1420,8 +1429,7 @@ const donut =
 
             if (finished) {
                 map.game.playSound(SoundIndex.sfx_pstop, donut);
-                assignFloorFlat(map, model, donut);
-                assignSectorType(map, model, donut);
+                applyChangeEffect(map, donut, { newFloorFlat: model.floorFlat, newSectorType: model.type });
                 donut.specialData = null;
                 map.removeAction(donutAction);
             }
