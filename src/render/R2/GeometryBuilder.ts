@@ -110,9 +110,18 @@ const chooseTexture = (ld: LineDef, type: WallTextureType, useLeft = false) => {
     if (ld.transparentWindowHack) {
         return TransparentWindowTexture.TextureName;
     }
-    let textureL = ld.left?.[type];
-    let textureR = ld.right[type];
-    return useLeft ? (textureL ?? textureR) : (textureR ?? textureL);
+    const textureR = ld.right[type];
+    if (!ld.left) {
+        return textureR;
+    }
+    const textureL = ld.left[type];
+    const isSky = ld.right.sector.ceilFlat === 'F_SKY1' || ld.left?.sector?.ceilFlat === 'F_SKY1';
+    // Some spots in the game benefit from falling back to right texture (if left doesn't exist) and vice versa. Others do not.
+    // We're basically using a rule that:
+    // 1) if the thing is in the sky, don't fallback and therefore show sky instead. See Sector 12 of DOOM2 MAP26
+    // 2) if it's not sky, use the left texture if right doesn't exist and vice-versa. See the teleports all around DOOM2 MAP29.
+    return isSky ? (useLeft ? textureL : textureR) :
+        useLeft ? (textureL ?? textureR) : (textureR ?? textureL);
 };
 
 function mapGeometryBuilder(textures: MapTextureAtlas) {

@@ -1334,7 +1334,6 @@ const donut =
 
         const sectorEffect = effect([copyFloorFlat, copySectorType], () => model)(map, donut, linedef, target);
         donut.specialData = flatMoverState(speed, 1, target, sectorEffect);
-        console.log('donut',donut.specialData)
         map.addAction(donut);
     }
     return triggered ? def : undefined;

@@ -116,7 +116,7 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
 
             sectorLight.rgb += fakeContrast(normal);
-            vSectorLightLevel = clamp(sectorLight.g, 0.0, 1.0);
+            vSectorLightLevel = clamp(sectorLight.g + doomExtraLight, 0.0, 1.0);
 
             // faded magenta if selected for inspection
             // maybe it's better to simply have an if/else?
@@ -128,14 +128,14 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             .replace('#include <common>', fragment_pars + `
             varying float vSectorLightLevel;
             varying vec3 doomInspectorEmissive;
-            uniform float doomExtraLight;
             `)
             .replace('#include <map_fragment>', map_fragment)
             .replace('#include <lights_fragment_begin>', `
             #include <lights_fragment_begin>
 
+            float minLight = pow(vSectorLightLevel, 8.0);
             float depth = pow(1.0 - pow(gl_FragDepth, vSectorLightLevel * 4.5), 6.0);
-            float light = doomExtraLight + clamp(vSectorLightLevel * depth, 0.0, 1.0);
+            float light = clamp(vSectorLightLevel * depth + minLight, 0.0, 1.0);
             light = ceil(light * 400.0 / 4.0 - .5) * 4.0 / 400.0;
             material.diffuseContribution.rgb *= clamp(light, 0.0, 1.0);
 

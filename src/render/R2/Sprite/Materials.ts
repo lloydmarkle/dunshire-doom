@@ -228,13 +228,12 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
                 mod(dLf, float(tLightMapWidth)),
                 floor(dLf * invLightMapWidth) );
             vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
-            vSectorLightLevel = sectorLight.g;
+            vSectorLightLevel = clamp(sectorLight.g + doomExtraLight, 0.0, 1.0);
             vSpriteFullBright = flagBit(texN.y, flag_fullBright);
             `);
 
         shader.fragmentShader = shader.fragmentShader
             .replace('#include <common>', fragment_pars + `
-            uniform float doomExtraLight;
             varying float vSectorLightLevel;
             varying float vSpriteFullBright;
             varying vec3 doomInspectorEmissive;
@@ -265,8 +264,9 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             #include <lights_fragment_begin>
 
             // apply lighting
+            float minLight = pow(vSectorLightLevel, 8.0);
             float depth = pow(1.0 - pow(gl_FragDepth, vSectorLightLevel * 4.5), 6.0);
-            float light = doomExtraLight + vSpriteFullBright + clamp(vSectorLightLevel * depth, 0.0, 1.0);
+            float light = vSpriteFullBright + clamp(vSectorLightLevel * depth + minLight, 0.0, 1.0);
             light = ceil(light * 400.0 / 4.0 - .5) * 4.0 / 400.0;
             material.diffuseContribution.rgb *= clamp(light, 0.0, 1.0);
             `);
