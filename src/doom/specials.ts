@@ -455,6 +455,14 @@ export interface SpecialDefinition {
     repeatable: boolean;
 }
 
+
+// misc helpers
+const playMoveSound = (map: MapRuntime, sector: Sector) => {
+    if ((Math.trunc(map.game.time.tick.val) & 7) === 0) {
+        map.game.playSound(SoundIndex.sfx_stnmov, sector);
+    }
+}
+const sectorObjects = (map: MapRuntime, sector: Sector) => [...map.sectorObjs.get(sector)];
 const reduceEmpty = <T>(arr: T[], fn: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T): T =>
     arr.length === 0 ? undefined : arr.reduce(fn);
 
@@ -502,6 +510,7 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     return sector.zFloor + target;
 };
 
+// effect selectors
 type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef, target: number) => Sector | undefined;
 const triggerModel = (map: MapRuntime, sector: Sector, linedef: LineDef) => linedef.right.sector;
 const numModel =
@@ -517,12 +526,6 @@ const numModel =
         }
         return line?.right?.sector;
     }
-
-const playMoveSound = (map: MapRuntime, sector: Sector) => {
-    if ((Math.trunc(map.game.time.tick.val) & 7) === 0) {
-        map.game.playSound(SoundIndex.sfx_stnmov, sector);
-    }
-}
 
 // effects
 interface ChangeEffect {
@@ -556,16 +559,13 @@ const copyFloorFlat: SectorEffectFunction = (change: ChangeEffect, from: Sector)
 const copySectorType: SectorEffectFunction = (change: ChangeEffect, from: Sector) => change.newSectorType = from.type;
 const zeroSectorType: SectorEffectFunction = (change: ChangeEffect) => change.newSectorType = 0;
 
-const sectorObjects = (map: MapRuntime, sector: Sector) => [...map.sectorObjs.get(sector)];
-
-function crunchMapObject(mobj: MapObject) {
+// crush map objects
+function crushNonSolid(mobj: MapObject) {
     if (mobj.info.flags & MFFlags.MF_DROPPED) {
         // dropped items get destroyed
         mobj.map.destroy(mobj);
         return false;
-    }
-
-    if (mobj.isDead) {
+    } else if (mobj.isDead) {
         // crunch any bodies into blood pools
         mobj.setState(StateIndex.S_GIBS);
         mobj.info.flags &= ~MFFlags.MF_SOLID;
@@ -578,10 +578,11 @@ function crunchMapObject(mobj: MapObject) {
 }
 
 const crushVelocity = 255 * (1 << 12) / (1 << 16);
-function crunchAndDamageMapObject(mobj: MapObject) {
-    let hitSolid = crunchMapObject(mobj);
-    if ((mobj.info.flags & MFFlags.MF_SHOOTABLE) && (mobj.map.game.time.tickN.val & 3) === 0) {
-        hitSolid = true;
+function crushAndDamage(mobj: MapObject) {
+    // NB: crush non-shootable happens first. This means we won't kill and squish in the same tic but that's how DOOM works
+    let hitSolid = crushNonSolid(mobj);
+    let damageShootable = (mobj.info.flags & MFFlags.MF_SHOOTABLE) && (mobj.map.game.time.tickN.val & 3) === 0;
+    if (damageShootable) {
         mobj.damage(10, null, null);
         // spray blood
         const pos = mobj.position;
@@ -591,8 +592,13 @@ function crunchAndDamageMapObject(mobj: MapObject) {
             crushVelocity * mobj.rng.real2(),
             0);
     }
-    return hitSolid;
+    return hitSolid || damageShootable;
 }
+
+const isCrushing = (sector: Sector, mobjs: MapObject[], crushMobj: (mobj: MapObject) => boolean) => {
+    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
+    return crushing.reduce((res, mo) => crushMobj(mo) || res, false);
+};
 
 type MoverType = 'door' | 'lift' | 'crusher' | 'flat';
 export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Sector<any>) => void } = {
@@ -623,18 +629,13 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
 
         // crush (and reverse direction)
         const mobjs = sectorObjects(map, sector);
-        if (state.direction === -1) {
-            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-            if (crushing.length) {
-                let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
-                if (hitSolid) {
-                    // force door to open
-                    state.direction = 1;
-                    sector.zCeil = original;
-                    playDoorSound(map, sector);
-                    return;
-                }
-            }
+        const hitSolid = state.direction === -1 && isCrushing(sector, mobjs, crushNonSolid);
+        if (hitSolid) {
+            // force door to open
+            state.direction = 1;
+            sector.zCeil = original;
+            playDoorSound(map, sector);
+            return;
         }
 
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
@@ -675,19 +676,14 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
         }
 
         const mobjs = sectorObjects(map, sector);
-        if (state.direction === 1) {
-            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-            if (crushing.length) {
-                let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
-                if (hitSolid) {
-                    // switch direction
-                    state.nextSound = SoundIndex.sfx_pstart;
-                    state.direction = -1;
-                    state.ticks = 0;
-                    sector.zFloor = original;
-                    return;
-                }
-            }
+        const hitSolid = state.direction === 1 && isCrushing(sector, mobjs, crushNonSolid);
+        if (hitSolid) {
+            // switch direction
+            state.nextSound = SoundIndex.sfx_pstart;
+            state.direction = -1;
+            state.ticks = 0;
+            sector.zFloor = original;
+            return;
         }
 
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
@@ -715,17 +711,12 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
 
         // crush
         const mobjs = sectorObjects(map, sector);
-        if (state.direction === -1) {
-            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-            if (crushing.length) {
-                const hitSolid = crushing.reduce((res, mo) => crunchAndDamageMapObject(mo) || res, false);
-                // vanilla fast crushers (speed of 2) and generalized slow and normal crushers
-                // go even slower when they crush something
-                const slowSpeed = state.vanillaMode ? 2 : 4;
-                if (hitSolid && state.speed < slowSpeed && state.speed === state.originalSpeed) {
-                    state.speed /= 8;
-                }
-            }
+        const hitSolid = state.direction === -1 && isCrushing(sector, mobjs, crushAndDamage);
+        // vanilla fast crushers (speed of 2) and generalized slow and normal crushers
+        // go even slower when they crush something
+        const slowSpeed = state.vanillaMode ? 2 : 4;
+        if (hitSolid && state.speed < slowSpeed && state.speed === state.originalSpeed) {
+            state.speed /= 8;
         }
 
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
@@ -757,19 +748,13 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
 
         // crush
         const mobjs = sectorObjects(map, sector);
-        if (state.checkCrush) {
-            const crunch = state.crush ? crunchAndDamageMapObject : crunchMapObject;
-            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-            if (crushing.length) {
-                let hitSolid = crushing.reduce((res, mo) => crunch(mo) || res, false);
-                if (hitSolid) {
-                    sector[state.prop] = original;
-                    if (state.elevator) {
-                        sector.zCeil = sector.zFloor + ceilingGap;
-                    }
-                    return;
-                }
+        const hitSolid = state.checkCrush && isCrushing(sector, mobjs, state.crush ? crushAndDamage : crushNonSolid);
+        if (hitSolid) {
+            sector[state.prop] = original;
+            if (state.elevator) {
+                sector.zCeil = sector.zFloor + ceilingGap;
             }
+            return;
         }
 
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
@@ -1357,20 +1342,18 @@ const donut =
             let finished = false;
             playMoveSound(map, donut);
 
-            const mobjs = sectorObjects(map, pillar);
             let original = donut.zFloor;
             donut.zFloor += speed;
 
             if (donut.zFloor > target) {
                 finished = true;
                 donut.zFloor = target;
-            } else {
-                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(donut, donut.zFloor, donut.zCeil));
-                if (crushing.length) {
-                    // stop movement if we hit something
-                    donut.zFloor= original;
-                    return;
-                }
+            }
+            const mobjs = sectorObjects(map, pillar);
+            if (isCrushing(donut, mobjs, crushNonSolid)) {
+                // stop movement if we hit something
+                donut.zFloor = original;
+                return;
             }
 
             if (finished) {
