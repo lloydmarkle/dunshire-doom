@@ -297,3 +297,26 @@ describe('linedef specials (E2M2)', () => {
         ]);
     });
 });
+
+describe('stair builders (various maps/wads)', () => {
+    it('special 8 builds stairs', () => {
+        const { game, map } = initGame('doom.wad', 'E2M2');
+        const steps = map.data.sectors.filter(e => e.num >= 93 && e.num <= 98);
+        expect(steps.map(e => e.zFloor)).to.have.members([0, 0, 0, 0, 0, 0]);
+
+        map.triggerSpecial(map.data.linedefs.find(e => e.num === 638), map.player, 'W', 1);
+        let ticks = waitUntil(game, () => steps[5].zFloor === 48)
+        expect(ticks).to.equal(48 / .25); // height change over speed
+    });
+
+    it('TNT MAP30: special 7 builds stairs (quirky)', () => {
+        const { game, map } = initGame('tnt.wad', 'MAP30');
+        const steps = map.data.sectors.filter(e => (e.num >= 325 && e.num <= 335) || (e.num >= 244 && e.num <= 250));
+        const lastStep = steps.find(e => e.num === 249);
+        expect(steps.map(e => e.zFloor)).to.have.members(Array(steps.length).fill(-128));
+
+        map.triggerSpecial(map.data.linedefs.find(e => e.num === 2018), map.player, 'S', 1);
+        let ticks = waitUntil(game, () => lastStep.zFloor === 64)
+        expect(ticks).to.equal(192 / .25); // height change over speed
+    });
+});

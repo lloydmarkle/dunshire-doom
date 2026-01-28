@@ -12,296 +12,310 @@ import { Vector3 } from "three";
 
 // why functions? To get around lexical scoping rules. I could also use function instead of arrows
 // or maybe remove the whole "definition" idea.
+// Also I've used lots of nested objects to make it easier to collapse portions of this list in an IDE
 const doomSpecials: { [key: number]: () => SpecialAction } = {
     // Donut!
-    9: () => donut('S1'),
-    // Extended donuts
-    146: () => donut('W1'),
-    155: () => donut('WR'),
-    191: () => donut('SR'),
-
+    ...{
+        9: () => donut('S1'),
+        // Extended donuts
+        146: () => donut('W1'),
+        155: () => donut('WR'),
+        191: () => donut('SR'),
+    },
     // Doors https://doomwiki.org/wiki/Linedef_type#Door_linedef_types
-    1: () => createDoorAction(doorDefinition('PRm', '', 2, 150, 'openWaitClose')),
-    2: () => createDoorAction(doorDefinition('W1', '', 2, -1, 'openAndStay')),
-    3: () => createDoorAction(doorDefinition('W1', '', 2, -1, 'closeAndStay')),
-    4: () => createDoorAction(doorDefinition('W1', '', 2, 150, 'openWaitClose')),
-    16: () => createDoorAction(doorDefinition('W1', '', 2, 1050, 'closeWaitOpen')),
-    29: () => createDoorAction(doorDefinition('S1', '', 2, 150, 'openWaitClose')),
-    31: () => createDoorAction(doorDefinition('P1', '', 2, -1, 'openAndStay')),
-    42: () => createDoorAction(doorDefinition('SR', '', 2, -1, 'closeAndStay')),
-    46: () => createDoorAction(doorDefinition('GR', '', 2, -1, 'openAndStay')),
-    50: () => createDoorAction(doorDefinition('S1', '', 2, -1, 'closeAndStay')),
-    61: () => createDoorAction(doorDefinition('SR', '', 2, -1, 'openAndStay')),
-    63: () => createDoorAction(doorDefinition('SR', '', 2, 150, 'openWaitClose')),
-    75: () => createDoorAction(doorDefinition('WR', '', 2, -1, 'closeAndStay')),
-    76: () => createDoorAction(doorDefinition('WR', '', 2, 1050, 'closeWaitOpen')),
-    86: () => createDoorAction(doorDefinition('WR', '', 2, -1, 'openAndStay')),
-    90: () => createDoorAction(doorDefinition('WR', '', 2, 150, 'openWaitClose')),
-    103: () => createDoorAction(doorDefinition('S1', '', 2, -1, 'openAndStay')),
-    105: () => createDoorAction(doorDefinition('WR', '', 8, 150, 'openWaitClose')),
-    106: () => createDoorAction(doorDefinition('WR', '', 8, -1, 'openAndStay')),
-    107: () => createDoorAction(doorDefinition('WR', '', 8, -1, 'closeAndStay')),
-    108: () => createDoorAction(doorDefinition('W1', '', 8, 150, 'openWaitClose')),
-    109: () => createDoorAction(doorDefinition('W1', '', 8, -1, 'openAndStay')),
-    110: () => createDoorAction(doorDefinition('W1', '', 8, -1, 'closeAndStay')),
-    111: () => createDoorAction(doorDefinition('S1', '', 8, 150, 'openWaitClose')),
-    112: () => createDoorAction(doorDefinition('S1', '', 8, -1, 'openAndStay')),
-    113: () => createDoorAction(doorDefinition('S1', '', 8, -1, 'closeAndStay')),
-    114: () => createDoorAction(doorDefinition('SR', '', 8, 150, 'openWaitClose')),
-    115: () => createDoorAction(doorDefinition('SR', '', 8, -1, 'openAndStay')),
-    116: () => createDoorAction(doorDefinition('SR', '', 8, -1, 'closeAndStay')),
-    117: () => createDoorAction(doorDefinition('PR', '', 8, 150, 'openWaitClose')),
-    118: () => createDoorAction(doorDefinition('P1', '', 8, -1, 'openAndStay')),
-    // Key doors
-    26: () => createDoorAction(doorDefinition('PR', 'B', 2, 150, 'openWaitClose')),
-    28: () => createDoorAction(doorDefinition('PR', 'R', 2, 150, 'openWaitClose')),
-    27: () => createDoorAction(doorDefinition('PR', 'Y', 2, 150, 'openWaitClose')),
-    32: () => createDoorAction(doorDefinition('P1', 'B', 2, 35, 'openAndStay')),
-    33: () => createDoorAction(doorDefinition('P1', 'R', 2, -1, 'openAndStay')),
-    34: () => createDoorAction(doorDefinition('P1', 'Y', 2, -1, 'openAndStay')),
-    99: () => createDoorAction(doorDefinition('SR', 'B', 8, -1, 'openAndStay')),
-    134: () => createDoorAction(doorDefinition('SR', 'R', 8, -1, 'openAndStay')),
-    136: () => createDoorAction(doorDefinition('SR', 'Y', 8, -1, 'openAndStay')),
-    133: () => createDoorAction(doorDefinition('S1', 'B', 8, -1, 'openAndStay')),
-    135: () => createDoorAction(doorDefinition('S1', 'R', 8, -1, 'openAndStay')),
-    137: () => createDoorAction(doorDefinition('S1', 'Y', 8, -1, 'openAndStay')),
-    // Extended Doors
-    175: () => createDoorAction(doorDefinition('S1', '', 2, 1050, 'closeWaitOpen')),
-    196: () => createDoorAction(doorDefinition('SR', '', 2, 1050, 'closeWaitOpen')),
-
+    ...{
+        1: () => createDoorAction(doorDefinition('PRm', '', 2, 150, 'openWaitClose')),
+        2: () => createDoorAction(doorDefinition('W1', '', 2, -1, 'openAndStay')),
+        3: () => createDoorAction(doorDefinition('W1', '', 2, -1, 'closeAndStay')),
+        4: () => createDoorAction(doorDefinition('W1', '', 2, 150, 'openWaitClose')),
+        16: () => createDoorAction(doorDefinition('W1', '', 2, 1050, 'closeWaitOpen')),
+        29: () => createDoorAction(doorDefinition('S1', '', 2, 150, 'openWaitClose')),
+        31: () => createDoorAction(doorDefinition('P1', '', 2, -1, 'openAndStay')),
+        42: () => createDoorAction(doorDefinition('SR', '', 2, -1, 'closeAndStay')),
+        46: () => createDoorAction(doorDefinition('GR', '', 2, -1, 'openAndStay')),
+        50: () => createDoorAction(doorDefinition('S1', '', 2, -1, 'closeAndStay')),
+        61: () => createDoorAction(doorDefinition('SR', '', 2, -1, 'openAndStay')),
+        63: () => createDoorAction(doorDefinition('SR', '', 2, 150, 'openWaitClose')),
+        75: () => createDoorAction(doorDefinition('WR', '', 2, -1, 'closeAndStay')),
+        76: () => createDoorAction(doorDefinition('WR', '', 2, 1050, 'closeWaitOpen')),
+        86: () => createDoorAction(doorDefinition('WR', '', 2, -1, 'openAndStay')),
+        90: () => createDoorAction(doorDefinition('WR', '', 2, 150, 'openWaitClose')),
+        103: () => createDoorAction(doorDefinition('S1', '', 2, -1, 'openAndStay')),
+        105: () => createDoorAction(doorDefinition('WR', '', 8, 150, 'openWaitClose')),
+        106: () => createDoorAction(doorDefinition('WR', '', 8, -1, 'openAndStay')),
+        107: () => createDoorAction(doorDefinition('WR', '', 8, -1, 'closeAndStay')),
+        108: () => createDoorAction(doorDefinition('W1', '', 8, 150, 'openWaitClose')),
+        109: () => createDoorAction(doorDefinition('W1', '', 8, -1, 'openAndStay')),
+        110: () => createDoorAction(doorDefinition('W1', '', 8, -1, 'closeAndStay')),
+        111: () => createDoorAction(doorDefinition('S1', '', 8, 150, 'openWaitClose')),
+        112: () => createDoorAction(doorDefinition('S1', '', 8, -1, 'openAndStay')),
+        113: () => createDoorAction(doorDefinition('S1', '', 8, -1, 'closeAndStay')),
+        114: () => createDoorAction(doorDefinition('SR', '', 8, 150, 'openWaitClose')),
+        115: () => createDoorAction(doorDefinition('SR', '', 8, -1, 'openAndStay')),
+        116: () => createDoorAction(doorDefinition('SR', '', 8, -1, 'closeAndStay')),
+        117: () => createDoorAction(doorDefinition('PR', '', 8, 150, 'openWaitClose')),
+        118: () => createDoorAction(doorDefinition('P1', '', 8, -1, 'openAndStay')),
+        // Key doors
+        26: () => createDoorAction(doorDefinition('PR', 'B', 2, 150, 'openWaitClose')),
+        28: () => createDoorAction(doorDefinition('PR', 'R', 2, 150, 'openWaitClose')),
+        27: () => createDoorAction(doorDefinition('PR', 'Y', 2, 150, 'openWaitClose')),
+        32: () => createDoorAction(doorDefinition('P1', 'B', 2, 35, 'openAndStay')),
+        33: () => createDoorAction(doorDefinition('P1', 'R', 2, -1, 'openAndStay')),
+        34: () => createDoorAction(doorDefinition('P1', 'Y', 2, -1, 'openAndStay')),
+        99: () => createDoorAction(doorDefinition('SR', 'B', 8, -1, 'openAndStay')),
+        134: () => createDoorAction(doorDefinition('SR', 'R', 8, -1, 'openAndStay')),
+        136: () => createDoorAction(doorDefinition('SR', 'Y', 8, -1, 'openAndStay')),
+        133: () => createDoorAction(doorDefinition('S1', 'B', 8, -1, 'openAndStay')),
+        135: () => createDoorAction(doorDefinition('S1', 'R', 8, -1, 'openAndStay')),
+        137: () => createDoorAction(doorDefinition('S1', 'Y', 8, -1, 'openAndStay')),
+        // Extended Doors
+        175: () => createDoorAction(doorDefinition('S1', '', 2, 1050, 'closeWaitOpen')),
+        196: () => createDoorAction(doorDefinition('SR', '', 2, 1050, 'closeWaitOpen')),
+    },
     // Moving floors
-    5: () => flatMoverAction(floorDefinition('W1', 1, 1, null, lowestNeighbourCeiling)),
-    18: () => flatMoverAction(floorDefinition('S1', 1, 1, null, nextNeighbourFloorUp)),
-    19: () => flatMoverAction(floorDefinition('W1', -1, 1, null, highestNeighbourFloor)),
-    23: () => flatMoverAction(floorDefinition('S1', -1, 1, null, lowestNeighbourFloor)),
-    24: () => flatMoverAction(floorDefinition('G1', 1, 1, null, lowestNeighbourCeiling)),
-    30: () => flatMoverAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture)),
-    36: () => flatMoverAction(floorDefinition('W1', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    37: () => flatMoverAction(floorDefinition('W1', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
-    38: () => flatMoverAction(floorDefinition('W1', -1, 1, null, lowestNeighbourFloor)),
-    45: () => flatMoverAction(floorDefinition('SR', -1, 1, null, highestNeighbourFloor)),
-    55: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    56: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    58: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 24))),
-    59: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
-    60: () => flatMoverAction(floorDefinition('SR', -1, 1, null, lowestNeighbourFloor)),
-    64: () => flatMoverAction(floorDefinition('SR', 1, 1, null, lowestNeighbourCeiling)),
-    65: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    69: () => flatMoverAction(floorDefinition('SR', 1, 1, null, nextNeighbourFloorUp)),
-    70: () => flatMoverAction(floorDefinition('SR', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    71: () => flatMoverAction(floorDefinition('S1', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    82: () => flatMoverAction(floorDefinition('WR', -1, 1, null, lowestNeighbourFloor)),
-    83: () => flatMoverAction(floorDefinition('WR', -1, 1, null, highestNeighbourFloor)),
-    84: () => flatMoverAction(floorDefinition('WR', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
-    91: () => flatMoverAction(floorDefinition('WR', 1, 1, null, lowestNeighbourCeiling)),
-    92: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 24))),
-    93: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel),  offset(floorHeight, 24))),
-    94: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
-    95: () => flatMoverAction(floorDefinition('WR', 1, 0.5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-    96: () => flatMoverAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
-    98: () => flatMoverAction(floorDefinition('WR', -1, 4, null, offset(highestNeighbourFloor, 8))),
-    101: () => flatMoverAction(floorDefinition('S1', 1, 1, null, lowestNeighbourCeiling)),
-    102: () => flatMoverAction(floorDefinition('S1', -1, 1, null, highestNeighbourFloor)),
-    119: () => flatMoverAction(floorDefinition('W1', 1, 1, null, nextNeighbourFloorUp)),
-    128: () => flatMoverAction(floorDefinition('WR', 1, 1, null, nextNeighbourFloorUp)),
-    129: () => flatMoverAction(floorDefinition('WR', 1, 4, null, nextNeighbourFloorUp)),
-    130: () => flatMoverAction(floorDefinition('W1', 1, 4, null, nextNeighbourFloorUp)),
-    131: () => flatMoverAction(floorDefinition('S1', 1, 4, null, nextNeighbourFloorUp)),
-    132: () => flatMoverAction(floorDefinition('SR', 1, 4, null, nextNeighbourFloorUp)),
-    140: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 512))),
-    // Extended floors
-    78: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
-    142: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 512))),
-    147: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 512))),
-    153: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
-    154: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
-    158: () => flatMoverAction(floorDefinition('S1', 1, 1, null, shortestLowerTexture)),
-    159: () => flatMoverAction(floorDefinition('S1', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
-    160: () => flatMoverAction(floorDefinition('S1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
-    161: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 24))),
-    176: () => flatMoverAction(floorDefinition('SR', 1, 1, null, shortestLowerTexture)),
-    177: () => flatMoverAction(floorDefinition('SR', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
-    178: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 512))),
-    179: () => flatMoverAction(floorDefinition('SR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
-    180: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 24))),
-    189: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
-    190: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
-    219: () => flatMoverAction(floorDefinition('W1', -1, 1, null, nextNeighbourFloorDown)),
-    220: () => flatMoverAction(floorDefinition('WR', -1, 1, null, nextNeighbourFloorDown)),
-    221: () => flatMoverAction(floorDefinition('S1', -1, 1, null, nextNeighbourFloorDown)),
-    222: () => flatMoverAction(floorDefinition('SR', -1, 1, null, nextNeighbourFloorDown)),
-    239: () => flatMoverAction(floorDefinition('W1', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
-    240: () => flatMoverAction(floorDefinition('WR', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
-    241: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
-    // More moving floors
-    // Note: DOOM wiki calls these lifts https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
-    // but they seem to better match a moving floor
-    14: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
-    15: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
-    20: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-    22: () => flatMoverAction(floorDefinition('W1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-    47: () => flatMoverAction(floorDefinition('G1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-    66: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
-    67: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
-    68: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-    // More Extended moving floors
-    143: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
-    144: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
-    148: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
-    149: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    ...{
+        5: () => flatMoverAction(floorDefinition('W1', 1, 1, null, lowestNeighbourCeiling)),
+        18: () => flatMoverAction(floorDefinition('S1', 1, 1, null, nextNeighbourFloorUp)),
+        19: () => flatMoverAction(floorDefinition('W1', -1, 1, null, highestNeighbourFloor)),
+        23: () => flatMoverAction(floorDefinition('S1', -1, 1, null, lowestNeighbourFloor)),
+        24: () => flatMoverAction(floorDefinition('G1', 1, 1, null, lowestNeighbourCeiling)),
+        30: () => flatMoverAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture)),
+        36: () => flatMoverAction(floorDefinition('W1', -1, 4, null, offset(highestNeighbourFloor, 8))),
+        37: () => flatMoverAction(floorDefinition('W1', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
+        38: () => flatMoverAction(floorDefinition('W1', -1, 1, null, lowestNeighbourFloor)),
+        45: () => flatMoverAction(floorDefinition('SR', -1, 1, null, highestNeighbourFloor)),
+        55: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+        56: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+        58: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 24))),
+        59: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
+        60: () => flatMoverAction(floorDefinition('SR', -1, 1, null, lowestNeighbourFloor)),
+        64: () => flatMoverAction(floorDefinition('SR', 1, 1, null, lowestNeighbourCeiling)),
+        65: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+        69: () => flatMoverAction(floorDefinition('SR', 1, 1, null, nextNeighbourFloorUp)),
+        70: () => flatMoverAction(floorDefinition('SR', -1, 4, null, offset(highestNeighbourFloor, 8))),
+        71: () => flatMoverAction(floorDefinition('S1', -1, 4, null, offset(highestNeighbourFloor, 8))),
+        82: () => flatMoverAction(floorDefinition('WR', -1, 1, null, lowestNeighbourFloor)),
+        83: () => flatMoverAction(floorDefinition('WR', -1, 1, null, highestNeighbourFloor)),
+        84: () => flatMoverAction(floorDefinition('WR', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
+        91: () => flatMoverAction(floorDefinition('WR', 1, 1, null, lowestNeighbourCeiling)),
+        92: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 24))),
+        93: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel),  offset(floorHeight, 24))),
+        94: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
+        95: () => flatMoverAction(floorDefinition('WR', 1, 0.5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+        96: () => flatMoverAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
+        98: () => flatMoverAction(floorDefinition('WR', -1, 4, null, offset(highestNeighbourFloor, 8))),
+        101: () => flatMoverAction(floorDefinition('S1', 1, 1, null, lowestNeighbourCeiling)),
+        102: () => flatMoverAction(floorDefinition('S1', -1, 1, null, highestNeighbourFloor)),
+        119: () => flatMoverAction(floorDefinition('W1', 1, 1, null, nextNeighbourFloorUp)),
+        128: () => flatMoverAction(floorDefinition('WR', 1, 1, null, nextNeighbourFloorUp)),
+        129: () => flatMoverAction(floorDefinition('WR', 1, 4, null, nextNeighbourFloorUp)),
+        130: () => flatMoverAction(floorDefinition('W1', 1, 4, null, nextNeighbourFloorUp)),
+        131: () => flatMoverAction(floorDefinition('S1', 1, 4, null, nextNeighbourFloorUp)),
+        132: () => flatMoverAction(floorDefinition('SR', 1, 4, null, nextNeighbourFloorUp)),
+        140: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 512))),
+        // Extended floors
+        78: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
+        142: () => flatMoverAction(floorDefinition('W1', 1, 1, null, offset(floorHeight, 512))),
+        147: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 512))),
+        153: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
+        154: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
+        158: () => flatMoverAction(floorDefinition('S1', 1, 1, null, shortestLowerTexture)),
+        159: () => flatMoverAction(floorDefinition('S1', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
+        160: () => flatMoverAction(floorDefinition('S1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
+        161: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 24))),
+        176: () => flatMoverAction(floorDefinition('SR', 1, 1, null, shortestLowerTexture)),
+        177: () => flatMoverAction(floorDefinition('SR', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
+        178: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 512))),
+        179: () => flatMoverAction(floorDefinition('SR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
+        180: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 24))),
+        189: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
+        190: () => flatMoverAction(floorDefinition('SR', 0, 0, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
+        219: () => flatMoverAction(floorDefinition('W1', -1, 1, null, nextNeighbourFloorDown)),
+        220: () => flatMoverAction(floorDefinition('WR', -1, 1, null, nextNeighbourFloorDown)),
+        221: () => flatMoverAction(floorDefinition('S1', -1, 1, null, nextNeighbourFloorDown)),
+        222: () => flatMoverAction(floorDefinition('SR', -1, 1, null, nextNeighbourFloorDown)),
+        239: () => flatMoverAction(floorDefinition('W1', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
+        240: () => flatMoverAction(floorDefinition('WR', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
+        241: () => flatMoverAction(floorDefinition('S1', 0, 0, effect([copyFloorFlat, copySectorType], numModel('zFloor')), floorHeight)),
+        // More moving floors
+        // Note: DOOM wiki calls these lifts https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
+        // but they seem to better match a moving floor
+        14: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+        15: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
+        20: () => flatMoverAction(floorDefinition('S1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+        22: () => flatMoverAction(floorDefinition('W1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+        47: () => flatMoverAction(floorDefinition('G1', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+        66: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
+        67: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+        68: () => flatMoverAction(floorDefinition('SR', 1, .5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
+        // More Extended moving floors
+        143: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
+        144: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+        148: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat], triggerModel), offset(floorHeight, 24))),
+        149: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, zeroSectorType], triggerModel), offset(floorHeight, 32))),
+    },
 
     // 211 	Ext 	SR 	-- 	Inst 	None 	-- 	No 	Ceiling (toggle)
     // 212 	Ext 	WR 	-- 	Inst 	None 	-- 	No 	Ceiling (toggle)
 
     // Moving ceilings
-    40: () => flatMoverAction(ceilingDefinition('W1', 1, 1, highestNeighbourCeiling)),
-    41: () => flatMoverAction(ceilingDefinition('S1', -1, 2, floorHeight)),
-    43: () => flatMoverAction(ceilingDefinition('SR', -1, 2, floorHeight)),
-    44: () => flatMoverAction(ceilingDefinition('W1', -1, 1, offset(floorHeight, 8))),
-    72: () => flatMoverAction(ceilingDefinition('WR', -1, 1, offset(floorHeight, 8))),
-    // Extended ceilings
-    145: () => flatMoverAction(ceilingDefinition('W1', -1, 2, floorHeight)),
-    151: () => flatMoverAction(ceilingDefinition('WR', 1, 1, highestNeighbourCeiling)),
-    152: () => flatMoverAction(ceilingDefinition('WR', -1, 2, floorHeight)),
-    166: () => flatMoverAction(ceilingDefinition('S1', 1, 1, highestNeighbourCeiling)),
-    167: () => flatMoverAction(ceilingDefinition('S1', -1, 1, offset(floorHeight, 8))),
-    186: () => flatMoverAction(ceilingDefinition('SR', 1, 1, highestNeighbourCeiling)),
-    187: () => flatMoverAction(ceilingDefinition('SR', -1, 1, offset(floorHeight, 8))),
-    199: () => flatMoverAction(ceilingDefinition('W1', -1, 1, lowestNeighbourCeiling)),
-    200: () => flatMoverAction(ceilingDefinition('W1', -1, 1, highestNeighbourFloor)),
-    201: () => flatMoverAction(ceilingDefinition('WR', -1, 1, lowestNeighbourCeiling)),
-    202: () => flatMoverAction(ceilingDefinition('WR', -1, 1, highestNeighbourFloor)),
-    203: () => flatMoverAction(ceilingDefinition('S1', -1, 1, lowestNeighbourCeiling)),
-    204: () => flatMoverAction(ceilingDefinition('S1', -1, 1, highestNeighbourFloor)),
-    205: () => flatMoverAction(ceilingDefinition('SR', -1, 1, lowestNeighbourCeiling)),
-    206: () => flatMoverAction(ceilingDefinition('SR', -1, 1, highestNeighbourFloor)),
-
+    ...{
+        40: () => flatMoverAction(ceilingDefinition('W1', 1, 1, highestNeighbourCeiling)),
+        41: () => flatMoverAction(ceilingDefinition('S1', -1, 2, floorHeight)),
+        43: () => flatMoverAction(ceilingDefinition('SR', -1, 2, floorHeight)),
+        44: () => flatMoverAction(ceilingDefinition('W1', -1, 1, offset(floorHeight, 8))),
+        72: () => flatMoverAction(ceilingDefinition('WR', -1, 1, offset(floorHeight, 8))),
+        // Extended ceilings
+        145: () => flatMoverAction(ceilingDefinition('W1', -1, 2, floorHeight)),
+        151: () => flatMoverAction(ceilingDefinition('WR', 1, 1, highestNeighbourCeiling)),
+        152: () => flatMoverAction(ceilingDefinition('WR', -1, 2, floorHeight)),
+        166: () => flatMoverAction(ceilingDefinition('S1', 1, 1, highestNeighbourCeiling)),
+        167: () => flatMoverAction(ceilingDefinition('S1', -1, 1, offset(floorHeight, 8))),
+        186: () => flatMoverAction(ceilingDefinition('SR', 1, 1, highestNeighbourCeiling)),
+        187: () => flatMoverAction(ceilingDefinition('SR', -1, 1, offset(floorHeight, 8))),
+        199: () => flatMoverAction(ceilingDefinition('W1', -1, 1, lowestNeighbourCeiling)),
+        200: () => flatMoverAction(ceilingDefinition('W1', -1, 1, highestNeighbourFloor)),
+        201: () => flatMoverAction(ceilingDefinition('WR', -1, 1, lowestNeighbourCeiling)),
+        202: () => flatMoverAction(ceilingDefinition('WR', -1, 1, highestNeighbourFloor)),
+        203: () => flatMoverAction(ceilingDefinition('S1', -1, 1, lowestNeighbourCeiling)),
+        204: () => flatMoverAction(ceilingDefinition('S1', -1, 1, highestNeighbourFloor)),
+        205: () => flatMoverAction(ceilingDefinition('SR', -1, 1, lowestNeighbourCeiling)),
+        206: () => flatMoverAction(ceilingDefinition('SR', -1, 1, highestNeighbourFloor)),
+    },
     // Elevators (kind of a moving floor that also moves the ceiling)
-    227: () => flatMoverAction(elevatorDefinition('W1', 1, nextNeighbourFloorUp)),
-    228: () => flatMoverAction(elevatorDefinition('WR', 1, nextNeighbourFloorUp)),
-    229: () => flatMoverAction(elevatorDefinition('S1', 1, nextNeighbourFloorUp)),
-    230: () => flatMoverAction(elevatorDefinition('SR', 1, nextNeighbourFloorUp)),
-    231: () => flatMoverAction(elevatorDefinition('W1', 1, nextNeighbourFloorDown)),
-    232: () => flatMoverAction(elevatorDefinition('WR', 1, nextNeighbourFloorDown)),
-    233: () => flatMoverAction(elevatorDefinition('S1', 1, nextNeighbourFloorDown)),
-    234: () => flatMoverAction(elevatorDefinition('SR', 1, nextNeighbourFloorDown)),
-    235: () => flatMoverAction(elevatorDefinition('W1', 1, triggerFloor)),
-    236: () => flatMoverAction(elevatorDefinition('WR', 1, triggerFloor)),
-    237: () => flatMoverAction(elevatorDefinition('S1', 1, triggerFloor)),
-    238: () => flatMoverAction(elevatorDefinition('SR', 1, triggerFloor)),
-
+    ...{
+        227: () => flatMoverAction(elevatorDefinition('W1', 1, nextNeighbourFloorUp)),
+        228: () => flatMoverAction(elevatorDefinition('WR', 1, nextNeighbourFloorUp)),
+        229: () => flatMoverAction(elevatorDefinition('S1', 1, nextNeighbourFloorUp)),
+        230: () => flatMoverAction(elevatorDefinition('SR', 1, nextNeighbourFloorUp)),
+        231: () => flatMoverAction(elevatorDefinition('W1', 1, nextNeighbourFloorDown)),
+        232: () => flatMoverAction(elevatorDefinition('WR', 1, nextNeighbourFloorDown)),
+        233: () => flatMoverAction(elevatorDefinition('S1', 1, nextNeighbourFloorDown)),
+        234: () => flatMoverAction(elevatorDefinition('SR', 1, nextNeighbourFloorDown)),
+        235: () => flatMoverAction(elevatorDefinition('W1', 1, triggerFloor)),
+        236: () => flatMoverAction(elevatorDefinition('WR', 1, triggerFloor)),
+        237: () => flatMoverAction(elevatorDefinition('S1', 1, triggerFloor)),
+        238: () => flatMoverAction(elevatorDefinition('SR', 1, triggerFloor)),
+    },
     // Lifts
-    // Some combination of the unofficial doom spec https://www.gamers.org/dhs/helpdocs/dmsp1666.html
-    // and doomwiki https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
-    // Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
-    // We call them "floors" and keep lifts as strictly something moves and can reverse
-    10: () => applySpecial(liftDefinition('W1m', 105, 4, lowestNeighbourFloor, floorHeight)),
-    21: () => applySpecial(liftDefinition('S1', 105, 4, lowestNeighbourFloor, floorHeight)),
-    53: () => applySpecial(liftDefinition('W1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
-    54: () => applySpecial(liftDefinition('W1', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
-    62: () => applySpecial(liftDefinition('SR', 105, 4, lowestNeighbourFloor, floorHeight)),
-    87: () => applySpecial(liftDefinition('WR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
-    88: () => applySpecial(liftDefinition('WRm', 105, 4, lowestNeighbourFloor, floorHeight)),
-    89: () => applySpecial(liftDefinition('WR', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
-    // 95 is moved to floorActions but is that correct? I could only find this linedef at the end of
-    // Sigil E5M4 and sigil E6M6. Floor actions work just fine so may be it's okay?
-    // 95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, lowestNeighbourFloor, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
-    // FIXME: should these be speed 4 or 8?
-    120: () => applySpecial(liftDefinition('WR', 105, 8, lowestNeighbourFloor, floorHeight)),
-    121: () => applySpecial(liftDefinition('W1', 105, 8, lowestNeighbourFloor, floorHeight)),
-    122: () => applySpecial(liftDefinition('S1', 105, 8, lowestNeighbourFloor, floorHeight)),
-    123: () => applySpecial(liftDefinition('SR', 105, 8, lowestNeighbourFloor, floorHeight)),
-    // Extended lifts
-    162: () => applySpecial(liftDefinition('S1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
-    181: () => applySpecial(liftDefinition('SR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
-    163: () => applySpecial(liftDefinition('S1', 0, 0, floorHeight, floorHeight, 'stop')),
-    182: () => applySpecial(liftDefinition('SR', 0, 0, floorHeight, floorHeight, 'stop')),
-
+    ...{
+        // Some combination of the unofficial doom spec https://www.gamers.org/dhs/helpdocs/dmsp1666.html
+        // and doomwiki https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
+        // Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
+        // We call them "floors" and keep lifts as strictly something moves and can reverse
+        10: () => applySpecial(liftDefinition('W1m', 105, 4, lowestNeighbourFloor, floorHeight)),
+        21: () => applySpecial(liftDefinition('S1', 105, 4, lowestNeighbourFloor, floorHeight)),
+        53: () => applySpecial(liftDefinition('W1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+        54: () => applySpecial(liftDefinition('W1', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
+        62: () => applySpecial(liftDefinition('SR', 105, 4, lowestNeighbourFloor, floorHeight)),
+        87: () => applySpecial(liftDefinition('WR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+        88: () => applySpecial(liftDefinition('WRm', 105, 4, lowestNeighbourFloor, floorHeight)),
+        89: () => applySpecial(liftDefinition('WR', 0, 0, lowestNeighbourFloor, floorHeight, 'stop')),
+        // 95 is moved to floorActions but is that correct? I could only find this linedef at the end of
+        // Sigil E5M4 and sigil E6M6. Floor actions work just fine so may be it's okay?
+        // 95: createLiftAction(liftDefinition('WR', 0, 0.5, 1, lowestNeighbourFloor, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], triggerModel))),
+        // FIXME: should these be speed 4 or 8?
+        120: () => applySpecial(liftDefinition('WR', 105, 8, lowestNeighbourFloor, floorHeight)),
+        121: () => applySpecial(liftDefinition('W1', 105, 8, lowestNeighbourFloor, floorHeight)),
+        122: () => applySpecial(liftDefinition('S1', 105, 8, lowestNeighbourFloor, floorHeight)),
+        123: () => applySpecial(liftDefinition('SR', 105, 8, lowestNeighbourFloor, floorHeight)),
+        // Extended lifts
+        162: () => applySpecial(liftDefinition('S1', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+        181: () => applySpecial(liftDefinition('SR', 105, 1, lowestNeighbourFloor, highestNeighbourFloorInclusive, 'perpetual')),
+        163: () => applySpecial(liftDefinition('S1', 0, 0, floorHeight, floorHeight, 'stop')),
+        182: () => applySpecial(liftDefinition('SR', 0, 0, floorHeight, floorHeight, 'stop')),
+    },
     // Crushers
-    6: () => applySpecial(crusherCeilingDefinition('W1', 2, 'start')),
-    25: () => applySpecial(crusherCeilingDefinition('W1', 1, 'start')),
-    49: () => applySpecial(crusherCeilingDefinition('S1', 1, 'start')),
-    57: () => applySpecial(crusherCeilingDefinition('W1', 0, 'stop')),
-    73: () => applySpecial(crusherCeilingDefinition('WR', 1, 'start')),
-    74: () => applySpecial(crusherCeilingDefinition('WR', 0, 'stop')),
-    77: () => applySpecial(crusherCeilingDefinition('WR', 2, 'start')),
-    141: () => applySpecial(crusherCeilingDefinition('W1', 1, 'start')),
-    // Extended crushers
-    150: () => applySpecial(crusherCeilingDefinition('WR', 1, 'start', true)),
-    164: () => applySpecial(crusherCeilingDefinition('S1', 2, 'start', false)),
-    165: () => applySpecial(crusherCeilingDefinition('S1', 1, 'start', true)),
-    168: () => applySpecial(crusherCeilingDefinition('S1', 0, 'stop')),
-    183: () => applySpecial(crusherCeilingDefinition('SR', 2, 'start')),
-    184: () => applySpecial(crusherCeilingDefinition('SR', 1, 'start')),
-    185: () => applySpecial(crusherCeilingDefinition('SR', 1, 'start', true)),
-    188: () => applySpecial(crusherCeilingDefinition('SR', 0, 'stop')),
-
+    ...{
+        6: () => applySpecial(crusherCeilingDefinition('W1', 2, 'start')),
+        25: () => applySpecial(crusherCeilingDefinition('W1', 1, 'start')),
+        49: () => applySpecial(crusherCeilingDefinition('S1', 1, 'start')),
+        57: () => applySpecial(crusherCeilingDefinition('W1', 0, 'stop')),
+        73: () => applySpecial(crusherCeilingDefinition('WR', 1, 'start')),
+        74: () => applySpecial(crusherCeilingDefinition('WR', 0, 'stop')),
+        77: () => applySpecial(crusherCeilingDefinition('WR', 2, 'start')),
+        141: () => applySpecial(crusherCeilingDefinition('W1', 1, 'start')),
+        // Extended crushers
+        150: () => applySpecial(crusherCeilingDefinition('WR', 1, 'start', true)),
+        164: () => applySpecial(crusherCeilingDefinition('S1', 2, 'start', false)),
+        165: () => applySpecial(crusherCeilingDefinition('S1', 1, 'start', true)),
+        168: () => applySpecial(crusherCeilingDefinition('S1', 0, 'stop')),
+        183: () => applySpecial(crusherCeilingDefinition('SR', 2, 'start')),
+        184: () => applySpecial(crusherCeilingDefinition('SR', 1, 'start')),
+        185: () => applySpecial(crusherCeilingDefinition('SR', 1, 'start', true)),
+        188: () => applySpecial(crusherCeilingDefinition('SR', 0, 'stop')),
+    },
     // Lighting
-    12: () => createLightingAction(createLightingDefinition('W1', maxNeighbourLight)),
-    80: () => createLightingAction(createLightingDefinition('WR', maxNeighbourLight)),
-    104: () => createLightingAction(createLightingDefinition('W1', minNeighbourLight)),
-    // As far as I can tell, type 17 is only used in tnt 09. It's extra special
-    13: () => createLightingAction(createLightingDefinition('W1', setLightLevel(255))),
-    17: () => createLightingAction(createLightingDefinition('W1', null)),
-    35: () => createLightingAction(createLightingDefinition('W1', setLightLevel(35))),
-    79: () => createLightingAction(createLightingDefinition('WR', setLightLevel(35))),
-    81: () => createLightingAction(createLightingDefinition('WR', setLightLevel(255))),
-    139: () => createLightingAction(createLightingDefinition('SR',setLightLevel(35))),
-    138: () => createLightingAction(createLightingDefinition('SR', setLightLevel(255))),
-    // extended
-    156: () => createLightingAction(createLightingDefinition('WR', null)),
-    157: () => createLightingAction(createLightingDefinition('WR', minNeighbourLight)),
-    169: () => createLightingAction(createLightingDefinition('S1', maxNeighbourLight)),
-    170: () => createLightingAction(createLightingDefinition('S1', setLightLevel(35))),
-    171: () => createLightingAction(createLightingDefinition('S1', setLightLevel(255))),
-    172: () => createLightingAction(createLightingDefinition('S1', null)),
-    173: () => createLightingAction(createLightingDefinition('S1', minNeighbourLight)),
-    192: () => createLightingAction(createLightingDefinition('SR', maxNeighbourLight)),
-    193: () => createLightingAction(createLightingDefinition('SR', null)),
-    194: () => createLightingAction(createLightingDefinition('SR', minNeighbourLight)),
-
+    ...{
+        12: () => createLightingAction(createLightingDefinition('W1', maxNeighbourLight)),
+        80: () => createLightingAction(createLightingDefinition('WR', maxNeighbourLight)),
+        104: () => createLightingAction(createLightingDefinition('W1', minNeighbourLight)),
+        // As far as I can tell, type 17 is only used in tnt 09. It's extra special
+        13: () => createLightingAction(createLightingDefinition('W1', setLightLevel(255))),
+        17: () => createLightingAction(createLightingDefinition('W1', null)),
+        35: () => createLightingAction(createLightingDefinition('W1', setLightLevel(35))),
+        79: () => createLightingAction(createLightingDefinition('WR', setLightLevel(35))),
+        81: () => createLightingAction(createLightingDefinition('WR', setLightLevel(255))),
+        139: () => createLightingAction(createLightingDefinition('SR',setLightLevel(35))),
+        138: () => createLightingAction(createLightingDefinition('SR', setLightLevel(255))),
+        // extended
+        156: () => createLightingAction(createLightingDefinition('WR', null)),
+        157: () => createLightingAction(createLightingDefinition('WR', minNeighbourLight)),
+        169: () => createLightingAction(createLightingDefinition('S1', maxNeighbourLight)),
+        170: () => createLightingAction(createLightingDefinition('S1', setLightLevel(35))),
+        171: () => createLightingAction(createLightingDefinition('S1', setLightLevel(255))),
+        172: () => createLightingAction(createLightingDefinition('S1', null)),
+        173: () => createLightingAction(createLightingDefinition('S1', minNeighbourLight)),
+        192: () => createLightingAction(createLightingDefinition('SR', maxNeighbourLight)),
+        193: () => createLightingAction(createLightingDefinition('SR', null)),
+        194: () => createLightingAction(createLightingDefinition('SR', minNeighbourLight)),
+    },
     // Teleports
-    39: () => applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
-    97: () => applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
-    126: () => applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
-    125: () => applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
-    // extended
-    174: () => applyTeleportAction(createTeleportDefinition('S1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
-    195: () => applyTeleportAction(createTeleportDefinition('SR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
-    207: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
-    208: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
-    209: () => applyTeleportAction(createTeleportDefinition('S1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
-    210: () => applyTeleportAction(createTeleportDefinition('SR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
-    243: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTag)),
-    244: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTag)),
-    262: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
-    263: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
-    264: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
-    265: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
-    266: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTag)),
-    267: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTag)),
-    268: () => applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget)),
-    269: () => applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget)),
-
+    ...{
+        39: () => applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+        97: () => applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+        126: () => applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+        125: () => applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+        // extended
+        174: () => applyTeleportAction(createTeleportDefinition('S1', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+        195: () => applyTeleportAction(createTeleportDefinition('SR', teleportReorientMove, teleportSoundAndFog, teleportThingInSectorTarget)),
+        207: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
+        208: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
+        209: () => applyTeleportAction(createTeleportDefinition('S1', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
+        210: () => applyTeleportAction(createTeleportDefinition('SR', teleportPreserveMove, noSpecialEffects, teleportThingInSectorTarget)),
+        243: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTag)),
+        244: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTag)),
+        262: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
+        263: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
+        264: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
+        265: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTagReversed)),
+        266: () => applyTeleportAction(createTeleportDefinition('W1', teleportPreserveMove, noSpecialEffects, lineWithTag)),
+        267: () => applyTeleportAction(createTeleportDefinition('WR', teleportPreserveMove, noSpecialEffects, lineWithTag)),
+        268: () => applyTeleportAction(createTeleportDefinition('W1', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget)),
+        269: () => applyTeleportAction(createTeleportDefinition('WR', teleportReorientMove, noSpecialEffects, teleportThingInSectorTarget)),
+    },
     // Stair builders (rising stairs)
-    7: () => stairBuilderAction(stairBuilderDefinition('S1', .25, 8)),
-    8: () => stairBuilderAction(stairBuilderDefinition('W1', .25, 8)),
-    127: () => stairBuilderAction(stairBuilderDefinition('S1', 4, 16)),
-    100: () => stairBuilderAction(stairBuilderDefinition('W1', 4, 16)),
-    // Extended
-    256: () => stairBuilderAction(stairBuilderDefinition('WR', .25, 8)),
-    257: () => stairBuilderAction(stairBuilderDefinition('WR', 4, 16)),
-    258: () => stairBuilderAction(stairBuilderDefinition('SR', .25, 16)),
-    259: () => stairBuilderAction(stairBuilderDefinition('SR', 4, 16)),
-
+    ...{
+        7: () => stairBuilderAction(stairBuilderDefinition('S1', .25, 8)),
+        8: () => stairBuilderAction(stairBuilderDefinition('W1', .25, 8)),
+        127: () => stairBuilderAction(stairBuilderDefinition('S1', 4, 16)),
+        100: () => stairBuilderAction(stairBuilderDefinition('W1', 4, 16)),
+        // Extended
+        256: () => stairBuilderAction(stairBuilderDefinition('WR', .25, 8)),
+        257: () => stairBuilderAction(stairBuilderDefinition('WR', 4, 16)),
+        258: () => stairBuilderAction(stairBuilderDefinition('SR', .25, 16)),
+        259: () => stairBuilderAction(stairBuilderDefinition('SR', 4, 16)),
+    },
     // Level exist
-    11: () => createLevelExitAction(levelExitDefinitions('S1', 'normal')),
-    52: () => createLevelExitAction(levelExitDefinitions('W1', 'normal')),
-    51: () => createLevelExitAction(levelExitDefinitions('S1', 'secret')),
-    124: () => createLevelExitAction(levelExitDefinitions('W1', 'secret')),
-    // Extended
-    197: () => createLevelExitAction(levelExitDefinitions('G1', 'normal')),
-    198: () => createLevelExitAction(levelExitDefinitions('G1', 'secret')),
+    ...{
+        11: () => createLevelExitAction(levelExitDefinitions('S1', 'normal')),
+        52: () => createLevelExitAction(levelExitDefinitions('W1', 'normal')),
+        51: () => createLevelExitAction(levelExitDefinitions('S1', 'secret')),
+        124: () => createLevelExitAction(levelExitDefinitions('W1', 'secret')),
+        // Extended
+        197: () => createLevelExitAction(levelExitDefinitions('G1', 'normal')),
+        198: () => createLevelExitAction(levelExitDefinitions('G1', 'secret')),
+    },
 };
 
 // General
@@ -866,6 +880,8 @@ const createDoorAction =
 
 // Moving floors, ceilings, and elevators
 type FlatState = ReturnType<ReturnType<typeof flatMoverDefinition>['makeState']>;
+const flatMoverState = (speed: number, direction: number, target: number, change?: ChangeEffect): FlatState =>
+    ({ mover: 'flat', speed, direction, target, change, prop: 'zFloor', elevator: false, crush: false, checkCrush: false });
 const flatMoverDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, prop: 'zCeil' | 'zFloor' = 'zFloor', crush = false) => ({
     trigger: trigger[0] as TriggerType,
     monsterTrigger: trigger.includes('m'),
@@ -1311,12 +1327,13 @@ const donut =
 
         const donut = map.data.sectorNeighbours(pillar)[0];
         const model = map.data.sectorNeighbours(donut).filter(e => e !== pillar)[0];
+        const target = floorHeight(map, model);
 
-        pillar.specialData = flatMoverDefinition('S1', -1, speed, null, floorHeight).makeState(map, model, linedef);
+        pillar.specialData = flatMoverState(speed, -1, target);
         map.addAction(pillar);
 
-        const sectorEffect = effect([copyFloorFlat, copySectorType], () => model);
-        donut.specialData = flatMoverDefinition('S1', 1, speed, sectorEffect, floorHeight).makeState(map, model, linedef);
+        const sectorEffect = effect([copyFloorFlat, copySectorType], () => model)(map, donut, linedef, target);
+        donut.specialData = flatMoverState(speed, 1, target, sectorEffect);
         console.log('donut',donut.specialData)
         map.addAction(donut);
     }
@@ -1353,7 +1370,7 @@ const stairBuilderAction =
     let triggered = false;
     const sectors = (mobj.map.sectorsByTag.get(linedef.tag) ?? []);
     for (const sector of sectors) {
-        if (sector.specialData !== null) {
+        if (sector.specialData) {
             continue;
         }
 
@@ -1365,24 +1382,29 @@ const stairBuilderAction =
         let affected = new Set<Sector>();
         while (step) {
             target += def.stepSize;
-            stepBuilderAction(map, step, def, target);
-            affected.add(step);
+            step.specialData = flatMoverState(def.speed, def.direction, target);
+            map.addAction(step);
+            if (def.ignoreTexture) {
+                affected.add(step);
+            }
 
             // find next step to raise
             const stepSectors = stairBuilderSectorNeighbours(step, map.data.linedefs)
-                .filter(e => !affected.has(e) && (def.ignoreTexture || e.floorFlat === flat));
-            // why not filter for sectors without specialData? Well, Doom has a "bug" of sorts where it raises the step height
-            // before checking if the sector has special data. TNT MAP 30 takes advantage of this for two stair cases
-            // https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/p_floor.c#L533
-            // https://www.doomworld.com/forum/topic/57014-tnt-map30-stairs/
             step = null;
             for (const nextStep of stepSectors) {
+                if (!def.ignoreTexture && nextStep.floorFlat !== flat || affected.has(nextStep)) {
+                    continue;
+                }
+                // why not filter for sectors without specialData? Well, Doom has a "bug" of sorts where it raises the step height
+                // before checking if the sector has special data. TNT MAP 30 takes advantage of this for two stair cases
+                // https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/p_floor.c#L533
+                // https://www.doomworld.com/forum/topic/57014-tnt-map30-stairs/
                 if (nextStep.specialData) {
                     target += def.stepSize;
-                } else {
-                    step = nextStep;
-                    break;
+                    continue;
                 }
+                step = nextStep;
+                break;
             }
         }
     }
@@ -1400,38 +1422,6 @@ function stairBuilderSectorNeighbours(sector: Sector, mapLinedefs: LineDef[]): S
         }
     }
     return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
-}
-
-function stepBuilderAction(map: MapRuntime, sector: Sector, def: { speed: number, direction: number }, target: number) {
-    sector.specialData = def;
-    const action = () => {
-        let finished = false;
-        playMoveSound(map, sector);
-
-        const mobjs = sectorObjects(map, sector);
-        let original = sector.zFloor;
-        sector.zFloor += def.direction * def.speed;
-        if (sector.zFloor > target) {
-            finished = true;
-            sector.zFloor = target;
-        } else {
-            const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor, sector.zCeil));
-            if (crushing.length) {
-                // stop movement if we hit something
-                sector.zFloor = original;
-                return;
-            }
-        }
-        mobjs.forEach(mobj => mobj.sectorChanged(sector));
-        map.events.emit('sector-z', sector);
-
-        if (finished) {
-            map.game.playSound(SoundIndex.sfx_pstop, sector);
-            sector.specialData = null;
-            map.removeAction(action);
-        }
-    }
-    map.addAction(action);
 }
 
 // Level exits
