@@ -455,7 +455,6 @@ export interface SpecialDefinition {
     repeatable: boolean;
 }
 
-
 // misc helpers
 const playMoveSound = (map: MapRuntime, sector: Sector) => {
     if ((Math.trunc(map.game.time.tick.val) & 7) === 0) {
@@ -712,7 +711,7 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
         // crush
         const mobjs = sectorObjects(map, sector);
         const hitSolid = state.direction === -1 && isCrushing(sector, mobjs, crushAndDamage);
-        // vanilla fast crushers (speed of 2) and generalized slow and normal crushers
+        // vanilla fast crushers (speed 2) and generalized slow/normal (speed 1/2) crushers
         // go even slower when they crush something
         const slowSpeed = state.vanillaMode ? 2 : 4;
         if (hitSolid && state.speed < slowSpeed && state.speed === state.originalSpeed) {
@@ -760,7 +759,7 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
         map.events.emit('sector-z', sector);
         if (finished) {
-            if (state.direction < 0 && state.change) {
+            if (state.change) {
                 applyChangeEffect(map, sector, state.change);
             }
             map.game.playSound(SoundIndex.sfx_pstop, sector);
@@ -840,11 +839,11 @@ const createDoorAction =
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
     let triggered = false;
-    const sectors = def.trigger === 'P' ? [linedef.left.sector] : mobj.map.data.sectors.filter(e => e.tag === linedef.tag)
+    const sectors = def.trigger === 'P' ? [linedef.left.sector] : (mobj.map.sectorsByTag.get(linedef.tag) ?? [])
     for (const sector of sectors) {
         if (sector.specialData) {
             if (def.trigger === 'P') {
-                const st = sector.specialData as DoorState;
+                const st: DoorState = sector.specialData;
                 if (mobj.isMonster && st.direction > 0) {
                     continue; // monsters don't close doors
                 }
@@ -867,7 +866,7 @@ const createDoorAction =
 
 // Moving floors, ceilings, and elevators
 type FlatState = ReturnType<ReturnType<typeof flatMoverDefinition>['makeState']>;
-const flatMoverDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, prop: 'zCeil' | 'zFloor', crush: boolean) => ({
+const flatMoverDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, prop: 'zCeil' | 'zFloor' = 'zFloor', crush = false) => ({
     trigger: trigger[0] as TriggerType,
     monsterTrigger: trigger.includes('m'),
     repeatable: (trigger[1] === 'R'),
@@ -882,7 +881,7 @@ const floorDefinition = (trigger: string, direction: number, speed: number, effe
 const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction, effect: EffectFunction = undefined, crush = false) =>
     flatMoverDefinition(trigger, direction, speed, effect, targetFn, 'zCeil', crush);
 const elevatorDefinition = (trigger: string, speed: number, targetFn: TargetValueFunction) => {
-    const def = flatMoverDefinition(trigger, 0, speed, null, targetFn, 'zFloor', false);
+    const def = flatMoverDefinition(trigger, 0, speed, null, targetFn, 'zFloor');
     const makeState = (map: MapRuntime, sector: Sector, linedef?: LineDef) => {
         const state = def.makeState(map, sector, linedef);
         state.checkCrush = true;
@@ -908,7 +907,7 @@ const flatMoverAction =
     }
 
     let triggered = false;
-    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = (mobj.map.sectorsByTag.get(linedef.tag) ?? []);
     for (const sector of sectors) {
         if (sector.specialData) {
             continue;
@@ -973,7 +972,7 @@ const applySpecial =
     }
 
     let triggered = false;
-    const sectors = mobj.map.sectorsByTag.get(linedef.tag) ?? [];
+    const sectors = (mobj.map.sectorsByTag.get(linedef.tag) ?? []);
     for (const sector of sectors) {
         // NOTE: E3M4 has an interesting behaviour in the outdoor room because a sector has only 1 special data.
         // If you start the crusher before flipping the switch, you cannot flip the switch to get the bonus items.
@@ -1293,19 +1292,17 @@ const donut =
         (mobj: MapObject, linedef: LineDef, hitTrigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     const def = { trigger: trigger[0], repeatable: (trigger[1] === 'R') };
     const map = mobj.map;
-    if (hitTrigger !== def.trigger) {
-        return;
-    }
-    if (mobj.isMonster) {
+    if (hitTrigger !== def.trigger || mobj.isMonster) {
         return;
     }
     if (!def.repeatable) {
+        // What does a repeatable donut look like anyway? I can't find an example
         linedef.special = 0;
     }
 
     let triggered = false;
     const speed = 0.5;
-    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = (mobj.map.sectorsByTag.get(linedef.tag) ?? []);
     for (const pillar of sectors) {
         if (pillar.specialData !== null) {
             continue;
@@ -1314,57 +1311,14 @@ const donut =
 
         const donut = map.data.sectorNeighbours(pillar)[0];
         const model = map.data.sectorNeighbours(donut).filter(e => e !== pillar)[0];
-        const target = model.zFloor;
 
-        pillar.specialData = def;
-        const pillarAction = () => {
-            let finished = false;
-            playMoveSound(map, pillar);
+        pillar.specialData = flatMoverDefinition('S1', -1, speed, null, floorHeight).makeState(map, model, linedef);
+        map.addAction(pillar);
 
-            pillar.zFloor += -speed;
-            if (pillar.zFloor < target) {
-                finished = true;
-                pillar.zFloor = target;
-            }
-            if (finished) {
-                map.game.playSound(SoundIndex.sfx_pstop, pillar);
-                pillar.specialData = null;
-                map.removeAction(pillarAction);
-            }
-            sectorObjects(map, pillar).forEach(mobj => mobj.sectorChanged(pillar));
-            map.events.emit('sector-z', pillar);
-        };
-        map.addAction(pillarAction);
-
-        donut.specialData = def;
-        const donutAction = () => {
-            let finished = false;
-            playMoveSound(map, donut);
-
-            let original = donut.zFloor;
-            donut.zFloor += speed;
-
-            if (donut.zFloor > target) {
-                finished = true;
-                donut.zFloor = target;
-            }
-            const mobjs = sectorObjects(map, pillar);
-            if (isCrushing(donut, mobjs, crushNonSolid)) {
-                // stop movement if we hit something
-                donut.zFloor = original;
-                return;
-            }
-
-            if (finished) {
-                map.game.playSound(SoundIndex.sfx_pstop, donut);
-                applyChangeEffect(map, donut, { newFloorFlat: model.floorFlat, newSectorType: model.type });
-                donut.specialData = null;
-                map.removeAction(donutAction);
-            }
-            mobjs.forEach(mobj => mobj.sectorChanged(donut));
-            map.events.emit('sector-z', donut);
-        };
-        map.addAction(donutAction);
+        const sectorEffect = effect([copyFloorFlat, copySectorType], () => model);
+        donut.specialData = flatMoverDefinition('S1', 1, speed, sectorEffect, floorHeight).makeState(map, model, linedef);
+        console.log('donut',donut.specialData)
+        map.addAction(donut);
     }
     return triggered ? def : undefined;
 };
@@ -1397,7 +1351,7 @@ const stairBuilderAction =
     }
 
     let triggered = false;
-    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = (mobj.map.sectorsByTag.get(linedef.tag) ?? []);
     for (const sector of sectors) {
         if (sector.specialData !== null) {
             continue;
