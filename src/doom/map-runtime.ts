@@ -3,7 +3,7 @@ import { type MapData, type LineDef, type Thing, type Action, type Sector, lined
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians, ticksPerSecond, tickTime } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
-import { moverActions, pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
+import { specialTickFunctions, pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType, type SectorChanger } from "./specials";
 import { type Game, type GameTime, type ControllerInput } from "./game";
 import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
@@ -107,7 +107,7 @@ interface ShotTrace {
 }
 
 export class MapRuntime {
-    private actions = new Set<Action | Sector>();
+    private actions = new Set<Action | SectorChanger>();
     private animatedTextures = new Map<string, AnimatedTexture>();
     private animatedFlats = new Map<string, AnimatedTexture2>();
 
@@ -303,9 +303,9 @@ export class MapRuntime {
         this.actions.forEach(action => {
             // this is kind of ugly BUT I think there is a path out of it if we eliminate functions
             if (typeof action === 'function') {
-                action()
-            } else if (action['specialData']) {
-                moverActions[action.specialData.mover](this, action);
+                action();
+            } else if ('sectorNum' in action) {
+                specialTickFunctions[action.type](this, this.data.sectors[action.sectorNum], action);
             } else if (action) {
                 this.actions.delete(action);
             }
@@ -373,15 +373,19 @@ export class MapRuntime {
         this.animatedTextures.set(key, { index, line, side, prop, frames, speed });
     }
 
-    addAction(action: Action | Sector) {
+    addAction(action: Action | SectorChanger) {
         if (typeof action === 'function') {
             this.actions.add(action);
-        } else if (action['specialData']) {
+        } else if (action['sectorNum']) {
+            this.data.sectors[action.sectorNum].specialData = action;
             this.actions.add(action);
         }
     }
 
-    removeAction(action: Action | Sector) {
+    removeAction(action: Action | SectorChanger) {
+        if (action && 'sectorNum' in action) {
+            this.data.sectors[action.sectorNum].specialData = null;
+        }
         this.actions.delete(action);
     }
 
@@ -390,6 +394,7 @@ export class MapRuntime {
     synchronizeSpecials(renderMode: 'r1' | 'r2' = 'r2') {
         this.actions.clear();
         this.stats.totalSecrets = 0;
+
         if (renderMode === 'r1') {
             for (const wall of this.data.linedefs) {
                 // TODO: disable these for R2?

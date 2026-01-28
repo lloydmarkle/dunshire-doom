@@ -6,7 +6,6 @@
     import HUDMessages from "./HUDMessages.svelte";
     import STNumber from "../Components/STNumber.svelte";
     import { useAppContext, useDoom } from "../DoomContext";
-    import STText from "../Components/STText.svelte";
 
     export let player: PlayerMapObject;
     const { maxHudScale, hudStyle, extendedHud } = useAppContext().settings;

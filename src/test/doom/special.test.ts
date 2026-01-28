@@ -30,7 +30,7 @@ const initGame = (wadName: string, mapName: string) => {
 
 // These tests are not great unit tests. If one fails, several tests after amy fail depending on what parts of the
 // map they are touching. Still, it give me some confidence to refactor specials
-describe('linedef specials (E1M1)', () => {
+describe('linedef specials (E1M2)', () => {
     let monster: MapObject;
     let game: Game;
     let map: MapRuntime;
@@ -204,7 +204,49 @@ describe('linedef specials (E1M1)', () => {
 
         expect(ring.floorFlat).to.equal('FLOOR5_3');
         expect(hole.floorFlat).to.equal('FLOOR4_8');
-    })
+    });
+
+    describe('lighting effects', () => {
+        it('sector type 8 fades in and out', () => {
+            const max = 255 - 8; // not 255 because glow never reaches max or min
+            const sec = map.data.sectors.find(e => e.num == 105);
+            // reset from previous tests
+            waitTime(game, 2);
+            waitUntil(game, () => sec.light === max);
+
+            waitTime(game, 2);
+            expect(sec.light).to.equal(max - 8);
+
+            let ticks = waitUntil(game, () => sec.light === max);
+            // time to go to 112 and back to max
+            expect(ticks).to.be.equal(Math.floor((max - 112) / 8) * 2);
+        });
+
+        it('sector type 3 strobes to full bright for 5 tics then dark for one second', () => {
+            const max = 255;
+            const sec = map.data.sectors.find(e => e.num == 87);
+            // reset from previous tests
+            waitUntil(game, () => sec.light === max)
+            waitUntil(game, () => sec.light !== max);
+            let tics = waitUntil(game, () => sec.light === max);
+            expect(tics).to.be.equal(35);
+
+            tics = waitUntil(game, () => sec.light !== max);
+            expect(tics).to.be.equal(5);
+        });
+
+        it('sector type 1 flickers randomly', () => {
+            const max = 255;
+            const sec = map.data.sectors.find(e => e.num == 37);
+            // reset from previous tests
+            waitUntil(game, () => sec.light === max)
+            let tics = waitUntil(game, () => sec.light !== max);
+            expect(tics).to.be.greaterThanOrEqual(1).and.lessThanOrEqual(64);
+
+            tics = waitUntil(game, () => sec.light === max);
+            expect(tics).to.be.greaterThanOrEqual(1).and.lessThanOrEqual(7);
+        });
+    });
 });
 
 describe('linedef specials (E2M2)', () => {
@@ -231,7 +273,7 @@ describe('linedef specials (E2M2)', () => {
             expect(sec.zCeil).to.equal(136);
 
             // clear special
-            sec.specialData = null;
+            map.removeAction(sec.specialData);
             waitTime(game);
         });
 

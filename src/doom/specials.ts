@@ -7,9 +7,6 @@ import { _T, type MessageId } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Vector3 } from "three";
 
-// TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
-// all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
-
 // why functions? To get around lexical scoping rules. I could also use function instead of arrows
 // or maybe remove the whole "definition" idea.
 // Also I've used lots of nested objects to make it easier to collapse portions of this list in an IDE
@@ -247,28 +244,28 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
     },
     // Lighting
     ...{
-        12: () => createLightingAction(createLightingDefinition('W1', maxNeighbourLight)),
-        80: () => createLightingAction(createLightingDefinition('WR', maxNeighbourLight)),
-        104: () => createLightingAction(createLightingDefinition('W1', minNeighbourLight)),
+        12: () => lightChangeAction(createLightingDefinition('W1', maxNeighbourLight)),
+        80: () => lightChangeAction(createLightingDefinition('WR', maxNeighbourLight)),
+        104: () => lightChangeAction(createLightingDefinition('W1', minNeighbourLight)),
         // As far as I can tell, type 17 is only used in tnt 09. It's extra special
-        13: () => createLightingAction(createLightingDefinition('W1', setLightLevel(255))),
-        17: () => createLightingAction(createLightingDefinition('W1', null)),
-        35: () => createLightingAction(createLightingDefinition('W1', setLightLevel(35))),
-        79: () => createLightingAction(createLightingDefinition('WR', setLightLevel(35))),
-        81: () => createLightingAction(createLightingDefinition('WR', setLightLevel(255))),
-        139: () => createLightingAction(createLightingDefinition('SR',setLightLevel(35))),
-        138: () => createLightingAction(createLightingDefinition('SR', setLightLevel(255))),
+        13: () => lightChangeAction(createLightingDefinition('W1', setLightLevel(255))),
+        17: () => lightChangeAction(createLightingDefinition('W1', null)),
+        35: () => lightChangeAction(createLightingDefinition('W1', setLightLevel(35))),
+        79: () => lightChangeAction(createLightingDefinition('WR', setLightLevel(35))),
+        81: () => lightChangeAction(createLightingDefinition('WR', setLightLevel(255))),
+        139: () => lightChangeAction(createLightingDefinition('SR',setLightLevel(35))),
+        138: () => lightChangeAction(createLightingDefinition('SR', setLightLevel(255))),
         // extended
-        156: () => createLightingAction(createLightingDefinition('WR', null)),
-        157: () => createLightingAction(createLightingDefinition('WR', minNeighbourLight)),
-        169: () => createLightingAction(createLightingDefinition('S1', maxNeighbourLight)),
-        170: () => createLightingAction(createLightingDefinition('S1', setLightLevel(35))),
-        171: () => createLightingAction(createLightingDefinition('S1', setLightLevel(255))),
-        172: () => createLightingAction(createLightingDefinition('S1', null)),
-        173: () => createLightingAction(createLightingDefinition('S1', minNeighbourLight)),
-        192: () => createLightingAction(createLightingDefinition('SR', maxNeighbourLight)),
-        193: () => createLightingAction(createLightingDefinition('SR', null)),
-        194: () => createLightingAction(createLightingDefinition('SR', minNeighbourLight)),
+        156: () => lightChangeAction(createLightingDefinition('WR', null)),
+        157: () => lightChangeAction(createLightingDefinition('WR', minNeighbourLight)),
+        169: () => lightChangeAction(createLightingDefinition('S1', maxNeighbourLight)),
+        170: () => lightChangeAction(createLightingDefinition('S1', setLightLevel(35))),
+        171: () => lightChangeAction(createLightingDefinition('S1', setLightLevel(255))),
+        172: () => lightChangeAction(createLightingDefinition('S1', null)),
+        173: () => lightChangeAction(createLightingDefinition('S1', minNeighbourLight)),
+        192: () => lightChangeAction(createLightingDefinition('SR', maxNeighbourLight)),
+        193: () => lightChangeAction(createLightingDefinition('SR', null)),
+        194: () => lightChangeAction(createLightingDefinition('SR', minNeighbourLight)),
     },
     // Teleports
     ...{
@@ -613,10 +610,16 @@ const isCrushing = (sector: Sector, mobjs: MapObject[], crushMobj: (mobj: MapObj
     return crushing.reduce((res, mo) => crushMobj(mo) || res, false);
 };
 
-type MoverType = 'door' | 'lift' | 'crusher' | 'flat';
-export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Sector<any>) => void } = {
-    'door': (map, sector: Sector<DoorState>) => {
-        const state = sector.specialData;
+interface BaseMoverState extends SectorChanger {
+    type: 'move-door' | 'move-lift' | 'move-crusher' | 'move-flat';
+}
+type LiftState = ReturnType<typeof liftState>;
+type CrusherState = ReturnType<typeof crusherState>;
+type FlatState = ReturnType<ReturnType<typeof flatMoverDefinition>['makeState']>;
+type DoorState = ReturnType<ReturnType<typeof doorDefinition>['makeState']>;
+type MoverFunction<T extends BaseMoverState> = (map: MapRuntime, sector: Sector, state: T) => void;
+const moveActions: { [key in BaseMoverState['type']]: MoverFunction<any> } = {
+    'move-door': (map, sector, state: DoorState) => {
         if (state.ticks) {
             if (!--state.ticks) {
                 state.direction = -state.direction;
@@ -654,11 +657,10 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
         map.events.emit('sector-z', sector);
         if (finished) {
-            sector.specialData = null;
+            map.removeAction(state);
         }
     },
-    'lift': (map, sector: Sector<LiftState>) => {
-        const state = sector.specialData;
+    'move-lift': (map, sector, state: LiftState) => {
         if (state.ticks) {
             state.ticks -= 1;
             return;
@@ -702,11 +704,10 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
         map.events.emit('sector-z', sector);
         if (finished) {
-            sector.specialData = null;
+            map.removeAction(state);
         }
     },
-    'crusher': (map, sector: Sector<CrusherState>) => {
-        const state = sector.specialData;
+    'move-crusher': (map, sector, state: CrusherState) => {
         if (!state.vanillaMode || !state.silent) {
             playMoveSound(map, sector);
         }
@@ -724,10 +725,10 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
 
         // crush
         const mobjs = sectorObjects(map, sector);
-        const hitSolid = state.direction === -1 && isCrushing(sector, mobjs, crushAndDamage);
         // vanilla fast crushers (speed 2) and generalized slow/normal (speed 1/2) crushers
         // go even slower when they crush something
         const slowSpeed = state.vanillaMode ? 2 : 4;
+        const hitSolid = state.direction === -1 && isCrushing(sector, mobjs, crushAndDamage);
         if (hitSolid && state.speed < slowSpeed && state.speed === state.originalSpeed) {
             state.speed /= 8;
         }
@@ -743,8 +744,7 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
             state.direction = -state.direction;
         }
     },
-    'flat': (map, sector: Sector<FlatState>) => {
-        const state = sector.specialData;
+    'move-flat': (map, sector, state: FlatState) => {
         let original = sector[state.prop];
         let ceilingGap = sector.zCeil - sector.zFloor;
         sector[state.prop] += state.direction * state.speed;
@@ -777,10 +777,10 @@ export const moverActions: { [key in MoverType]: (map: MapRuntime, sector: Secto
                 applyChangeEffect(map, sector, state.change);
             }
             map.game.playSound(SoundIndex.sfx_pstop, sector);
-            sector.specialData = null;
+            map.removeAction(state);
         }
     },
-}
+};
 
 // Doors
 const keyMissingMessage = (playerKeys: string, def: ReturnType<typeof doorDefinition>) => {
@@ -811,13 +811,12 @@ const doorDefinition = (trigger: string, keys: string, speed: number, waitDelay:
     repeatable: (trigger[1] === 'R'),
     keys: (differentiateSkullKeys ? keys : keys.toUpperCase()).split(''),
     differentiateSkullKeys,
-    makeState: (map: MapRuntime, sector: Sector) =>
-        ({ mover: 'door', fn, speed, waitDelay, ticks: 0,
+    makeState: (map: MapRuntime, sector: Sector): BaseMoverState =>
+        ({ type: 'move-door', sectorNum: sector.num, fn, speed, waitDelay, ticks: 0,
             direction: (fn === 'openAndStay' || fn === 'openWaitClose') ? 1 : -1,
             topHeight: ((fn === 'openAndStay' || fn === 'openWaitClose') ? offset(findLowestCeiling, - 4) : ceilingHeight)(map, sector),
             bottomHeight: floorHeight(map, sector) }),
 });
-type DoorState = ReturnType<ReturnType<typeof doorDefinition>['makeState']>;
 
 const doorSound = (state: DoorState) =>
     !state ? SoundIndex.sfx_None :
@@ -871,25 +870,24 @@ const createDoorAction =
         }
 
         triggered = true;
-        sector.specialData = def.makeState(mobj.map, sector);
+        const state = def.makeState(mobj.map, sector);
+        mobj.map.addAction(state);
         playDoorSound(mobj.map, sector);
-        mobj.map.addAction(sector);
     }
     return triggered ? def : undefined;
 };
 
 // Moving floors, ceilings, and elevators
-type FlatState = ReturnType<ReturnType<typeof flatMoverDefinition>['makeState']>;
-const flatMoverState = (speed: number, direction: number, target: number, change?: ChangeEffect): FlatState =>
-    ({ mover: 'flat', speed, direction, target, change, prop: 'zFloor', elevator: false, crush: false, checkCrush: false });
+const flatMoverState = (sectorNum: number, speed: number, direction: number, target: number, change?: ChangeEffect): FlatState =>
+    ({ type: 'move-flat', sectorNum, speed, direction, target, change, prop: 'zFloor', elevator: false, crush: false, checkCrush: false });
 const flatMoverDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, prop: 'zCeil' | 'zFloor' = 'zFloor', crush = false) => ({
     trigger: trigger[0] as TriggerType,
     monsterTrigger: trigger.includes('m'),
     repeatable: (trigger[1] === 'R'),
-    makeState: (map: MapRuntime, sector: Sector, linedef?: LineDef) => {
+    makeState: (map: MapRuntime, sector: Sector, linedef?: LineDef): BaseMoverState => {
         const target = targetFn(map, sector, linedef);
         const checkCrush = direction < 0 && prop === 'zCeil' || direction > 0 && prop === 'zFloor';
-        return { mover: 'flat', elevator: false, checkCrush, speed, direction, target, prop, crush, change: effect?.(map, sector, linedef, target) };
+        return { type: 'move-flat', sectorNum: sector.num, elevator: false, checkCrush, speed, direction, target, prop, crush, change: effect?.(map, sector, linedef, target) };
     },
 });
 const floorDefinition = (trigger: string, direction: number, speed: number, effect: EffectFunction, targetFn: TargetValueFunction, crush = false) =>
@@ -898,7 +896,7 @@ const ceilingDefinition = (trigger: string, direction: number, speed: number, ta
     flatMoverDefinition(trigger, direction, speed, effect, targetFn, 'zCeil', crush);
 const elevatorDefinition = (trigger: string, speed: number, targetFn: TargetValueFunction) => {
     const def = flatMoverDefinition(trigger, 0, speed, null, targetFn, 'zFloor');
-    const makeState = (map: MapRuntime, sector: Sector, linedef?: LineDef) => {
+    const makeState = (map: MapRuntime, sector: Sector, linedef?: LineDef): BaseMoverState => {
         const state = def.makeState(map, sector, linedef);
         state.checkCrush = true;
         state.elevator = true;
@@ -934,8 +932,7 @@ const flatMoverAction =
         if (state.direction > 0 && state.change) {
             applyChangeEffect(map, sector, state.change);
         }
-        sector.specialData = state;
-        mobj.map.addAction(sector);
+        mobj.map.addAction(state);
     }
     return triggered ? def : undefined;
 };
@@ -946,11 +943,10 @@ const crusherCeilingDefinition = (trigger: string, speed: number, triggerType: '
     repeatable: (trigger[1] === 'R'),
     monsterTrigger: trigger.includes('m'),
     stopper: triggerType === 'stop',
-    makeState: (map: MapRuntime, sector: Sector) => crusherState(speed, silent, ceilingHeight(map, sector), offset(floorHeight, 8)(map, sector)),
+    makeState: (map: MapRuntime, sector: Sector) => crusherState(sector.num, speed, silent, ceilingHeight(map, sector), offset(floorHeight, 8)(map, sector)),
 });
-const crusherState = (speed: number, silent: boolean, topHeight: number, bottomHeight: number) =>
-    ({ mover: 'crusher' as MoverType, silent, originalSpeed: speed, speed, direction: -1, topHeight, bottomHeight, nextSound: SoundIndex.sfx_pstart, vanillaMode: false });
-type CrusherState = ReturnType<typeof crusherState>;
+const crusherState = (sectorNum: number, speed: number, silent: boolean, topHeight: number, bottomHeight: number): BaseMoverState =>
+    ({ type: 'move-crusher', sectorNum, silent, originalSpeed: speed, speed, direction: -1, topHeight, bottomHeight, nextSound: SoundIndex.sfx_pstart, vanillaMode: false });
 
 // Lifts
 const liftDefinition = (trigger: string, waitTicks: number, speed: number, targetLowFn: TargetValueFunction, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal') => ({
@@ -958,20 +954,16 @@ const liftDefinition = (trigger: string, waitTicks: number, speed: number, targe
     repeatable: (trigger[1] === 'R'),
     stopper: actionType === 'stop',
     monsterTrigger: trigger.includes('m'),
-    makeState: (map: MapRuntime, sector: Sector) => liftState(waitTicks, actionType === 'perpetual', speed, -1, targetHighFn(map, sector), targetLowFn(map, sector)),
+    makeState: (map: MapRuntime, sector: Sector) => liftState(sector.num, waitTicks, actionType === 'perpetual', speed, -1, targetHighFn(map, sector), targetLowFn(map, sector)),
 });
-const liftState = (waitDelay: number, perpetual: boolean, speed: number, direction: number, topHeight: number, bottomHeight: number) =>
-    ({ mover: 'lift' as MoverType, perpetual, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0, nextSound: SoundIndex.sfx_pstart });
-type LiftState = ReturnType<typeof liftState>;
+const liftState = (sectorNum: number, waitDelay: number, perpetual: boolean, speed: number, direction: number, topHeight: number, bottomHeight: number): BaseMoverState =>
+    ({ type: 'move-lift', sectorNum, perpetual, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0, nextSound: SoundIndex.sfx_pstart });
 
-interface MoverState {
-    mover: MoverType;
-}
 interface SpecialDefinition2 extends SpecialDefinition {
     monsterTrigger: boolean;
     trigger: string;
     stopper: boolean;
-    makeState: (map: MapRuntime, sector: Sector, linedef?: LineDef) => MoverState;
+    makeState: (map: MapRuntime, sector: Sector, linedef?: LineDef) => BaseMoverState;
 }
 const applySpecial =
         (def: SpecialDefinition2) =>
@@ -995,18 +987,18 @@ const applySpecial =
         // gzDoom actually handles this but chocolate doom (and I assume the original) did not
         if (def.stopper || sector.specialData) {
             if (def.stopper) {
-                mobj.map.removeAction(sector);
+                mobj.map.removeAction(sector.specialData);
             } else {
-                mobj.map.addAction(sector);
+                mobj.map.addAction(sector.specialData);
             }
             // TODO: should triggered be true here?
             continue;
         }
 
         triggered = true;
-        sector.specialData = def.makeState(mobj.map, sector, linedef);
-        sector.specialData.vanillaMode = isVanillaSpecial;
-        mobj.map.addAction(sector);
+        const state = def.makeState(mobj.map, sector, linedef);
+        state.vanillaMode = isVanillaSpecial;
+        mobj.map.addAction(state);
     }
     return triggered ? def : undefined;
 };
@@ -1020,13 +1012,69 @@ const minNeighbourLight = (map: MapRuntime, sector: Sector) =>
 const lowestLight = (sectors: Sector[], max: number) =>
     sectors.reduce((last, sec) => Math.min(last, sec.light), max);
 
+interface LightChanger extends SectorChanger {
+    type: 'light-strobe' | 'light-flicker' | 'light-glow' | 'light-fire';
+    min: number;
+    max: number;
+    ticks?: number;
+    step?: number;
+    timing?: { brightTicks: number, darkTicks: number };
+}
+const lightActions: { [key in LightChanger['type']]: (map: MapRuntime, sector: Sector, state: LightChanger) => void } = {
+    'light-strobe': (map, sector, state) => {
+        if (--state.ticks) {
+            return;
+        }
+        if (sector.light === state.min) {
+            state.ticks = state.timing.brightTicks;
+            sector.light = state.max;
+        } else {
+            state.ticks = state.timing.darkTicks;
+            sector.light = state.min;
+        }
+        map.events.emit('sector-light', sector);
+    },
+    'light-flicker': (map, sector, state) => {
+        if (--state.ticks) {
+            return;
+        }
+        if (sector.light === state.max) {
+            state.ticks = map.game.rng.int(1, 7);
+            sector.light = state.min;
+        } else {
+            state.ticks = map.game.rng.int(1, 64);
+            sector.light = state.max;
+        }
+        map.events.emit('sector-light', sector);
+    },
+    'light-glow': (map, sector, state) => {
+        let val = sector.light + state.step;
+        const hitBoundary = (state.step < 0 && val <= state.min) || (state.step > 0 && val >= state.max);
+        if (hitBoundary) {
+            state.step = -state.step;
+            val += state.step;
+        }
+        sector.light = val;
+        map.events.emit('sector-light', sector);
+    },
+    'light-fire': (map, sector, state) => {
+        if (--state.ticks) {
+            return;
+        }
+        state.ticks = 4;
+        const amount = map.game.rng.int(0, 2) * 16;
+        sector.light = Math.max(state.max - amount, state.min);
+        map.events.emit('sector-light', sector);
+    }
+};
+
 const createLightingDefinition = (trigger: string, targetValueFn: TargetValueFunction) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     targetValueFn,
 });
 
-const createLightingAction =
+const lightChangeAction =
         (def: ReturnType<typeof createLightingDefinition>) =>
         (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
     const map = mobj.map;
@@ -1041,15 +1089,13 @@ const createLightingAction =
     }
 
     let triggered = false;
-    let targetValue = -1;
+    let targetValue: number = undefined;
     const sectors = map.sectorsByTag.get(linedef.tag) ?? [];
     for (const sector of sectors) {
         if (!def.targetValueFn) {
             map.addAction(strobeFlash(5, 35)(map, sector));
         } else {
-            if (targetValue === -1) {
-                targetValue = def.targetValueFn(map, sector);
-            }
+            targetValue = targetValue ?? def.targetValueFn(map, sector);
             sector.light = targetValue;
             map.events.emit('sector-light', sector);
         }
@@ -1059,74 +1105,31 @@ const createLightingAction =
 };
 
 const strobeFlash =
-    (lightTicks: number, darkTicks: number, synchronized = false) =>
-    (map: MapRuntime, sector: Sector) => {
+    (brightTicks: number, darkTicks: number, synchronized = false) =>
+    (map: MapRuntime, sector: Sector): LightChanger => {
         const max = sector.light;
         const nearestMin = lowestLight(map.data.sectorNeighbours(sector), max);
-        const min = (nearestMin >= max) ? 0 : nearestMin;
+        const min = (nearestMin === max) ? 0 : nearestMin;
         let ticks = synchronized ? 1 : map.game.rng.int(1, 7);
-        return () => {
-            if (--ticks) {
-                return;
-            }
-            if (sector.light === min) {
-                ticks = lightTicks;
-                sector.light = max;
-            } else {
-                ticks = darkTicks;
-                sector.light = min;
-            }
-            map.events.emit('sector-light', sector);
-        };
+        return { type: 'light-strobe', sectorNum: sector.num, min, max, ticks, timing: { brightTicks, darkTicks } };
     };
 
-const randomFlicker = (map: MapRuntime, sector: Sector) => {
+const randomFlicker = (map: MapRuntime, sector: Sector): LightChanger => {
     const max = sector.light;
     const min = lowestLight(map.data.sectorNeighbours(sector), max);
-    let ticks = 1;
-    return () => {
-        if (--ticks) {
-            return;
-        }
-        if (sector.light === max) {
-            ticks = map.game.rng.int(1, 7);
-            sector.light = min;
-        } else {
-            ticks = map.game.rng.int(1, 64);
-            sector.light = max;
-        }
-        map.events.emit('sector-light', sector);
-    };
+    return { type: 'light-flicker', sectorNum: sector.num, min, max, ticks: 1 };
 };
 
-const glowLight = (map: MapRuntime, sector: Sector) => {
+const glowLight = (map: MapRuntime, sector: Sector): LightChanger => {
     const max = sector.light;
     const min = lowestLight(map.data.sectorNeighbours(sector), max);
-    let step = -8;
-    return () => {
-        let val = sector.light + step;
-        if ((step < 0 && val <= min) || (step > 0 && val >= max)) {
-            step = -step;
-            val += step;
-        }
-        sector.light = val;
-        map.events.emit('sector-light', sector);
-    };
+    return { type: 'light-glow', sectorNum: sector.num, min, max, step: -8 };
 };
 
-const fireFlicker = (map: MapRuntime, sector: Sector) => {
+const fireFlicker = (map: MapRuntime, sector: Sector): LightChanger => {
     const max = sector.light;
     const min = lowestLight(map.data.sectorNeighbours(sector), max) + 16;
-    let ticks = 4;
-    return () => {
-        if (--ticks) {
-            return;
-        }
-        ticks = 4;
-        const amount = map.game.rng.int(0, 2) * 16;
-        sector.light = Math.max(max - amount, min);
-        map.events.emit('sector-light', sector);
-    };
+    return { type: 'light-fire', sectorNum: sector.num, min, max, ticks: 4 };
 };
 
 export const sectorLightAnimations = {
@@ -1329,12 +1332,12 @@ const donut =
         const model = map.data.sectorNeighbours(donut).filter(e => e !== pillar)[0];
         const target = floorHeight(map, model);
 
-        pillar.specialData = flatMoverState(speed, -1, target);
-        map.addAction(pillar);
+        const pillarState = flatMoverState(pillar.num, speed, -1, target);
+        map.addAction(pillarState);
 
         const sectorEffect = effect([copyFloorFlat, copySectorType], () => model)(map, donut, linedef, target);
-        donut.specialData = flatMoverState(speed, 1, target, sectorEffect);
-        map.addAction(donut);
+        const donutState = flatMoverState(donut.num, speed, 1, target, sectorEffect);
+        map.addAction(donutState);
     }
     return triggered ? def : undefined;
 };
@@ -1381,13 +1384,13 @@ const stairBuilderAction =
         let affected = new Set<Sector>();
         while (step) {
             target += def.stepSize;
-            step.specialData = flatMoverState(def.speed, def.direction, target);
-            map.addAction(step);
+            const state = flatMoverState(step.num, def.speed, def.direction, target);
+            map.addAction(state);
+
+            // find next step to raise
             if (def.ignoreTexture) {
                 affected.add(step);
             }
-
-            // find next step to raise
             const stepSectors = stairBuilderSectorNeighbours(step, map.data.linedefs)
             step = null;
             for (const nextStep of stepSectors) {
@@ -1512,4 +1515,14 @@ export function pusherAction(map: MapRuntime, linedef: LineDef, scrollSpeed: { d
         }
     };
     map.addAction(action);
+}
+
+export interface SectorChanger {
+    type: string;
+    sectorNum: number;
+    [key: string]: any;
+}
+export const specialTickFunctions = {
+    ...moveActions,
+    ...lightActions,
 }

@@ -5,6 +5,7 @@ import { AmanatidesWooTrace, centerSort, closestPoint, lineAABB, lineBounds, lin
 import { MFFlags } from "./doom-things-info";
 import { type Lump, int16, word, lumpString } from "../doom";
 import { readBspData } from "./wad/bsp-data";
+import type { SectorChanger } from "./specials";
 
 export type Action = () => void;
 
@@ -132,7 +133,7 @@ function fixTextureName(name: string) {
 }
 
 // TODO: when more specials get migrated, we should have some kind of common special type that has at least a discriminator
-export interface Sector<TSpecial = any> {
+export interface Sector<TSpecial extends SectorChanger = any> {
     num: number;
     tag: number;
     type: number;
