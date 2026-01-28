@@ -792,26 +792,24 @@ const keyMissingMessage = (playerKeys: string, def: ReturnType<typeof doorDefini
 };
 
 type DoorFunction = 'openWaitClose' | 'openAndStay' | 'closeAndStay' | 'closeWaitOpen';
-const doorDefinition = (trigger: string, keys: string, speed: number, delay: number, fn: DoorFunction, differentiateSkullKeys = false) => ({
+const doorDefinition = (trigger: string, keys: string, speed: number, waitDelay: number, fn: DoorFunction, differentiateSkullKeys = false) => ({
     trigger: trigger[0] as TriggerType,
     monsterTrigger: trigger.includes('m'),
     repeatable: (trigger[1] === 'R'),
     keys: (differentiateSkullKeys ? keys : keys.toUpperCase()).split(''),
     differentiateSkullKeys,
-    makeState: (map: MapRuntime, sector: Sector) => doorState(fn, delay, speed,
-        (fn === 'openAndStay' || fn === 'openWaitClose') ? 1 : -1,
-        ((fn === 'openAndStay' || fn === 'openWaitClose') ? offset(findLowestCeiling, - 4) : ceilingHeight)(map, sector),
-        floorHeight(map, sector)),
+    makeState: (map: MapRuntime, sector: Sector) =>
+        ({ mover: 'door', fn, speed, waitDelay, ticks: 0,
+            direction: (fn === 'openAndStay' || fn === 'openWaitClose') ? 1 : -1,
+            topHeight: ((fn === 'openAndStay' || fn === 'openWaitClose') ? offset(findLowestCeiling, - 4) : ceilingHeight)(map, sector),
+            bottomHeight: floorHeight(map, sector) }),
 });
-const doorState = (fn: DoorFunction, waitDelay: number, speed: number, direction: number, topHeight: number, bottomHeight: number) =>
-    ({ mover: 'door', fn, speed, direction, topHeight, bottomHeight, waitDelay, ticks: 0 });
-type DoorState = ReturnType<typeof doorState>;
+type DoorState = ReturnType<ReturnType<typeof doorDefinition>['makeState']>;
 
 const doorSound = (state: DoorState) =>
     !state ? SoundIndex.sfx_None :
-    state.speed < 8 && state.direction > 0 ? SoundIndex.sfx_doropn :
-    state.speed < 8 ? SoundIndex.sfx_dorcls :
-    state.direction > 0 ? SoundIndex.sfx_bdopn : SoundIndex.sfx_bdcls;
+    state.speed < 8 ? (state.direction > 0 ? SoundIndex.sfx_doropn : SoundIndex.sfx_dorcls) :
+    (state.direction > 0 ? SoundIndex.sfx_bdopn : SoundIndex.sfx_bdcls);
 const playDoorSound = (map: MapRuntime, sector: Sector) =>
     map.game.playSound(doorSound(sector.specialData), sector);
 
@@ -873,7 +871,6 @@ const flatMoverDefinition = (trigger: string, direction: number, speed: number, 
     trigger: trigger[0] as TriggerType,
     monsterTrigger: trigger.includes('m'),
     repeatable: (trigger[1] === 'R'),
-    elevator: false,
     makeState: (map: MapRuntime, sector: Sector, linedef?: LineDef) => {
         const target = targetFn(map, sector, linedef);
         const checkCrush = direction < 0 && prop === 'zCeil' || direction > 0 && prop === 'zFloor';
@@ -884,10 +881,17 @@ const floorDefinition = (trigger: string, direction: number, speed: number, effe
     flatMoverDefinition(trigger, direction, speed, effect, targetFn, 'zFloor', crush);
 const ceilingDefinition = (trigger: string, direction: number, speed: number, targetFn: TargetValueFunction, effect: EffectFunction = undefined, crush = false) =>
     flatMoverDefinition(trigger, direction, speed, effect, targetFn, 'zCeil', crush);
-const elevatorDefinition = (trigger: string, speed: number, targetFn: TargetValueFunction) => ({
-    ...flatMoverDefinition(trigger, 0, speed, null, targetFn, 'zFloor', false),
-    elevator: true,
-});
+const elevatorDefinition = (trigger: string, speed: number, targetFn: TargetValueFunction) => {
+    const def = flatMoverDefinition(trigger, 0, speed, null, targetFn, 'zFloor', false);
+    const makeState = (map: MapRuntime, sector: Sector, linedef?: LineDef) => {
+        const state = def.makeState(map, sector, linedef);
+        state.checkCrush = true;
+        state.elevator = true;
+        state.direction = Math.sign(state.target - sector.zFloor);
+        return state;
+    };
+    return { ...def, makeState, };
+};
 
 const flatMoverAction =
         (def: ReturnType<typeof flatMoverDefinition>) =>
@@ -912,11 +916,6 @@ const flatMoverAction =
         triggered = true;
 
         const state = def.makeState(mobj.map, sector, linedef);
-        if (def.elevator) {
-            state.checkCrush = true;
-            state.elevator = def.elevator;
-            state.direction = Math.sign(state.target - sector.zFloor)
-        }
         if (state.direction > 0 && state.change) {
             applyChangeEffect(map, sector, state.change);
         }
