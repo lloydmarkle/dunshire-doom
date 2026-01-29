@@ -5,7 +5,7 @@ import type { MapRuntime } from "./map-runtime";
 import { zeroVec, type LineDef, type Sector, type LineTraceHit, type TraceParams, baseMoveTrace } from "./map-data";
 import { _T, type MessageId } from "./text";
 import { findMoveBlocker } from "./things/monsters";
-import { Vector3 } from "three";
+import { Matrix4, Vector3 } from "three";
 
 // why functions? To get around lexical scoping rules. I could also use function instead of arrows
 // or maybe remove the whole "definition" idea.
@@ -1192,25 +1192,38 @@ const teleportThingInSectorTarget = (mobj: MapObject, linedef: LineDef, applyFn:
     }
 }
 
-const lineWithTag = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
-    const lines = mobj.map.linedefsByTag.get(linedef.tag);
-    for (const ld of lines) {
-        if (ld === linedef) {
-            continue;
+const lineWithTag = (() => {
+    const mat = new Matrix4();
+    return (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
+        const lines = mobj.map.linedefsByTag.get(linedef.tag);
+        for (const ld of lines) {
+            if (ld === linedef) {
+                continue;
+            }
+
+            // rotate player and velocity based on angle between teleport lines
+            const angle1 = Math.atan2(linedef.v[1].y - linedef.v[0].y, linedef.v[1].x - linedef.v[0].x);
+            const angle2 = Math.atan2(ld.v[1].y - ld.v[0].y, ld.v[1].x - ld.v[0].x);
+            const angleDelta = (angle1 - angle2);
+            mobj.direction += angleDelta;
+            mobj.velocity.applyMatrix4(mat.makeRotationZ(angleDelta))
+
+            // position player on exit line based on relative position on entry line
+            const dx = linedef.v[1].x - linedef.v[0].x;
+            const frac = (dx < 0.000001 && dx > -0.000001)
+                ? (mobj.position.y - linedef.v[0].y) / (linedef.v[1].y - linedef.v[0].y)
+                : (mobj.position.x - linedef.v[0].x) / dx;
+            mobj.position.set(
+                ld.v[0].x + (ld.v[1].x - ld.v[0].x) * frac,
+                ld.v[0].y + (ld.v[1].y - ld.v[0].y) * frac,
+                ld.right.sector.zFloor + (mobj.position.z - linedef.right.sector.zFloor),
+            );
+            mobj.applyPositionChanged();
+            return true;
         }
-        // TODO: I don't think this calculation is complete...
-        const dx = linedef.v[1].x - linedef.v[0].x;
-        const frac = (dx < 0.000001 && dx > -0.000001)
-            ? (mobj.position.y - linedef.v[0].y) / (linedef.v[1].y - linedef.v[0].y)
-            : (mobj.position.x - linedef.v[0].x) / dx;
-        const px = ld.v[0].x + (ld.v[1].x - ld.v[0].x) * frac;
-        const py = ld.v[0].y + (ld.v[1].y - ld.v[0].y) * frac;
-        mobj.position.set(px, py, mobj.position.z);
-        mobj.applyPositionChanged();
-        return true;
+        return false;
     }
-    return false;
-}
+})();
 const lineWithTagReversed = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
     const applied = lineWithTag(mobj, linedef, applyFn);
     if (applied) {
