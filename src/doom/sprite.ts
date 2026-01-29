@@ -54,6 +54,10 @@ export class SpriteStateMachine {
         } while (!this.ticks)
 
         this.ticks = Math.max(0, this.ticks + tickOffset);
+        this.updateSprite()
+    }
+
+    updateSprite() {
         let sprite = this.sprite.val;
         if (!sprite) {
             sprite = { name: '', frame: 0, fullbright: false, ticks: 0, state: this.state };

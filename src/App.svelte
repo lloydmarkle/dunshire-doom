@@ -10,9 +10,8 @@
     import { WadStore } from './WadStore';
     import WipeContainer from './render/Components/WipeContainer.svelte';
     import ErrorScreen from './Screens/Errors/Root.svelte';
-    import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
     import ENDOOM from './render/ENDOOM.svelte';
-    import Menu from "./render/Menu/Menu.svelte";
+    import Menu, { loadOptionalUrlParams } from "./render/Menu/Menu.svelte";
     import MusicPlayer from './render/MusicPlayer.svelte';
     import { recentlyUsedGames } from './Screens/LauncherScreen.svelte';
 
@@ -92,7 +91,7 @@
         const urlSkill = parseInt(params.get('skill'));
         const clippedSkill = Math.min(5, Math.max(1, isFinite(urlSkill) ? urlSkill : difficulty)) as Skill;
         const validUrlSkill = isFinite(urlSkill) && urlSkill === clippedSkill;
-        if ((game && urlSkill !== game.skill) || (!game && validUrlSkill)) {
+        if ((game && urlSkill !== game.skill) || (!game && validUrlSkill) || (game && params.has('load'))) {
             difficulty = clippedSkill;
             game = null;
         }

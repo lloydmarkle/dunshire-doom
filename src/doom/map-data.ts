@@ -617,6 +617,7 @@ export const hitSkyWall = (z: number, front: Sector, back: Sector) =>
 );
 
 export function readMapVertexLinedefsAndSectors(lumps: Lump[]) {
+    console.time('vls')
     const sectors = sectorsLump(lumps[8]);
     const vertexes = vertexesLump(lumps[4]);
     fixVertexes(
@@ -627,6 +628,7 @@ export function readMapVertexLinedefsAndSectors(lumps: Lump[]) {
 
     const sidedefs = sideDefsLump(lumps[3], sectors);
     const linedefs = lineDefsLump(lumps[2], vertexes, sidedefs);
+    console.timeEnd('vls')
     return { vertexes, linedefs, sectors };
 }
 

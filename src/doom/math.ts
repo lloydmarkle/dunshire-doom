@@ -57,6 +57,7 @@ const rngTable = [
 // We want numbers from [0, 1)
 .map(e => e / 256);
 export interface RNG {
+    readonly index: number;
     // Real number in range [0, 1)
     real(): number;
     // Real number in range (-1, 1)
@@ -68,11 +69,12 @@ export interface RNG {
 }
 
 export class TableRNG implements RNG {
-    private index = 0;
+    get index() { return this._index; }
+    constructor(private _index = 0) {}
 
     real() {
-        this.index = (this.index + 1) & 0xff;
-        return rngTable[this.index];
+        this._index = (this._index + 1) & 0xff;
+        return rngTable[this._index];
     }
 
     real2() {
@@ -93,6 +95,7 @@ export class TableRNG implements RNG {
 }
 
 export class ComputedRNG implements RNG {
+    readonly index = -1;
     real = Math.random;
     real2 = () => Math.random() - Math.random();
     int = randInt;

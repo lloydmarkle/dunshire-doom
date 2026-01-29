@@ -1,4 +1,6 @@
 <script lang="ts" context="module">
+    // it feels like this share/optional params stuff is misplaced. Maybe when we get a more functional save game ui
+    // we can find a better place for it?
     export function loadOptionalUrlParams(game: Game, params: URLSearchParams) {
         const player = game.map.val.player;
 
@@ -12,6 +14,13 @@
         player.direction = yaw;
         const pitch = params.has('player-aim') ? parseFloat(params.get('player-aim')) : player.pitch;
         player.pitch = pitch;
+
+        const loadGame = Math.floor(parseFloat(params.get('load')));
+        if (loadGame === 0) { // only 1 save game allow for now
+            const g = JSON.parse(localStorage.getItem('doom-save')) as MapExport;
+            console.log('load-game',g)
+            importMap(game.map.val, g);
+        }
     }
 
     function createShareUrl(game: Game) {
@@ -114,7 +123,7 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { type Game, SoundIndex, data, randInt } from "../../doom";
+    import { type Game, type MapExport, SoundIndex, data, exportMap, importMap, randInt } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
@@ -176,6 +185,18 @@
 
     function resumeGame() {
         pointerLock.requestLock();
+    }
+
+    function saveGame() {
+        const g = exportMap($map);
+        localStorage.setItem('doom-save', JSON.stringify(g));
+        console.log('doom-save',g)
+    }
+
+    function loadGame() {
+        const g = JSON.parse(localStorage.getItem('doom-save')) as MapExport;
+        const saveId = Math.random(); // <--- this is a hack
+        window.location.hash = `#${g.game.wads.map(e => 'wad=' + e).join('&')}&skill=${g.game.skill}&map=${g.game.mapName}&load=${saveId}`;
     }
 
     let paletteActive = false;
@@ -248,9 +269,12 @@
             {:else}
                 <span class="text-center" transition:fly={{ duration: transitionDuration }}>Url copied to clipboard</span>
             {/if}
-            <!-- TODO: someday... get save/load working-->
-            <!-- <button class="btn" disabled>Load</button>
-            <button class="btn" disabled>Save</button> -->
+
+            {#if $map}
+                <div class="divider"></div>
+                <button class="btn" on:click={loadGame}>Load</button>
+                <button class="btn" on:click={saveGame}>Save</button>
+            {/if}
 
             <div class="divider"></div>
             <div class="flex mx-auto join">

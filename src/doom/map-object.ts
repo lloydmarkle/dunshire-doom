@@ -331,7 +331,7 @@ const updateBlockMapPosition = (() => {
 
 export const maxFloatSpeed = 4;
 export const maxStepSize = 24;
-const stopVelocity = 0.001;
+export const stopVelocity = 0.0001;
 const friction = .90625;
 let hitCount = 0;
 export class MapObject {
@@ -389,19 +389,19 @@ export class MapObject {
     protected _isMoving = false;
     protected _onGround = true;
     get onGround() { return this.position.z <= this._zFloor; }
-    readonly isMonster;
-    readonly type;
+    readonly isMonster: boolean;
+    readonly type: MapObjectIndex;
     get description() { return this.spec.description; }
     get class() { return this.spec.class; }
     get onPickup() { return this.spec.onPickup; }
-    readonly originalRadius;
+    readonly originalRadius: number;
 
     constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex, public direction: number) {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
         this.info = { ...spec.mo };
         this.originalRadius = spec.mo.radius;
         this.type = spec.moType;
-        this.isMonster = this.spec.class === 'M';
+        this.isMonster = spec.class === 'M';
         this.health = store(this.info.spawnhealth);
         this.reactiontime = map.game.skill === 5 ? 0 : this.info.reactiontime;
 

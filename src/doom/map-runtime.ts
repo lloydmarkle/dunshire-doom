@@ -2,14 +2,14 @@ import { store, type Store } from "./store";
 import { type MapData, type LineDef, type Thing, type Action, type Sector, linedefSlope } from "./map-data";
 import { Vector3 } from "three";
 import { ToRadians, ticksPerSecond } from "./math";
-import { PlayerMapObject, MapObject } from "./map-object";
+import { PlayerMapObject, MapObject, stopVelocity } from "./map-object";
 import { sectorChangeFunctions, pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType, type SectorChanger } from "./specials";
 import { type Game, type GameTime } from "./game";
-import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
+import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex, states } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
-import type { Sprite } from "./sprite";
+import type { Sprite, SpriteStateMachine } from "./sprite";
 import { EventEmitter } from "./events";
-import type { Lump } from "../doom";
+import type { Lump, StateIndex } from "../doom";
 import { GameInput } from "./game-input";
 
 export type LineSide = 'left' | 'right';
@@ -105,8 +105,9 @@ interface ShotTrace {
     ticks: Store<number>;
 }
 
+type MapAction = Action | SectorChanger | LineChanger;
 export class MapRuntime {
-    readonly actions = new Set<Action | SectorChanger | LineChanger>();
+    readonly actions = new Set<MapAction>();
     private animatedTextures = new Map<string, AnimatedTexture>();
     private animatedFlats = new Map<string, AnimatedTexture2>();
 
@@ -522,7 +523,7 @@ export class MapRuntime {
         }
 
         // it's a repeatable switch so restore the state after 1 second
-        linedef.switchState = { type: 'line-texture', linedefNum: linedef.num, ticks: ticksPerSecond, textureName, prop };
+        linedef.switchState = { type: 'line-texture', linedefNum: linedef.num, ticks: ticksPerSecond, toggleTexture, textureName, prop };
         this.actions.add(linedef.switchState);
         return true;
     }
@@ -568,3 +569,208 @@ const linedefScrollSpeed = (ld: LineDef) =>{
         dy: Math.floor(slope.dy / 32),
     };
 }
+
+export type MapExport = ReturnType<typeof exportMap>;
+export const exportMap = (map: MapRuntime) => {
+    // At UI level, save picture and stats separate from raw data so we can quickly show tiles of games and only load the full data
+    // as needed.
+
+    // FIXME: one time switch toggles are missing. And the fact they were switched is missing too.
+    // TODO: for v2, a more advanced save would also save sound state (what sounds were playing and their progress...)
+
+    const mobjs = new Map(map.objs.values().map((v, i) => [v, i]));
+    const actionState = [...map.actions].filter(e => typeof e !== 'function');
+    const mobjState = (mobj: MapObject) => ({
+        type: mobj.type,
+        direction: mobj.direction,
+        position: mobj.position,
+        ...(mobj.velocity.lengthSq() > stopVelocity && { velocity: mobj.velocity }),
+        // These values come directly from type so only save them if they are not default values
+        ...(mobj.health.val !== (mobj as any).spec.mo.spawnhealth && { health: mobj.health.val }),
+        ...(mobj.info.radius !== (mobj as any).spec.mo.radius && { radius: mobj.info.radius }),
+        ...(mobj.info.height !== (mobj as any).spec.mo.height && { height: mobj.info.height }),
+        ...(mobj.info.flags !== (mobj as any).spec.mo.flags && { flags: mobj.info.flags }),
+        // TODO: sprite and tics... hmmm, no good interface for export or import
+        state: (mobj as any)._state.stateIndex,
+        ...((mobj as any)._state.ticks !== -1 && { stateTics: (mobj as any)._state.ticks }),
+        // ai (only save these values if they are populated)
+        ...(mobj.movedir > -1 && { movedir: mobj.movedir }),
+        ...(mobj.movecount && { movecount: mobj.movecount }),
+        ...(mobj.reactiontime && { reactiontime: mobj.reactiontime }),
+        ...(mobj.chaseThreshold && { chaseThreshold: mobj.chaseThreshold }),
+        ...(mobj.chaseTarget && { chaseTargetId: mobjs.get(mobj.chaseTarget) }),
+        ...(mobj.tracerTarget && { tracerTargetId: mobjs.get(mobj.tracerTarget) }),
+        ...(mobj.lastPlayerCheck && { lastPlayerCheck: mobj.lastPlayerCheck }),
+    });
+    const sectorState = (sector: Sector) => ({
+        type: sector.type,
+        // TODO: it would be cool to be smarter and only save things if they are different from original map state
+        // (how expensive is readMapVertexLinedefsAndSectors? it's about 100ms for Sunder MAP20 or Cosmogenesis MAP05.
+        // Not cheap, especially on slower machines so maybe it's worth the tradeoff of a little memory to track changes or
+        // we could write a very simple version to read just what is needed from sectors and linedefs)
+        floorFlat: sector.floorFlat,
+        zFloor: sector.zFloor,
+        ceilFlat: sector.ceilFlat,
+        zCeil: sector.zCeil,
+        light: sector.light,
+        ...(sector.specialData && { special: actionState.indexOf(sector.specialData) }),
+    });
+
+    const game = {
+        mapName: map.name,
+        skill: map.game.skill,
+        tic: Math.trunc(map.game.time.tick.val),
+        elapsedTime: map.game.time.elapsed,
+        playTime: map.game.time.playTime,
+        rngIndex: map.game.rng.index,
+        // TODO: convert to hash of wads or some other signature?
+        wads: map.game.wad.name.split('&').map(e => e.split('=')[1]),
+    };
+    const mapState = {
+        things: [...mobjs.keys().map(mobjState)],
+        sectors: map.data.sectors.map(sectorState),
+        actions: actionState,
+    };
+    const player = {
+        damageCount: map.player.damageCount.val,
+        bonusCount: map.player.bonusCount.val,
+        attacking: map.player.attacking,
+        refire: map.player.refire,
+        pitch: map.player.pitch,
+        bob: map.player.bob,
+        viewHeightOffset: (map.player as any).viewHeightOffset,
+        deltaViewHeight: (map.player as any).deltaViewHeight,
+        stats: map.player.stats,
+        extraLight: map.player.extraLight.val,
+        // TODO: like mobj sprites, we need a better interface here
+        weaponPosition: map.player.weapon.val.position.val,
+        weaponState: (map.player.weapon.val as any)._sprite.stateIndex,
+        weaponTic: (map.player.weapon.val as any)._sprite.ticks,
+        weaponFlashState: (map.player.weapon.val as any)._flashSprite.stateIndex,
+        weaponFlashTic: (map.player.weapon.val as any)._flashSprite.ticks,
+        inventory: {
+            ...map.player.inventory.val,
+            weapons: map.game.inventory.weapons.map(e => e?.name),
+            nextWeapon: map.player.nextWeapon?.name,
+            lastWeapon: map.game.inventory.lastWeapon?.name,
+            // hmmm... next weapon is tricky. How to save that? It's related to weapon ticks/sprite too
+        },
+    };
+    return { game, map: mapState, player };
+};
+export const importMap = (map: MapRuntime, data: MapExport) => {
+    // TODO: sprite and tics... hmmm, no good interface for export or import
+    const restoreSprite = (ssm: SpriteStateMachine, state: StateIndex, tics: number) => {
+        (ssm as any).stateIndex = state;
+        (ssm as any).state = states[state];
+        (ssm as any).ticks = tics;
+        if (state) {
+            ssm.updateSprite();
+        }
+    };
+
+    // restore player inventory and weapon. Position and other bits come when restoring mobjs
+    const player = map.player;
+    player.damageCount.set(data.player.damageCount);
+    player.bonusCount.set(data.player.bonusCount);
+    player.attacking = data.player.attacking;
+    player.refire = data.player.refire;
+    player.pitch = data.player.pitch;
+    player.bob = data.player.bob;
+    (player as any).viewHeightOffset = data.player.viewHeightOffset;
+    (player as any).deltaViewHeight = data.player.deltaViewHeight;
+    Object.assign(player.stats, data.player.stats);
+    player.extraLight.set(data.player.extraLight);
+    player.inventory.update(inv => {
+        inv.ammo = data.player.inventory.ammo;
+        inv.armor = data.player.inventory.armor;
+        inv.armorType = data.player.inventory.armorType;
+        inv.items = data.player.inventory.items;
+        inv.keys = data.player.inventory.keys;
+        inv.weapons = data.player.inventory.weapons.map(inventoryWeapon);
+        return inv;
+    });
+    if (data.player.inventory.nextWeapon) player.nextWeapon = inventoryWeapon(data.player.inventory.nextWeapon);
+    player.weapon.set(inventoryWeapon(data.player.inventory.lastWeapon).fn());
+    restoreSprite((map.player.weapon.val as any)._sprite, data.player.weaponState, data.player.weaponTic);
+    restoreSprite((map.player.weapon.val as any)._flashSprite, data.player.weaponFlashState, data.player.weaponFlashTic);
+    map.player.weapon.val.position.update(vec => vec.set(data.player.weaponPosition.x, data.player.weaponPosition.y));
+
+    // restore mobjs
+    let mobjs = [];
+    let restoredPlayer = false;
+    // do this in reverse so we get the right player object. It would be nice not to handle players in a special case
+    // but camera movement and player movement are both messy right now. We also need to do it in two passes to make
+    // sure we get the correct mobj when looking at chaseTargetId and traceTargetId
+    for (let i = data.map.things.length - 1; i >= 0; i--) {
+        const thing = data.map.things[i];
+        const mo = (thing.type === 0 && !restoredPlayer)
+            ? player : new MapObject(map, thingSpec(thing.type), { x: thing.position.x, y: thing.position.y }, thing.direction);
+        if (mo === player) {
+            restoredPlayer = true;
+        }
+        mobjs.push(mo);
+
+        mo.direction = thing.direction;
+        mo.position.set(thing.position.x, thing.position.y, thing.position.z);
+        mo.applyPositionChanged();
+        if ('velocity' in thing) mo.velocity.set(thing.velocity.x, thing.velocity.y, thing.velocity.z);
+        if ('health' in thing) mo.health.set(thing.health);
+        if ('radius' in thing) mo.info.radius = thing.radius;
+        if ('height' in thing) mo.info.height = thing.height;
+        if ('flags' in thing) mo.info.flags = thing.flags;
+        if ('movedir' in thing) mo.movedir = thing.movedir;
+        if ('movecount' in thing) mo.movecount = thing.movecount;
+        if ('reactiontime' in thing) mo.reactiontime = thing.reactiontime;
+        if ('chaseThreshold' in thing) mo.chaseThreshold = thing.chaseThreshold;
+        if ('lastPlayerCheck' in thing) mo.lastPlayerCheck = thing.lastPlayerCheck;
+        restoreSprite((mo as any)._state, thing.state, thing.stateTics);
+    }
+    mobjs.reverse();
+    // delete non-player mobjs and add the mobjs we've restored
+    map.objs.values().filter(e => e !== player).forEach(e => map.destroy(e));
+    for (let i = 0; i < data.map.things.length; i++) {
+        if (mobjs[i] === player) {
+            continue;
+        }
+        const thing = data.map.things[i];
+        // now that we have the list of mobjs, reset their chase and trace targets
+        if ('chaseTargetId' in thing) mobjs[i].chaseTarget = mobjs[thing.chaseTargetId];
+        if ('tracerTarget' in thing) mobjs[i].tracerTarget = mobjs[thing.tracerTargetId];
+        // add them to the map list
+        map.objs.add(mobjs[i]);
+        map.events.emit('mobj-added', mobjs[i]);
+    }
+
+    // restore sectors
+    for (let i = 0; i < map.data.sectors.length; i++) {
+        map.data.sectors[i].type = data.map.sectors[i].type;
+        map.data.sectors[i].light = data.map.sectors[i].light;
+        map.data.sectors[i].ceilFlat = data.map.sectors[i].ceilFlat;
+        map.data.sectors[i].zCeil = data.map.sectors[i].zCeil;
+        map.data.sectors[i].floorFlat = data.map.sectors[i].floorFlat;
+        map.data.sectors[i].zFloor = data.map.sectors[i].zFloor;
+        if ('special' in data.map.sectors[i]) map.data.sectors[i].specialData = data.map.actions[data.map.sectors[i].special];
+        map.events.emit('sector-flat', map.data.sectors[i]);
+        map.events.emit('sector-light', map.data.sectors[i]);
+        map.events.emit('sector-z', map.data.sectors[i]);
+    }
+
+    // restore sector move actions and light animations (and switch toggles)
+    map.actions.values().filter(e => typeof e !== 'function').forEach(e => map.actions.delete(e));
+    data.map.actions.filter(e => 'lineNum' in e).forEach(e => {
+        const linedef = map.data.linedefs[e.linedefNum];
+        linedef.right[e.prop] = e.toggleTexture;
+        map.events.emit('wall-texture', linedef);
+    });
+    data.map.actions.forEach(e => map.actions.add(e));
+
+    // restore game time
+    (map.game as any).nextTickTime = data.game.elapsedTime;
+    map.game.time.elapsed = data.game.elapsedTime;
+    map.game.time.playTime = data.game.playTime;
+    map.game.time.tick.set(data.game.tic);
+    if (data.game.rngIndex > -1) {
+        (map.game.rng as any)._index = data.game.rngIndex;
+    }
+};
