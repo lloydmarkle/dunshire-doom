@@ -47,7 +47,7 @@ export interface LineDef {
     transparentWindowHack: boolean;
     scrollSpeed: { dx: number, dy: number };
     // For game processing
-    switchAction: Action;
+    switchState: any;
     hitC: number; // don't hit the same line twice during collision detection
 }
 function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
@@ -72,7 +72,7 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
             v: [vertexes[v0], vertexes[v1]],
             left: sidedefs[leftSidedef],
             right: sidedefs[rightSidedef],
-            switchAction: null,
+            switchState: null,
             hitC: 0,
             scrollSpeed: zeroScroll,
             transparentWindowHack: false,

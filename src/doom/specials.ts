@@ -1132,7 +1132,7 @@ const fireFlicker = (map: MapRuntime, sector: Sector): LightChanger => {
     return { type: 'light-fire', sectorNum: sector.num, min, max, ticks: 4 };
 };
 
-export const sectorLightAnimations = {
+export const sectorLightAnimations: { [key: number]: (map: MapRuntime, sector: Sector) => LightChanger } = {
     1: randomFlicker,
     2: strobeFlash(5, 15),
     3: strobeFlash(5, 35),
@@ -1522,7 +1522,7 @@ export interface SectorChanger {
     sectorNum: number;
     [key: string]: any;
 }
-export const specialTickFunctions = {
+export const sectorChangeFunctions = {
     ...moveActions,
     ...lightActions,
 }

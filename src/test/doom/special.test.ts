@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { DoomWad, Game, type MapObject, MapObjectIndex, MapRuntime, MFFlags, SoundIndex, tickTime, WadFile } from "../../doom";
+import { DoomWad, Game, type MapObject, MapObjectIndex, MapRuntime, MFFlags, SoundIndex, ticksPerSecond, tickTime, WadFile } from "../../doom";
 import { createDefaultSettings } from '../../render/DoomContext';
 import { expect } from 'chai';
 
@@ -361,4 +361,17 @@ describe('stair builders (various maps/wads)', () => {
         let ticks = waitUntil(game, () => lastStep.zFloor === 64)
         expect(ticks).to.equal(192 / .25); // height change over speed
     });
+});
+
+it('repeatable switches revert texture and play sound 1s after press', () => {
+    let { game, map } = initGame('doom.wad', 'E1M1');
+    const line = map.data.linedefs.find(e => e.num === 136);
+    expect(line.right.lower).to.equal('SW1COMP');
+
+    const trig = map.triggerSpecial(line, map.player, 'S');
+    expect(trig.repeatable).to.be.true;
+    expect(line.right.lower).to.equal('SW2COMP');
+
+    let ticks = waitUntil(game, () => line.right.lower === 'SW1COMP');
+    expect(ticks).to.equal(ticksPerSecond);
 });

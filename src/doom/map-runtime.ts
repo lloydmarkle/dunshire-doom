@@ -3,7 +3,7 @@ import { type MapData, type LineDef, type Thing, type Action, type Sector, lined
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians, ticksPerSecond, tickTime } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
-import { specialTickFunctions, pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType, type SectorChanger } from "./specials";
+import { sectorChangeFunctions, pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType, type SectorChanger } from "./specials";
 import { type Game, type GameTime, type ControllerInput } from "./game";
 import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
@@ -107,7 +107,7 @@ interface ShotTrace {
 }
 
 export class MapRuntime {
-    private actions = new Set<Action | SectorChanger>();
+    private actions = new Set<Action | SectorChanger | LineChanger>();
     private animatedTextures = new Map<string, AnimatedTexture>();
     private animatedFlats = new Map<string, AnimatedTexture2>();
 
@@ -300,14 +300,17 @@ export class MapRuntime {
     }
 
     tick() {
-        this.actions.forEach(action => {
-            // this is kind of ugly BUT I think there is a path out of it if we eliminate functions
-            if (typeof action === 'function') {
-                action();
-            } else if ('sectorNum' in action) {
-                specialTickFunctions[action.type](this, this.data.sectors[action.sectorNum], action);
-            } else if (action) {
-                this.actions.delete(action);
+        this.actions.forEach(actionState => {
+            // having multiple types of actions is a bit messy. I need to keep all the actionState separate
+            // to save/restore map state
+            if (typeof actionState === 'function') {
+                actionState();
+            } else if ('sectorNum' in actionState) {
+                sectorChangeFunctions[actionState.type](this, this.data.sectors[actionState.sectorNum], actionState);
+            } else if ('linedefNum' in actionState) {
+                lineChangeFunctions[actionState.type](this, this.data.linedefs[actionState.linedefNum], actionState);
+            } else if (actionState) {
+                this.actions.delete(actionState);
             }
         });
 
@@ -373,18 +376,23 @@ export class MapRuntime {
         this.animatedTextures.set(key, { index, line, side, prop, frames, speed });
     }
 
-    addAction(action: Action | SectorChanger) {
+    addAction(action: Action | SectorChanger | LineChanger) {
         if (typeof action === 'function') {
             this.actions.add(action);
         } else if (action['sectorNum']) {
             this.data.sectors[action.sectorNum].specialData = action;
             this.actions.add(action);
+        } else if (action['linedefNum']) {
+            this.data.linedefs[action.linedefNum].switchState = action;
+            this.actions.add(action);
         }
     }
 
-    removeAction(action: Action | SectorChanger) {
+    removeAction(action: Action | SectorChanger | LineChanger) {
         if (action && 'sectorNum' in action) {
             this.data.sectors[action.sectorNum].specialData = null;
+        } else if (action && 'linedefNum' in action) {
+            this.data.linedefs[action.linedefNum].switchState = null;
         }
         this.actions.delete(action);
     }
@@ -455,12 +463,12 @@ export class MapRuntime {
         for (const sector of this.data.sectors) {
             const type = sector.type;
             // first 4 bytes are for lighting effects (https://doomwiki.org/wiki/Sector#Boom)
-            const action = sectorLightAnimations[type & 0xf]?.(this, sector);
-            if (action) {
-                this.actions.add(action);
+            const lightChanger = sectorLightAnimations[type & 0xf]?.(this, sector);
+            if (lightChanger) {
+                this.actions.add(lightChanger);
             }
 
-            if (type === 9) {
+            if (type === 9 || (type & 0x80)) {
                 this.stats.totalSecrets += 1;
             }
         }
@@ -482,10 +490,10 @@ export class MapRuntime {
         for (const sector of this.data.sectors) {
             // NOTE: sectorObjs is mostly managed by map-objects themselves
             this.sectorObjs.set(sector, new Set());
-
             if (sector.tag === 0) {
                 continue;
             }
+
             const tagged = this.sectorsByTag.get(sector.tag) ?? []
             this.sectorsByTag.set(sector.tag, tagged);
             tagged.push(sector);
@@ -522,13 +530,12 @@ export class MapRuntime {
     private tryToggle(special: SpecialDefinition, linedef: LineDef, prop: WallTextureType) {
         const textureName = linedef.right[prop];
         const toggleTexture = this.game.wad.switchToggle(textureName);
-        if (!toggleTexture || linedef.switchAction) {
+        if (!toggleTexture || linedef.switchState) {
             return false;
         }
 
         // play a different sound on level exit
-        const sound = (linedef.special === 11 || linedef.special === 51)
-            ? SoundIndex.sfx_swtchx : SoundIndex.sfx_swtchn;
+        const sound = (linedef.special === 11 || linedef.special === 51) ? SoundIndex.sfx_swtchx : SoundIndex.sfx_swtchn;
         this.game.playSound(sound, linedef.right.sector);
         linedef.right[prop] = toggleTexture;
         this.events.emit('wall-texture', linedef);
@@ -537,22 +544,27 @@ export class MapRuntime {
         }
 
         // it's a repeatable switch so restore the state after 1 second
-        let ticks = ticksPerSecond; // 1 sec
-        const action = () => {
-            if (--ticks) {
-                return;
-            }
-            // restore original state
-            this.game.playSound(SoundIndex.sfx_swtchn, linedef.right.sector);
-            linedef.right[prop] = textureName;
-            this.events.emit('wall-texture', linedef);
-            linedef.switchAction = null;
-            this.removeAction(action);
-        };
-        linedef.switchAction = action;
-        this.addAction(action);
+        this.addAction({ type: 'line-texture', linedefNum: linedef.num, ticks: ticksPerSecond, textureName, prop });
         return true;
     }
+}
+
+interface LineChanger {
+    type: 'line-texture';
+    linedefNum: number;
+    [key: string]: any;
+}
+const lineChangeFunctions: { [key in LineChanger['type']]: (map: MapRuntime, linedef: LineDef, state: LineChanger) => void } = {
+    'line-texture': (map, linedef, state) => {
+        if (--state.ticks) {
+            return;
+        }
+        map.removeAction(state);
+        // restore original state
+        map.game.playSound(SoundIndex.sfx_swtchn, linedef.right.sector);
+        linedef.right[state.prop] = state.textureName;
+        map.events.emit('wall-texture', linedef);
+    },
 }
 
 const loadMapMusicInfo = (mapName: string, lump: Lump): { [key: number]: string } => {
