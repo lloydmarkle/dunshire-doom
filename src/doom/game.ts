@@ -8,6 +8,7 @@ import { SoundIndex } from "./doom-things-info";
 import { MapData, type Sector } from "./map-data";
 import { type RNG, TableRNG, tickTime } from "./math";
 import { throwDoomError } from "./error";
+import type { ControllerInput } from "./game-input";
 
 export type GameTime = Game['time'];
 export interface GameSettings {
@@ -37,20 +38,6 @@ export type Skill = 1 | 2 | 3 | 4 | 5;
 interface PlayerInfo extends Omit<PlayerInventory, 'keys' | 'items'> {
     health: number;
     lastWeapon: InventoryWeapon;
-}
-
-export interface ControllerInput {
-    // why vector? so a joystick (or something) can move slower and faster
-    move: Vector3;
-    aim: Vector3;
-    run: boolean;
-    slow: boolean;
-    use: boolean;
-    attack: boolean;
-    // select a weapon by slot number (eg. 1 maps to both chainsaw and fist)
-    weaponKeyNum: number;
-    // directly select a weapon
-    weaponIndex: number;
 }
 
 export interface IntermissionScreen {
