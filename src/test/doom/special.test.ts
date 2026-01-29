@@ -273,7 +273,8 @@ describe('linedef specials (E2M2)', () => {
             expect(sec.zCeil).to.equal(136);
 
             // clear special
-            map.removeAction(sec.specialData);
+            map.actions.delete(sec.specialData);
+            sec.specialData = null;
             waitTime(game);
         });
 

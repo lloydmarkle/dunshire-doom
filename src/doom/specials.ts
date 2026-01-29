@@ -657,7 +657,8 @@ const moveActions: { [key in BaseMoverState['type']]: MoverFunction<any> } = {
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
         map.events.emit('sector-z', sector);
         if (finished) {
-            map.removeAction(state);
+            sector.specialData = null;
+            map.actions.delete(state);
         }
     },
     'move-lift': (map, sector, state: LiftState) => {
@@ -704,7 +705,8 @@ const moveActions: { [key in BaseMoverState['type']]: MoverFunction<any> } = {
         mobjs.forEach(mobj => mobj.sectorChanged(sector));
         map.events.emit('sector-z', sector);
         if (finished) {
-            map.removeAction(state);
+            sector.specialData = null;
+            map.actions.delete(state);
         }
     },
     'move-crusher': (map, sector, state: CrusherState) => {
@@ -777,7 +779,8 @@ const moveActions: { [key in BaseMoverState['type']]: MoverFunction<any> } = {
                 applyChangeEffect(map, sector, state.change);
             }
             map.game.playSound(SoundIndex.sfx_pstop, sector);
-            map.removeAction(state);
+            sector.specialData = null;
+            map.actions.delete(state);
         }
     },
 };
@@ -870,8 +873,8 @@ const createDoorAction =
         }
 
         triggered = true;
-        const state = def.makeState(mobj.map, sector);
-        mobj.map.addAction(state);
+        sector.specialData = def.makeState(mobj.map, sector);
+        mobj.map.actions.add(sector.specialData);
         playDoorSound(mobj.map, sector);
     }
     return triggered ? def : undefined;
@@ -932,7 +935,8 @@ const flatMoverAction =
         if (state.direction > 0 && state.change) {
             applyChangeEffect(map, sector, state.change);
         }
-        mobj.map.addAction(state);
+        sector.specialData = state;
+        mobj.map.actions.add(state);
     }
     return triggered ? def : undefined;
 };
@@ -987,9 +991,9 @@ const applySpecial =
         // gzDoom actually handles this but chocolate doom (and I assume the original) did not
         if (def.stopper || sector.specialData) {
             if (def.stopper) {
-                mobj.map.removeAction(sector.specialData);
-            } else {
-                mobj.map.addAction(sector.specialData);
+                mobj.map.actions.delete(sector.specialData);
+            } else if (sector.specialData) {
+                mobj.map.actions.add(sector.specialData);
             }
             // TODO: should triggered be true here?
             continue;
@@ -998,7 +1002,8 @@ const applySpecial =
         triggered = true;
         const state = def.makeState(mobj.map, sector, linedef);
         state.vanillaMode = isVanillaSpecial;
-        mobj.map.addAction(state);
+        sector.specialData = state;
+        mobj.map.actions.add(state);
     }
     return triggered ? def : undefined;
 };
@@ -1093,7 +1098,7 @@ const lightChangeAction =
     const sectors = map.sectorsByTag.get(linedef.tag) ?? [];
     for (const sector of sectors) {
         if (!def.targetValueFn) {
-            map.addAction(strobeFlash(5, 35)(map, sector));
+            map.actions.add(strobeFlash(5, 35)(map, sector));
         } else {
             targetValue = targetValue ?? def.targetValueFn(map, sector);
             sector.light = targetValue;
@@ -1345,12 +1350,12 @@ const donut =
         const model = map.data.sectorNeighbours(donut).filter(e => e !== pillar)[0];
         const target = floorHeight(map, model);
 
-        const pillarState = flatMoverState(pillar.num, speed, -1, target);
-        map.addAction(pillarState);
+        pillar.specialData = flatMoverState(pillar.num, speed, -1, target);
+        map.actions.add(pillar.specialData);
 
         const sectorEffect = effect([copyFloorFlat, copySectorType], () => model)(map, donut, linedef, target);
-        const donutState = flatMoverState(donut.num, speed, 1, target, sectorEffect);
-        map.addAction(donutState);
+        donut.specialData = flatMoverState(donut.num, speed, 1, target, sectorEffect);
+        map.actions.add(donut.specialData);
     }
     return triggered ? def : undefined;
 };
@@ -1397,8 +1402,8 @@ const stairBuilderAction =
         let affected = new Set<Sector>();
         while (step) {
             target += def.stepSize;
-            const state = flatMoverState(step.num, def.speed, def.direction, target);
-            map.addAction(state);
+            step.specialData = flatMoverState(step.num, def.speed, def.direction, target);
+            map.actions.add(step.specialData);
 
             // find next step to raise
             if (def.ignoreTexture) {
@@ -1527,7 +1532,7 @@ export function pusherAction(map: MapRuntime, linedef: LineDef, scrollSpeed: { d
             }
         }
     };
-    map.addAction(action);
+    map.actions.add(action);
 }
 
 export interface SectorChanger {

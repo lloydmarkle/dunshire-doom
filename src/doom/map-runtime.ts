@@ -106,7 +106,7 @@ interface ShotTrace {
 }
 
 export class MapRuntime {
-    private actions = new Set<Action | SectorChanger | LineChanger>();
+    readonly actions = new Set<Action | SectorChanger | LineChanger>();
     private animatedTextures = new Map<string, AnimatedTexture>();
     private animatedFlats = new Map<string, AnimatedTexture2>();
 
@@ -308,7 +308,7 @@ export class MapRuntime {
                 sectorChangeFunctions[actionState.type](this, this.data.sectors[actionState.sectorNum], actionState);
             } else if ('linedefNum' in actionState) {
                 lineChangeFunctions[actionState.type](this, this.data.linedefs[actionState.linedefNum], actionState);
-            } else if (actionState) {
+            } else {
                 this.actions.delete(actionState);
             }
         });
@@ -373,27 +373,6 @@ export class MapRuntime {
         const { frames, speed } = animInfo
         const index = animInfo.frames.indexOf(textureName);
         this.animatedTextures.set(key, { index, line, side, prop, frames, speed });
-    }
-
-    addAction(action: Action | SectorChanger | LineChanger) {
-        if (typeof action === 'function') {
-            this.actions.add(action);
-        } else if (action['sectorNum']) {
-            this.data.sectors[action.sectorNum].specialData = action;
-            this.actions.add(action);
-        } else if (action['linedefNum']) {
-            this.data.linedefs[action.linedefNum].switchState = action;
-            this.actions.add(action);
-        }
-    }
-
-    removeAction(action: Action | SectorChanger | LineChanger) {
-        if (action && 'sectorNum' in action) {
-            this.data.sectors[action.sectorNum].specialData = null;
-        } else if (action && 'linedefNum' in action) {
-            this.data.linedefs[action.linedefNum].switchState = null;
-        }
-        this.actions.delete(action);
     }
 
     // Why a public function? Because "edit" mode can change these while
@@ -543,7 +522,8 @@ export class MapRuntime {
         }
 
         // it's a repeatable switch so restore the state after 1 second
-        this.addAction({ type: 'line-texture', linedefNum: linedef.num, ticks: ticksPerSecond, textureName, prop });
+        linedef.switchState = { type: 'line-texture', linedefNum: linedef.num, ticks: ticksPerSecond, textureName, prop };
+        this.actions.add(linedef.switchState);
         return true;
     }
 }
@@ -558,7 +538,9 @@ const lineChangeFunctions: { [key in LineChanger['type']]: (map: MapRuntime, lin
         if (--state.ticks) {
             return;
         }
-        map.removeAction(state);
+
+        linedef.switchState = null;
+        map.actions.delete(state);
         // restore original state
         map.game.playSound(SoundIndex.sfx_swtchn, linedef.right.sector);
         linedef.right[state.prop] = state.textureName;
