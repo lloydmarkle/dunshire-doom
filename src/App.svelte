@@ -91,7 +91,7 @@
         const urlSkill = parseInt(params.get('skill'));
         const clippedSkill = Math.min(5, Math.max(1, isFinite(urlSkill) ? urlSkill : difficulty)) as Skill;
         const validUrlSkill = isFinite(urlSkill) && urlSkill === clippedSkill;
-        if ((game && urlSkill !== game.skill) || (!game && validUrlSkill) || (game && params.has('load'))) {
+        if ((game && urlSkill !== game.skill) || (!game && validUrlSkill)) {
             difficulty = clippedSkill;
             game = null;
         }

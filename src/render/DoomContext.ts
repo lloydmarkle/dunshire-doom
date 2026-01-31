@@ -1,6 +1,6 @@
 import { getContext } from 'svelte'
 import { MapTextures, type RenderSector } from './RenderData';
-import { Game, MapRuntime, type GameSettings, store, type Store, type DoomError, type Lump } from '../doom';
+import { Game, MapRuntime, type GameSettings, store, type Store, type DoomError, type Lump, type MapExport } from '../doom';
 import { derived, get, writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
@@ -198,7 +198,8 @@ export const createAppContext = () => {
     const pointerLock = createPointerLockControls(settings.cameraMode);
     const fullscreen = createFullscreenControls();
     const error = store<DoomError>(null);
-    return { settings, settingsMenu, editor, audio, soundGain, musicGain, pointerLock, fullscreen, error, musicTrack };
+    const restoreGame = store<MapExport>(null);
+    return { settings, settingsMenu, editor, audio, soundGain, musicGain, pointerLock, fullscreen, error, musicTrack, restoreGame };
 }
 
 export const createGameContext = (game: Game, viewSize: Store<{ width: number; height: number }>) => {

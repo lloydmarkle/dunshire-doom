@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { type Game, randInt, randomNorm, store } from "../doom";
+    import { type Game, importMap, randInt, randomNorm, store } from "../doom";
     import { onMount, setContext, tick, type Snippet } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
@@ -23,15 +23,16 @@
     const { game, soundGain, paused, children }: Props = $props();
 
     let viewSize = store({ width: 320, height: 200 });
-    // FIXME: actually, the warnings on the nex two lines are correct and it's I have {#key game} in the parent block.
-    // I'm just still not sure the "right" way to fix it
+    // FIXME: actually, the warnings on the next two lines are correct and it's why the parent block as {#key game}.
+    // I'm just still not sure the "right" way to fix it right now
     const doomContext = createGameContext(game, viewSize);
     const { map, intermission } = game;
     setContext("doom-game-context", doomContext);
-    const { settings, pointerLock, musicTrack, error } = useAppContext();
+    const { settings, pointerLock, musicTrack, error, restoreGame } = useAppContext();
     const { cameraMode, showPlayerInfo, timescale, fpsLimit, simulate486 } = settings;
 
     let screenName = $derived(
+        $restoreGame ? 'restore' :
         $intermission ? 'intermission'
         // NOTE: add noise to map name so that idclev to same map does screen wipe
         : ($map?.name ?? '') + Math.random());
@@ -41,6 +42,14 @@
     $effect(() => { $musicTrack = game.wad.optionalLump($mapMusic ?? intermissionMusic) });
 
     $effect(() => settings.compassMove.set($cameraMode === "svg"));
+
+    $effect(() => {
+        if ($restoreGame) {
+            console.log('load-game',$restoreGame)
+            importMap($map, $restoreGame);
+            $restoreGame = null;
+        }
+    })
 
     let frameTime = $derived(1 / $fpsLimit);
     let tScale = $derived($timescale);
@@ -106,34 +115,34 @@
         bind:clientHeight={$viewSize.height}
         bind:clientWidth={$viewSize.width}
     >
-    {#if $intermission}
+    {#if screenName === 'intermission'}
         <Intermission details={$intermission}
             bind:musicTrack={intermissionMusic} />
+    {:else if $map && screenName.startsWith($map.name)}
+        <MapContext map={$map} let:map>
+            {#if $cameraMode === 'svg'}
+            <SvgMapRoot {map} />
+            {:else}
+            <Canvas
+                createRenderer={canvas => new WebGLRenderer({
+                    canvas,
+                    // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
+                    logarithmicDepthBuffer: true,
+                })}
+                renderMode='manual'
+                autoRender={false}
+            >
+                <DoomScene {map} {frameTime} {paused} />
+            </Canvas>
+            {/if}
+            <HUD player={map.player} />
+
+            {#if $showPlayerInfo}
+            <PlayerInfo player={map.player} interactive={paused} />
+            {/if}
+            <EditPanel {map} />
+        </MapContext>
     {/if}
-
-    <MapContext map={$map} let:map>
-        {#if $cameraMode === 'svg'}
-        <SvgMapRoot {map} />
-        {:else}
-        <Canvas
-            createRenderer={canvas => new WebGLRenderer({
-                canvas,
-                // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
-                logarithmicDepthBuffer: true,
-            })}
-            renderMode='manual'
-            autoRender={false}
-        >
-            <DoomScene {map} {frameTime} {paused} />
-        </Canvas>
-        {/if}
-        <HUD player={map.player} />
-
-        {#if $showPlayerInfo}
-        <PlayerInfo player={map.player} interactive={paused} />
-        {/if}
-        <EditPanel {map} />
-    </MapContext>
     </div>
 </WipeContainer>
 

@@ -14,13 +14,6 @@
         player.direction = yaw;
         const pitch = params.has('player-aim') ? parseFloat(params.get('player-aim')) : player.pitch;
         player.pitch = pitch;
-
-        const loadGame = Math.floor(parseFloat(params.get('load')));
-        if (loadGame === 0) { // only 1 save game allow for now
-            const g = JSON.parse(localStorage.getItem('doom-save')) as MapExport;
-            console.log('load-game',g)
-            importMap(game.map.val, g);
-        }
     }
 
     function createShareUrl(game: Game) {
@@ -132,7 +125,7 @@
     import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica } from '@steeze-ui/heroicons'
 
     const { game } = useDoom();
-    const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
+    const { settingsMenu, editor, pointerLock, fullscreen, restoreGame } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
     const { intermission, map } = game;
     const settings = menuCategories(settingsMenu);
@@ -188,15 +181,18 @@
     }
 
     function saveGame() {
-        const g = exportMap($map);
-        console.log('doom-save',g)
-        localStorage.setItem('doom-save', JSON.stringify(g));
+        const save = exportMap($map);
+        console.log('doom-save',save)
+        localStorage.setItem('doom-save', JSON.stringify(save));
     }
 
     function loadGame() {
-        const g = JSON.parse(localStorage.getItem('doom-save')) as MapExport;
-        const saveId = Math.random(); // <--- this is a hack
-        window.location.hash = `#${g.game.wads.map(e => 'wad=' + e).join('&')}&skill=${g.game.skill}&map=${g.game.mapName}&load=${saveId}`;
+        const save = JSON.parse(localStorage.getItem('doom-save')) as MapExport;
+        const wadString = save.game.wads.map(e => 'wad=' + e).join('&');
+        window.location.hash = `#${wadString}&skill=${save.game.skill}&map=${save.game.mapName}`;
+        // loading a game may need to recreate the game instance (if skill level or wads change) but even if it doesn't,
+        // we need to load the game state so set a flag here to be loaded in the main doom component.
+        restoreGame.set(save);
     }
 
     let paletteActive = false;

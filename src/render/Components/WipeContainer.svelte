@@ -53,7 +53,6 @@
     // hmmm... not ideal but without it, we can't scroll inside the wipe container and for the main menu, that is critical.
     let transitionActive = 0;
 
-
     // I wonder what other kinds of transitions might be fun to create...
 </script>
 
