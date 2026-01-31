@@ -189,8 +189,8 @@
 
     function saveGame() {
         const g = exportMap($map);
-        localStorage.setItem('doom-save', JSON.stringify(g));
         console.log('doom-save',g)
+        localStorage.setItem('doom-save', JSON.stringify(g));
     }
 
     function loadGame() {

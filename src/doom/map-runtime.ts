@@ -133,6 +133,11 @@ export class MapRuntime {
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
     readonly disposables: (() => void)[] = [];
 
+    // save games need to keep track of changed sectors and linedefs (switches)
+    // (animated textures kind of mess this up but it's not a huge deal)
+    readonly changeSectors = new Set<Sector>();
+    readonly changeLinedefs = new Set<LineDef>();
+
     // some caches to help speed up game computations
     readonly teleportMobjs: MapObject[] = [];
     readonly sectorsByTag = new Map<number, Sector[]>();
@@ -148,6 +153,7 @@ export class MapRuntime {
 
         this.updateCaches();
         this.synchronizeSpecials();
+        this.initializeChangeMonitor();
 
         let playerThing: MapObject;
         this.disposables.push(this.game.settings.spawnMode.subscribe(() => {
@@ -376,6 +382,16 @@ export class MapRuntime {
         this.animatedTextures.set(key, { index, line, side, prop, frames, speed });
     }
 
+    // ideally this doesn't need to be a method (or public) but it's needed because we clear events in RenderData
+    initializeChangeMonitor() {
+        const sectorChanged = (sec: Sector) => this.changeSectors.add(sec);
+        const linedefChanged = (ld: LineDef) => this.changeLinedefs.add(ld);
+        this.events.on('sector-flat', sectorChanged);
+        this.events.on('sector-light', sectorChanged);
+        this.events.on('sector-z', sectorChanged);
+        this.events.on('wall-texture', linedefChanged);
+    }
+
     // Why a public function? Because "edit" mode can change these while
     // rendering the map and we want them to update
     synchronizeSpecials(renderMode: 'r1' | 'r2' = 'r2') {
@@ -602,18 +618,25 @@ export const exportMap = (map: MapRuntime) => {
         ...(mobj.tracerTarget && { tracerTargetId: mobjs.get(mobj.tracerTarget) }),
         ...(mobj.lastPlayerCheck && { lastPlayerCheck: mobj.lastPlayerCheck }),
     });
+
+    // we could definitely be smarter and sector and linedef changes. Maybe it would be better to compare to the map binary
+    // data and only store, changed values. readMapVertexLinedefsAndSectors() is not trivial for large maps (100ms for large sunder maps)
+    // but we could maybe make it simpler by reading linedef/sidedefs and certain sector props only. Also read and compare in order.
     const sectorState = (sector: Sector) => ({
+        num: sector.num,
         type: sector.type,
-        // TODO: it would be cool to be smarter and only save things if they are different from original map state
-        // (how expensive is readMapVertexLinedefsAndSectors? it's about 100ms for Sunder MAP20 or Cosmogenesis MAP05.
-        // Not cheap, especially on slower machines so maybe it's worth the tradeoff of a little memory to track changes or
-        // we could write a very simple version to read just what is needed from sectors and linedefs)
         floorFlat: sector.floorFlat,
         zFloor: sector.zFloor,
         ceilFlat: sector.ceilFlat,
         zCeil: sector.zCeil,
         light: sector.light,
         ...(sector.specialData && { special: actionState.indexOf(sector.specialData) }),
+    });
+    const linedefState = (linedef: LineDef) => ({
+        num: linedef.num,
+        ...(linedef.right?.lower && { lower: linedef.right.lower }),
+        ...(linedef.right?.middle && { middle: linedef.right.middle }),
+        ...(linedef.right?.upper && { upper: linedef.right.upper }),
     });
 
     const game = {
@@ -628,7 +651,8 @@ export const exportMap = (map: MapRuntime) => {
     };
     const mapState = {
         things: [...mobjs.keys().map(mobjState)],
-        sectors: map.data.sectors.map(sectorState),
+        sectors: [...map.changeSectors.values().map(sectorState)],
+        linedefs: [...map.changeLinedefs.values().map(linedefState)],
         actions: actionState,
     };
     const player = {
@@ -743,17 +767,28 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
     }
 
     // restore sectors
-    for (let i = 0; i < map.data.sectors.length; i++) {
-        map.data.sectors[i].type = data.map.sectors[i].type;
-        map.data.sectors[i].light = data.map.sectors[i].light;
-        map.data.sectors[i].ceilFlat = data.map.sectors[i].ceilFlat;
-        map.data.sectors[i].zCeil = data.map.sectors[i].zCeil;
-        map.data.sectors[i].floorFlat = data.map.sectors[i].floorFlat;
-        map.data.sectors[i].zFloor = data.map.sectors[i].zFloor;
-        if ('special' in data.map.sectors[i]) map.data.sectors[i].specialData = data.map.actions[data.map.sectors[i].special];
-        map.events.emit('sector-flat', map.data.sectors[i]);
-        map.events.emit('sector-light', map.data.sectors[i]);
-        map.events.emit('sector-z', map.data.sectors[i]);
+    for (let sec of data.map.sectors) {
+        const dest = map.data.sectors[sec.num];
+        if ('type' in sec) dest.type = sec.type;
+        if ('light' in sec) dest.light = sec.light;
+        if ('ceilFlat' in sec) dest.ceilFlat = sec.ceilFlat;
+        if ('zCeil' in sec) dest.zCeil = sec.zCeil;
+        if ('floorFlat' in sec) dest.floorFlat = sec.floorFlat;
+        if ('zFloor' in sec) dest.zFloor = sec.zFloor;
+        if ('special' in sec) dest.specialData = data.map.actions[sec.special];
+        map.events.emit('sector-flat', dest);
+        map.events.emit('sector-light', dest);
+        map.events.emit('sector-z', dest);
+    }
+    // restore linedefs
+    for (let ld of data.map.linedefs) {
+        const dest = map.data.linedefs[ld.num];
+        if (dest.right) {
+            if ('lower' in ld) dest.right.lower = ld.lower;
+            if ('middle' in ld) dest.right.middle = ld.middle;
+            if ('upper' in ld) dest.right.upper = ld.upper;
+        }
+        map.events.emit('wall-texture', dest);
     }
 
     // restore sector move actions and light animations (and switch toggles)
