@@ -45,7 +45,7 @@
     let hudCam: OrthographicCamera;
     // Using a shader pass requires a bit more work now with threlte6
     // https://threlte.xyz/docs/learn/advanced/migration-guide#usethrelteroot-has-been-removed
-    const { scene, renderer, camera, size, renderStage } = useThrelte();
+    const { scene, renderer, camera, size, renderStage, canvas } = useThrelte();
     const composer = new EffectComposer(renderer);
 
     const setupEffectComposer = (camera: Camera, hudScene: Scene) => {

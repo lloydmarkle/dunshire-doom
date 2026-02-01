@@ -44,7 +44,7 @@
     $effect(() => settings.compassMove.set($cameraMode === "svg"));
 
     $effect(() => {
-        if ($restoreGame) {
+        if ($restoreGame && $map && $restoreGame.game.mapName === $map.name) {
             console.log('load-game',$restoreGame)
             importMap($map, $restoreGame);
             $restoreGame = null;

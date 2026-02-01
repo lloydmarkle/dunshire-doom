@@ -78,7 +78,7 @@
         sounds.sfx.pstop();
         activeItem = wrapAround(activeItem + dir, menuItems.length);
     };
-    const tap = (item: MenuSetting) => (item.type !== 'range') ? slide(item, 1) : null;
+    const tap = (item: MenuSetting) => (item?.type !== 'range') ? slide(item, 1) : null;
 
     const keys = {
         'ArrowLeft': () => slide(menuItems[activeItem], -1),

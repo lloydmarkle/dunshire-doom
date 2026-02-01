@@ -292,7 +292,7 @@
                     ev.preventDefault();
                 } else if (ev.code === 'Delete') {
                     rootNode.querySelector<HTMLElement>('.dropdown .clear-selection').click();
-                } else if (ev.code === 'Escape') {
+                } else if (ev.code === 'Escape' || ev.code === 'ArrowLeft' || ev.code === 'ArrowRight') {
                     rootNode.querySelector<HTMLElement>('.card-actions .btn').focus();
                     searchText = '';
                     msfx.swtchx();
