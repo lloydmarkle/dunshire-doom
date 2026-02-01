@@ -135,8 +135,8 @@ export class MapRuntime {
 
     // save games need to keep track of changed sectors and linedefs (switches)
     // (animated textures kind of mess this up but it's not a huge deal)
-    readonly changeSectors = new Set<Sector>();
-    readonly changeLinedefs = new Set<LineDef>();
+    // We also use this to reset map geometry during game load
+    readonly initialMapState: InitialMapState;
 
     // some caches to help speed up game computations
     readonly teleportMobjs: MapObject[] = [];
@@ -151,9 +151,9 @@ export class MapRuntime {
     ) {
         this.musicTrack = store(mapMusicTrack(game, name));
 
+        this.initialMapState = captureInitialMapState(this);
         this.updateCaches();
         this.synchronizeSpecials();
-        this.initializeChangeMonitor();
 
         let playerThing: MapObject;
         this.disposables.push(this.game.settings.spawnMode.subscribe(() => {
@@ -200,22 +200,6 @@ export class MapRuntime {
         });
 
         this.input = new GameInput(this, game.input);
-
-        // initialize animated textures
-        for (const sector of this.data.sectors) {
-            this.initializeFlatTextureAnimation(sector, 'ceilFlat');
-            this.initializeFlatTextureAnimation(sector, 'floorFlat');
-        }
-        for (const linedef of this.data.linedefs) {
-            this.initializeWallTextureAnimation(linedef, 'right', 'lower');
-            this.initializeWallTextureAnimation(linedef, 'right', 'middle');
-            this.initializeWallTextureAnimation(linedef, 'right', 'upper');
-            if (linedef.left) {
-                this.initializeWallTextureAnimation(linedef, 'left', 'lower');
-                this.initializeWallTextureAnimation(linedef, 'left', 'middle');
-                this.initializeWallTextureAnimation(linedef, 'left', 'upper');
-            }
-        }
     }
 
     dispose() {
@@ -382,21 +366,29 @@ export class MapRuntime {
         this.animatedTextures.set(key, { index, line, side, prop, frames, speed });
     }
 
-    // ideally this doesn't need to be a method (or public) but it's needed because we clear events in RenderData
-    initializeChangeMonitor() {
-        const sectorChanged = (sec: Sector) => this.changeSectors.add(sec);
-        const linedefChanged = (ld: LineDef) => this.changeLinedefs.add(ld);
-        this.events.on('sector-flat', sectorChanged);
-        this.events.on('sector-light', sectorChanged);
-        this.events.on('sector-z', sectorChanged);
-        this.events.on('wall-texture', linedefChanged);
-    }
-
     // Why a public function? Because "edit" mode can change these while
     // rendering the map and we want them to update
     synchronizeSpecials(renderMode: 'r1' | 'r2' = 'r2') {
         this.actions.clear();
         this.stats.totalSecrets = 0;
+        this.animatedTextures.clear();
+        this.animatedFlats.clear();
+
+        // initialize animated textures
+        for (const sector of this.data.sectors) {
+            this.initializeFlatTextureAnimation(sector, 'ceilFlat');
+            this.initializeFlatTextureAnimation(sector, 'floorFlat');
+        }
+        for (const linedef of this.data.linedefs) {
+            this.initializeWallTextureAnimation(linedef, 'right', 'lower');
+            this.initializeWallTextureAnimation(linedef, 'right', 'middle');
+            this.initializeWallTextureAnimation(linedef, 'right', 'upper');
+            if (linedef.left) {
+                this.initializeWallTextureAnimation(linedef, 'left', 'lower');
+                this.initializeWallTextureAnimation(linedef, 'left', 'middle');
+                this.initializeWallTextureAnimation(linedef, 'left', 'upper');
+            }
+        }
 
         if (renderMode === 'r1') {
             for (const wall of this.data.linedefs) {
@@ -591,8 +583,8 @@ export const exportMap = (map: MapRuntime) => {
     // At UI level, save picture and stats separate from raw data so we can quickly show tiles of games and only load the full data
     // as needed.
 
-    // FIXME: one time switch toggles are missing. And the fact they were switched is missing too.
     // TODO: for v2, a more advanced save would also save sound state (what sounds were playing and their progress...)
+    // TODO: for v2, a lot of data is numbers and numbers are inefficient to store in json. Binary would be nicer
 
     const mobjs = new Map(map.objs.values().map((v, i) => [v, i]));
     const actionState = [...map.actions].filter(e => typeof e !== 'function');
@@ -619,24 +611,38 @@ export const exportMap = (map: MapRuntime) => {
         ...(mobj.lastPlayerCheck && { lastPlayerCheck: mobj.lastPlayerCheck }),
     });
 
-    // we could definitely be smarter and sector and linedef changes. Maybe it would be better to compare to the map binary
-    // data and only store, changed values. readMapVertexLinedefsAndSectors() is not trivial for large maps (100ms for large sunder maps)
-    // but we could maybe make it simpler by reading linedef/sidedefs and certain sector props only. Also read and compare in order.
-    const sectorState = (sector: Sector) => ({
+    // only store properties that are different from captured initial state
+    const sectorChanged = (sector: Sector) => _sectorChanged(sector, map.initialMapState.sectors[sector.num]);
+    const _sectorChanged = (sector: Sector, initial: InitialMapState['sectors'][0]) => false
+        || sector.ceilFlat !== initial.ceilFlat
+        || sector.zCeil !== initial.zCeil
+        || sector.floorFlat !== initial.floorFlat
+        || sector.zFloor !== initial.zFloor
+        || sector.light !== initial.light
+        || sector.type !== initial.type;
+    const sectorState = (sector: Sector) => _sectorState(sector, map.initialMapState.sectors[sector.num]);
+    const _sectorState = (sector: Sector, initial: InitialMapState['sectors'][0]) => ({
         num: sector.num,
-        type: sector.type,
-        floorFlat: sector.floorFlat,
-        zFloor: sector.zFloor,
-        ceilFlat: sector.ceilFlat,
-        zCeil: sector.zCeil,
-        light: sector.light,
+        ...(sector.type !== initial.type && { type: sector.type }),
+        ...(sector.floorFlat !== initial.floorFlat && { floorFlat: sector.floorFlat }),
+        ...(sector.zFloor !== initial.zFloor && { zFloor: sector.zFloor }),
+        ...(sector.ceilFlat !== initial.ceilFlat && { ceilFlat: sector.ceilFlat }),
+        ...(sector.zCeil !== initial.zCeil && { zCeil: sector.zCeil }),
+        ...(sector.light !== initial.light && { light: sector.light }),
         ...(sector.specialData && { special: actionState.indexOf(sector.specialData) }),
     });
-    const linedefState = (linedef: LineDef) => ({
-        num: linedef.num,
-        ...(linedef.right?.lower && { lower: linedef.right.lower }),
-        ...(linedef.right?.middle && { middle: linedef.right.middle }),
-        ...(linedef.right?.upper && { upper: linedef.right.upper }),
+
+    const linedefChanged = (ld: LineDef) => _linedefChanged(ld, map.initialMapState.linedefs[ld.num]);
+    const _linedefChanged = (ld: LineDef, initial: InitialMapState['linedefs'][0]) => false
+        || ld.right.lower !== initial.lower
+        || ld.right.middle !== initial.middle
+        || ld.right.upper !== initial.upper
+    const linedefState = (ld: LineDef) => _linedefState(ld, map.initialMapState.linedefs[ld.num]);
+    const _linedefState = (ld: LineDef, initial: InitialMapState['linedefs'][0]) => ({
+        num: ld.num,
+        ...(ld.right.lower !== initial.lower && { lower: ld.right.lower }),
+        ...(ld.right.middle !== initial.middle && { middle: ld.right.middle }),
+        ...(ld.right.upper !== initial.upper && { upper: ld.right.upper }),
     });
 
     const game = {
@@ -651,8 +657,8 @@ export const exportMap = (map: MapRuntime) => {
     };
     const mapState = {
         things: [...mobjs.keys().map(mobjState)],
-        sectors: [...map.changeSectors.values().map(sectorState)],
-        linedefs: [...map.changeLinedefs.values().map(linedefState)],
+        sectors: [...map.data.sectors.filter(sectorChanged).map(sectorState)],
+        linedefs: [...map.data.linedefs.filter(linedefChanged).map(linedefState)],
         actions: actionState,
     };
     const player = {
@@ -766,21 +772,57 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
         map.events.emit('mobj-added', mobjs[i]);
     }
 
-    // restore sectors
+    // restore map sectors by using initial values then applying saved diffs
+    for (let i = 0; i < map.initialMapState.sectors.length; i++) {
+        const ini = map.initialMapState.sectors[i];
+        const sec = map.data.sectors[i];
+        sec.specialData = null; // clear as it will be updated during restore later
+        sec.type = ini.type;
+        if (ini.zCeil !== sec.zCeil || ini.zFloor || sec.zFloor) {
+            sec.zCeil = ini.zCeil;
+            sec.zFloor = ini.zFloor;
+            map.events.emit('sector-z', sec);
+        }
+        if (ini.ceilFlat !== sec.ceilFlat || ini.floorFlat !== sec.floorFlat) {
+            sec.ceilFlat = ini.ceilFlat;
+            sec.floorFlat = ini.floorFlat;
+            map.events.emit('sector-flat', sec);
+        }
+        if (ini.light !== sec.light) {
+            sec.light = ini.light;
+            map.events.emit('sector-light', sec);
+        }
+    }
     for (let sec of data.map.sectors) {
         const dest = map.data.sectors[sec.num];
         if ('type' in sec) dest.type = sec.type;
-        if ('light' in sec) dest.light = sec.light;
-        if ('ceilFlat' in sec) dest.ceilFlat = sec.ceilFlat;
-        if ('zCeil' in sec) dest.zCeil = sec.zCeil;
-        if ('floorFlat' in sec) dest.floorFlat = sec.floorFlat;
-        if ('zFloor' in sec) dest.zFloor = sec.zFloor;
         if ('special' in sec) dest.specialData = data.map.actions[sec.special];
-        map.events.emit('sector-flat', dest);
-        map.events.emit('sector-light', dest);
-        map.events.emit('sector-z', dest);
+        if ('light' in sec) {
+            dest.light = sec.light;
+            map.events.emit('sector-light', dest);
+        }
+        if ('ceilFlat' in sec || 'floorFlat' in sec) {
+            dest.ceilFlat = sec.ceilFlat ?? dest.ceilFlat;
+            dest.floorFlat = sec.floorFlat ?? dest.floorFlat;
+            map.events.emit('sector-flat', dest);
+        }
+        if ('zCeil' in sec || 'zFloor' in sec) {
+            dest.zCeil = sec.zCeil ?? dest.zCeil;
+            dest.zFloor = sec.zFloor ?? dest.zFloor;
+            map.events.emit('sector-z', dest);
+        }
     }
-    // restore linedefs
+    // now handle linedefs the same way
+    for (let i = 0; i < map.initialMapState.linedefs.length; i++) {
+        const ini = map.initialMapState.linedefs[i];
+        const ld = map.data.linedefs[i];
+        if (ini.lower !== ld.right.lower || ini.middle !== ld.right.middle || ini.upper !== ld.right.upper) {
+            ld.right.lower = ini.lower ?? ld.right.lower;
+            ld.right.middle = ini.middle ?? ld.right.middle;
+            ld.right.upper = ini.upper ?? ld.right.upper;
+            map.events.emit('wall-texture', ld);
+        }
+    }
     for (let ld of data.map.linedefs) {
         const dest = map.data.linedefs[ld.num];
         if (dest.right) {
@@ -792,12 +834,8 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
     }
 
     // restore sector move actions and light animations (and switch toggles)
+    map.synchronizeSpecials();
     map.actions.values().filter(e => typeof e !== 'function').forEach(e => map.actions.delete(e));
-    data.map.actions.filter(e => 'lineNum' in e).forEach(e => {
-        const linedef = map.data.linedefs[e.linedefNum];
-        linedef.right[e.prop] = e.toggleTexture;
-        map.events.emit('wall-texture', linedef);
-    });
     data.map.actions.forEach(e => map.actions.add(e));
 
     // restore game time
@@ -809,3 +847,22 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
         (map.game.rng as any)._index = data.game.rngIndex;
     }
 };
+
+type InitialMapState = ReturnType<typeof captureInitialMapState>;
+const captureInitialMapState = (map: MapRuntime) => {
+    // for game save/load, this is all the map state that is needed (for now)
+    const sectors = map.data.sectors.map(sec => ({
+        ceilFlat: sec.ceilFlat,
+        zCeil: sec.zCeil,
+        floorFlat: sec.floorFlat,
+        zFloor: sec.zFloor,
+        light: sec.light,
+        type: sec.type,
+    }));
+    const linedefs = map.data.linedefs.map(ld => ({
+        lower: ld.right.lower,
+        middle: ld.right.middle,
+        upper: ld.right.upper,
+    }));
+    return { sectors, linedefs, };
+}

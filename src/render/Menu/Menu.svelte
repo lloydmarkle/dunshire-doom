@@ -116,7 +116,7 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { type Game, type MapExport, SoundIndex, data, exportMap, importMap, randInt } from "../../doom";
+    import { type Game, type MapExport, SoundIndex, data, exportMap, randInt } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";

@@ -299,7 +299,6 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     }
     // for HMR, this seems like a good place to do this
     mapRuntime.events.removeAllListeners();
-    mapRuntime.initializeChangeMonitor();
 
     console.timeEnd('b-rs')
     return rSectors;
