@@ -341,7 +341,7 @@ export class MapObject {
     // check for already hit lines/mobjs
     hitC: number;
     blockHit = 0;
-    blockArea: BlockRegion = [0,0,0,0];
+    blockArea: BlockRegion = [-1, -1, -1, -1];
     sectorMap = new Map<Sector, number>();
     private readonly mover: Mover;
 
@@ -694,8 +694,9 @@ export class MapObject {
 
     // kind of P_XYMovement
     protected updatePosition() {
-        // always evaluate position for players so that voodoo dolls pick up items
-        if (!this._isMoving && !this._positionChanged) {
+        // if the monster has no velocity, skip movement check.
+        // We still do this for players though so that voodoo dolls pick up items
+        if (!this._isMoving && (!this._positionChanged || this.isMonster)) {
             return;
         }
         this.mover(this, this.velocity);
@@ -915,10 +916,7 @@ export class PlayerMapObject extends MapObject {
     }
 
     xyMove(): void {
-        if (!this.reactiontime) {
-            // frozen from teleport so don't allow movement
-            super.updatePosition();
-        }
+        super.updatePosition();
         // always send a position changed event so that the UI updates rotation too. (see the /Camera/*.svelte listening to position changed)
         // We could add a "direction-changed" event but monsters update direction when they change sprite so we don't need it.
         this.applyPositionChanged();

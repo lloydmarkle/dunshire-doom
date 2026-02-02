@@ -144,6 +144,10 @@ export class GameInput {
         this.input.move.x = Math.max(-1, Math.min(1, this.input.move.x));
         this.input.move.y = Math.max(-1, Math.min(1, this.input.move.y));
         this.input.move.z = Math.max(-1, Math.min(1, this.input.move.z));
+        if (this.player.reactiontime) {
+            // frozen from teleport so don't allow movement
+            this.input.move.set(0, 0, 0);
+        }
 
         const freeFly = this.player.info.flags & MFFlags.MF_NOGRAVITY;
         const dt = time.delta * time.delta / tickTime;

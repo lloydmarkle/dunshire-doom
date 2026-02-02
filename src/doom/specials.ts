@@ -6,6 +6,7 @@ import { zeroVec, type LineDef, type Sector, type LineTraceHit, type TraceParams
 import { _T, type MessageId } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Matrix4, Vector3 } from "three";
+import { tickTime } from "./math";
 
 // why functions? To get around lexical scoping rules. I could also use function instead of arrows
 // or maybe remove the whole "definition" idea.
@@ -1166,6 +1167,7 @@ export const teleportReorientMove = (mobj: MapObject, dest: MapObject) => {
     mobj.direction = dest.direction;
     mobj.position.set(dest.position.x, dest.position.y, dest.sector.zFloor);
     mobj.applyPositionChanged();
+    mobj.velocity.set(0, 0, 0);
 
     if (mobj.type === MapObjectIndex.MT_PLAYER) {
         // freeze player after teleporting
@@ -1175,6 +1177,7 @@ export const teleportReorientMove = (mobj: MapObject, dest: MapObject) => {
 const teleportPreserveMove = (mobj: MapObject, dest: MapObject) => {
     mobj.position.set(dest.position.x, dest.position.y, dest.sector.zFloor);
     mobj.applyPositionChanged();
+    mobj.velocity.set(0, 0, 0);
     // also freeze player?
 }
 
@@ -1508,19 +1511,18 @@ export function pusherAction(map: MapRuntime, linedef: LineDef, scrollSpeed: { d
         return;
     }
     movement.set(scrollSpeed.dx, scrollSpeed.dy, 0);
+    let lastMoved = new Set<MapObject>()
     const action = () => {
         // group mobjs by sector _before_ moving because otherwise the mobj may be put into another sector
         // that also moves. Actually, that can still happen if the mobj moves to a different pusher but from the
         // little testing I've done (cchest MAP02), it's expected.
+        let moved = new Set<MapObject>();
         const sectorMobjs = sectors.map(sector => sectorObjects(map, sector).filter(e => e.zFloor <= sector.zFloor && !(e.info.flags & MFFlags.MF_NOCLIP)));
         for (const mobjs of sectorMobjs) {
             for (let i = 0; i < mobjs.length; i++) {
+                moved.add(mobjs[i])
                 specials.length = 0;
                 const blocker = findMoveBlocker(mobjs[i], movement, specials);
-                if (mobjs[i].type === MapObjectIndex.MT_PLAYER) {
-                    // players always update position so that voodoo dolls, even when stuck in a corner, still pick up items
-                    mobjs[i].positionChanged();
-                }
                 if (!blocker) {
                     mobjs[i].position.add(movement);
                     mobjs[i].positionChanged();
@@ -1528,6 +1530,13 @@ export function pusherAction(map: MapRuntime, linedef: LineDef, scrollSpeed: { d
                 }
             }
         }
+
+        // for mobjs that were pushed but now are not, we add velocity so they slide off
+        // why .4? It seems to match the intro to SOD MAP12 but YMMV.
+        const mScale = 0.4;
+        const left = lastMoved.difference(moved);
+        left.forEach(mobj => mobj.thrust(movement.x * mScale, movement.y * mScale, movement.z * mScale));
+        lastMoved = moved;
     };
     map.actions.add(action);
 }

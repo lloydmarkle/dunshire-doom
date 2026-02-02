@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "mocha --spec **/test/doom/**/*.test.ts",
-    "test-all": "mocha --spec **/*.test.ts"
+    "test-all": "mocha --spec **/*.test.ts",
+    "test-perf": "mocha --spec **/perf.test.ts"
   },
   "mocha": {
     "loader": "ts-node/esm",
