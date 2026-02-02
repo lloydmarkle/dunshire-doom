@@ -1198,8 +1198,10 @@ const teleportThingInSectorTarget = (mobj: MapObject, linedef: LineDef, applyFn:
 }
 
 const lineWithTag = (() => {
+    const v1 = new Vector3();
+    const v2 = new Vector3();
     const mat = new Matrix4();
-    return (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
+    return (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean, angleOffset = Math.PI) => {
         const lines = mobj.map.linedefsByTag.get(linedef.tag);
         for (const ld of lines) {
             if (ld === linedef) {
@@ -1207,21 +1209,21 @@ const lineWithTag = (() => {
             }
 
             // rotate player and velocity based on angle between teleport lines
-            const angle1 = Math.atan2(linedef.v[1].y - linedef.v[0].y, linedef.v[1].x - linedef.v[0].x);
-            const angle2 = Math.atan2(ld.v[1].y - ld.v[0].y, ld.v[1].x - ld.v[0].x);
-            const angleDelta = (angle1 - angle2);
+            v1.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
+            v2.set(ld.v[1].x - ld.v[0].x, ld.v[1].y - ld.v[0].y, 0);
+            const angleDelta = v1.angleTo(v2) + angleOffset;
             mobj.direction += angleDelta;
             mobj.velocity.applyMatrix4(mat.makeRotationZ(angleDelta))
 
             // position player on exit line based on relative position on entry line
             const dx = linedef.v[1].x - linedef.v[0].x;
-            const frac = (dx < 0.000001 && dx > -0.000001)
+            const frac = 1 - ((dx < 0.000001 && dx > -0.000001)
                 ? (mobj.position.y - linedef.v[0].y) / (linedef.v[1].y - linedef.v[0].y)
-                : (mobj.position.x - linedef.v[0].x) / dx;
+                : (mobj.position.x - linedef.v[0].x) / dx);
             mobj.position.set(
                 ld.v[0].x + (ld.v[1].x - ld.v[0].x) * frac,
                 ld.v[0].y + (ld.v[1].y - ld.v[0].y) * frac,
-                ld.right.sector.zFloor + (mobj.position.z - linedef.right.sector.zFloor),
+                (ld.left?.sector?.zFloor ?? ld.right.sector.zFloor) + (mobj.position.z - linedef.right.sector.zFloor),
             );
             mobj.applyPositionChanged();
             return true;
@@ -1229,13 +1231,8 @@ const lineWithTag = (() => {
         return false;
     }
 })();
-const lineWithTagReversed = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) => {
-    const applied = lineWithTag(mobj, linedef, applyFn);
-    if (applied) {
-        // +180 turn
-        mobj.direction = mobj.direction + Math.PI;
-    }
-}
+const lineWithTagReversed = (mobj: MapObject, linedef: LineDef, applyFn: (tp: MapObject) => boolean) =>
+    lineWithTag(mobj, linedef, applyFn, 0);
 
 export const telefragTargets = (() => {
     let self: MapObject;
