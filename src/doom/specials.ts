@@ -6,7 +6,6 @@ import { zeroVec, type LineDef, type Sector, type LineTraceHit, type TraceParams
 import { _T, type MessageId } from "./text";
 import { findMoveBlocker } from "./things/monsters";
 import { Matrix4, Vector3 } from "three";
-import { tickTime } from "./math";
 
 // why functions? To get around lexical scoping rules. I could also use function instead of arrows
 // or maybe remove the whole "definition" idea.

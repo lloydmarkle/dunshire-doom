@@ -1,6 +1,7 @@
 import { type Game, type MapExport } from "./doom";
 
 interface BaseSaveGame {
+    id?: number;
     name: string;
     image: string;
     wads: string[];
@@ -18,18 +19,20 @@ interface BaseSaveGame {
         totalItems: number;
         time: number;
     };
+    mapExport?: () => Promise<MapExport>;
+    saveData?: ArrayBuffer;
 }
 export interface SaveGame extends BaseSaveGame {
     id: number;
-    mapExport: MapExport;
+    mapExport: () => Promise<MapExport>;
 }
 interface SaveGameRecord extends BaseSaveGame {
-    id?: number;
     saveData: ArrayBuffer;
 }
 
 export class SaveGameStore {
     private db: Promise<IDBDatabase>;
+    filters: Promise<[string, number][]>;
 
     constructor() {
         const dbRequest = indexedDB.open('doom-saves', 1);
@@ -44,6 +47,29 @@ export class SaveGameStore {
             dbRequest.onsuccess = ev => resolve((ev.target as any).result);
             dbRequest.onerror = reject;
         });
+
+        this.filters = this.loadFilters();
+    }
+
+    private async loadFilters() {
+        const db = await this.db;
+        const store = db.transaction('saves', 'readonly').objectStore('saves');
+        const req = store.openCursor();
+        return new Promise<[string, number][]>((resolve, reject) => {
+            const freq = new Map<string, number>();
+            req.onerror = reject;
+            req.onsuccess = ev => {
+                const ref: IDBCursorWithValue = (ev.target as any).result;
+                if (!ref) {
+                    const result = [...freq.entries()]
+                        .sort((a, b) => b[1] - a[1]);
+                    return resolve(result);
+                }
+
+                ref.value.searchText.forEach(term => freq.set(term, (freq.get(term) ?? 0) + 1))
+                ref.continue();
+            }
+        })
     }
 
     async storeGame(name: string, image: string, game: Game, data: MapExport, id?: number): Promise<SaveGameRecord> {
@@ -55,7 +81,7 @@ export class SaveGameStore {
                 : ['E', 'M', data.game.mapName.slice(0, 2), data.game.mapName.slice(2, 4)]),
             data.game.mapName,
             ...data.game.wads.map(e => e.toUpperCase()),
-            name.toUpperCase(),
+            ...name.toUpperCase().split(' '),
         ];
         // TODO compress? Or maybe only compress at a certain size?
         const gameBytes = new TextEncoder().encode(JSON.stringify(data)).buffer;
@@ -93,21 +119,33 @@ export class SaveGameStore {
         const db = await this.db;
         const store = db.transaction('saves', 'readonly').objectStore('saves');
 
-        let result: SaveGame[] = [];
-        const req = searchText.length
-            ? store.index('searchText').openCursor(IDBKeyRange.only(searchText))
+        const queryResults = new Map<number, SaveGame>();
+        const terms = searchText.split(' ').filter(e => e.length);
+        await Promise.all(terms.length
+            ? terms.map(term => this.querySearchText(store, term, queryResults))
+            : [this.querySearchText(store, '', queryResults)]);
+        const result = [...queryResults.values()]
+            .filter(e => terms.every(t => e.searchText.includes(t)))
+            .sort((a, b) => b.lastModified - a.lastModified);
+        result.forEach(e => e.mapExport = async () => JSON.parse(new TextDecoder().decode(e.saveData)));
+        return Promise.resolve(result);
+    }
+
+    private querySearchText(store: IDBObjectStore, term: string, result: Map<number, SaveGame>) {
+        const req = term.length
+            ? store.index('searchText').openCursor(IDBKeyRange.only(term))
             : store.openCursor();
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             req.onerror = reject;
             req.onsuccess = ev => {
                 const ref: IDBCursorWithValue = (ev.target as any).result;
                 if (!ref) {
-                    result.sort((a, b) => b.lastModified - a.lastModified);
-                    return resolve(result);
+                    return resolve();
                 }
 
-                ref.value.mapExport = JSON.parse(new TextDecoder().decode(ref.value.saveData));
-                result.push(ref.value)
+                if (!result.has(ref.value.id)) {
+                    result.set(ref.value.id, ref.value);
+                }
                 ref.continue();
             }
         });

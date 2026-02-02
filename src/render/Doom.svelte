@@ -45,7 +45,6 @@
 
     $effect(() => {
         if ($restoreGame && $map && $restoreGame.game.mapName === $map.name) {
-            console.log('load-game',$restoreGame)
             importMap($map, $restoreGame);
             $restoreGame = null;
         }
