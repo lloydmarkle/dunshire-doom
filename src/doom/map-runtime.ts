@@ -637,9 +637,11 @@ export const exportMap = (map: MapRuntime) => {
         || ld.right.lower !== initial.lower
         || ld.right.middle !== initial.middle
         || ld.right.upper !== initial.upper
+        || ld.special !== initial.special
     const linedefState = (ld: LineDef) => _linedefState(ld, map.initialMapState.linedefs[ld.num]);
     const _linedefState = (ld: LineDef, initial: InitialMapState['linedefs'][0]) => ({
         num: ld.num,
+        ...(ld.special !== initial.special && { special: ld.special }),
         ...(ld.right.lower !== initial.lower && { lower: ld.right.lower }),
         ...(ld.right.middle !== initial.middle && { middle: ld.right.middle }),
         ...(ld.right.upper !== initial.upper && { upper: ld.right.upper }),
@@ -778,7 +780,7 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
         const sec = map.data.sectors[i];
         sec.specialData = null; // clear as it will be updated during restore later
         sec.type = ini.type;
-        if (ini.zCeil !== sec.zCeil || ini.zFloor || sec.zFloor) {
+        if (ini.zCeil !== sec.zCeil || ini.zFloor !== sec.zFloor) {
             sec.zCeil = ini.zCeil;
             sec.zFloor = ini.zFloor;
             map.events.emit('sector-z', sec);
@@ -816,16 +818,18 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
     for (let i = 0; i < map.initialMapState.linedefs.length; i++) {
         const ini = map.initialMapState.linedefs[i];
         const ld = map.data.linedefs[i];
-        if (ini.lower !== ld.right.lower || ini.middle !== ld.right.middle || ini.upper !== ld.right.upper) {
+        if (ini.lower !== ld.right.lower || ini.middle !== ld.right.middle || ini.upper !== ld.right.upper || ini.special !== ld.special) {
             ld.right.lower = ini.lower ?? ld.right.lower;
             ld.right.middle = ini.middle ?? ld.right.middle;
             ld.right.upper = ini.upper ?? ld.right.upper;
+            ld.special = ini.special ?? ld.special;
             map.events.emit('wall-texture', ld);
         }
     }
     for (let ld of data.map.linedefs) {
         const dest = map.data.linedefs[ld.num];
         if (dest.right) {
+            if ('special' in ld) dest.special = ld.special;
             if ('lower' in ld) dest.right.lower = ld.lower;
             if ('middle' in ld) dest.right.middle = ld.middle;
             if ('upper' in ld) dest.right.upper = ld.upper;
@@ -860,6 +864,7 @@ const captureInitialMapState = (map: MapRuntime) => {
         type: sec.type,
     }));
     const linedefs = map.data.linedefs.map(ld => ({
+        special: ld.special,
         lower: ld.right.lower,
         middle: ld.right.middle,
         upper: ld.right.upper,
