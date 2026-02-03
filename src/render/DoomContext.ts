@@ -194,12 +194,15 @@ export const createAppContext = () => {
     settings.soundVolume.subscribe(volume => soundGain.gain.value = volume);
     settings.musicVolume.subscribe(volume => musicGain.gain.value = volume * .4);
 
+    // this is a bit of a hack, it would be nice to pass screenshots some other way
+    const lastRenderScreenshot = store<string>(null);
+
     const musicTrack = store<Lump>(null);
     const pointerLock = createPointerLockControls(settings.cameraMode);
     const fullscreen = createFullscreenControls();
     const error = store<DoomError>(null);
     const restoreGame = store<MapExport>(null);
-    return { settings, settingsMenu, editor, audio, soundGain, musicGain, pointerLock, fullscreen, error, musicTrack, restoreGame };
+    return { settings, settingsMenu, editor, audio, soundGain, musicGain, pointerLock, fullscreen, error, musicTrack, restoreGame, lastRenderScreenshot };
 }
 
 export const createGameContext = (game: Game, viewSize: Store<{ width: number; height: number }>) => {

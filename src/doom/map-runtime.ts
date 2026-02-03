@@ -133,6 +133,7 @@ export class MapRuntime {
     readonly musicChangeSectors: { sector: Sector, track: string }[] = [];
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
     readonly disposables: (() => void)[] = [];
+    get isActive() { return Boolean(this.disposables.length); }
 
     // save games need to keep track of changed sectors and linedefs (switches)
     // (animated textures kind of mess this up but it's not a huge deal)

@@ -1,22 +1,86 @@
 <script lang="ts">
-    import { useThrelte } from "@threlte/core";
+    import { T, useStage, useTask, useThrelte } from "@threlte/core";
+    // TODO: does pmndrs/postprocessing offer an advantage here?
+    import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+    import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+    import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
+    import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
+    import { ScreenColorShader } from "./Shaders/ScreenColorShader";
+    import Weapon from "./Map/Weapon.svelte";
+    import { ticksPerSecond } from "../doom";
+    import { Camera, Scene } from "three";
+    import { OrthographicCamera } from "three";
     import R1 from "./Map/Root.svelte";
     import R2 from "./R2/Root.svelte";
-    import { onMount, tick } from "svelte";
+    import { onMount } from "svelte";
     import { SpriteSheet } from "./R2/Sprite/SpriteAtlas";
     import { useAppContext } from "./DoomContext";
     import { derived } from "svelte/store";
-    import { Game, type MapRuntime } from "../doom";
+    import { type MapRuntime } from "../doom";
 
     export let map: MapRuntime;
     export let frameTime: number;
     export let paused: boolean;
 
-    const { settings, editor } = useAppContext();
+    const { settings, editor, lastRenderScreenshot } = useAppContext();
 
-    const { renderer, advance } = useThrelte();
+    const { renderer, advance, canvas, renderStage } = useThrelte();
     // TODO: it would be nice to create this once per game
     $: spriteSheet = (spriteSheet ?? new SpriteSheet(map.game.wad, renderer.capabilities.maxTextureSize));
+
+    // not sure this is correct but it looks about right https://doomwiki.org/wiki/Aspect_ratio
+    const yScale = (4 / 3) / (16 / 10);
+    const { damageCount, bonusCount, inventory } = map.player;
+    const cPass = new ShaderPass(ScreenColorShader);
+    // In svelte 5 these would be $effect but that isn't really the intent of effect. I'll have to think about this to migrate
+    $: cPass.uniforms.invunlTime.value = $inventory.items.invincibilityTicks / ticksPerSecond;
+    $: cPass.uniforms.radiationTime.value = $inventory.items.radiationSuitTicks / ticksPerSecond;
+    $: cPass.uniforms.berserkTime.value = $inventory.items.berserkTicks / ticksPerSecond;
+    $: cPass.uniforms.damageCount.value = $damageCount;
+    $: cPass.uniforms.bonusCount.value = $bonusCount;
+
+    let hudScene: Scene;
+    let hudCam: OrthographicCamera;
+    // Using a shader pass requires a bit more work now with threlte6
+    // https://threlte.xyz/docs/learn/advanced/migration-guide#usethrelteroot-has-been-removed
+    const { scene, camera, size } = useThrelte();
+    const composer = new EffectComposer(renderer);
+
+    const setupEffectComposer = (camera: Camera, hudScene: Scene) => {
+        composer.passes.length = 0;
+        composer.addPass(new RenderPass(scene, camera));
+        if (hudScene) {
+            const p = new RenderPass(hudScene, hudCam);
+            p.clear = false;
+            p.clearDepth = true;
+            composer.addPass(p);
+        }
+        composer.addPass(new ShaderPass(GammaCorrectionShader));
+        composer.addPass(cPass);
+    }
+    $: setupEffectComposer($camera, hudScene);
+    $: composer.setSize($size.width, $size.height);
+
+    useTask(delta => {
+        composer.render(delta);
+    }, { stage: renderStage });
+
+    // capture screenshots for save games
+    const afterRenderStage = useStage('after-render', { after: renderStage });
+    useTask(delta => {
+        if (!paused) {
+            $lastRenderScreenshot = null;
+        } else if (!$lastRenderScreenshot && map.isActive) {
+            // make sure we only capture screenshots from the "active" map
+            composer.render(delta);
+            const tCanvas = document.createElement('canvas');
+            tCanvas.width = 160;
+            tCanvas.height = 100;
+            let ctx = tCanvas.getContext('2d');
+            ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, tCanvas.width, tCanvas.height);
+            $lastRenderScreenshot = tCanvas.toDataURL('image/png');
+        }
+    }, { stage: afterRenderStage });
 
     // A fun little hack to make the game feel like it used to on my 486sx25
     const { simulate486, pixelScale, renderMode } = settings;
@@ -65,3 +129,13 @@
 {:else}
     <R1 map={map} />
 {/if}
+
+<!--
+    Don't attach the scene to the parent scene (the root) because we are only rendering the HUD
+    which is composited by a RenderPass
+-->
+<T.Scene attach={() => {}} bind:ref={hudScene} >
+    <T.OrthographicCamera bind:ref={hudCam} />
+    <T.AmbientLight color={'white'} intensity={4} />
+    <Weapon player={map.player} {yScale} />
+</T.Scene>

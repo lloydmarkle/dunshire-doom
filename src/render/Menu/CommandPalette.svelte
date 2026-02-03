@@ -139,7 +139,6 @@
             bind:value={searchText}
             on:input={() => activeItem = 0}
         />
-        <kbd class="kbd">/</kbd>
     </label>
 
     <div class="menu cp-menu">
