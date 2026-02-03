@@ -116,13 +116,13 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { type Game, SoundIndex, data, exportMap, randInt, store } from "../../doom";
+    import { type Game, SoundIndex, type Store, data, exportMap, randInt, store } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
     import TouchControlsMenu from "./TouchControlsMenu.svelte";
     import { Icon } from '@steeze-ui/svelte-icon'
-    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica, MagnifyingGlass, Trash, ExclamationTriangle } from '@steeze-ui/heroicons'
+    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica, MagnifyingGlass, Trash, ExclamationTriangle, Funnel } from '@steeze-ui/heroicons'
     import { SaveGameStore, type SaveGame } from "../../SaveGameStore";
 
     const { game, viewSize } = useDoom();
@@ -183,38 +183,44 @@
         // don't let keys go to command palette if a menu is active
         ev.stopPropagation();
 
+        const wrapMin = subMenu === 'save' && !deleteSaveMode ? -1 : 0;
         const speed = ev.shiftKey ? 3 : 1
         switch (ev.code) {
             case 'ArrowUp':
-                wrapAndScroll(-speed);
+                wrapAndScroll(vcursor, -speed, '.saves .btn', wrapMin);
                 break;
             case 'ArrowDown':
-                wrapAndScroll(speed);
-                break;
-            case 'ArrowLeft':
-            case 'ArrowRight':
-                deleteSaveMode = !deleteSaveMode;
+                wrapAndScroll(vcursor,speed, '.saves .btn', wrapMin);
                 break;
             case 'Delete':
-                if (deleteSaveMode) {
-                    saveGames.then(sg => deleteSave(sg[$cursor].id));
-                }
+                deleteSaveMode = !deleteSaveMode;
                 break;
             case 'Enter':
             case 'Return':
                 if (!deleteSaveMode && subMenu === 'load') {
-                    saveGames.then(sg => loadGame(sg[$cursor]));
+                    saveGames.then(sg => loadGame(sg[$vcursor]));
                 } else if (typeSaveName === -2) {
-                    if ($cursor === -1) {
-                        selectSaveSlot('', $cursor);
+                    if ($vcursor === -1) {
+                        selectSaveSlot('', $vcursor);
                     } else {
-                        saveGames.then(sg => selectSaveSlot(sg[$cursor].name, sg[$cursor].id));
+                        saveGames.then(sg => selectSaveSlot(sg[$vcursor].name, sg[$vcursor].id));
                     }
                 } else if (deleteSaveMode) {
-                    saveGames.then(sg => deleteSave(sg[$cursor].id));
+                    saveGames.then(sg => deleteSave(sg[$vcursor].id));
                 } else if (subMenu === 'save') {
                     saveGame(saveGameName, typeSaveName);
                 }
+                break;
+            // TODO: left-right-space is awkward for toggling filters and also with search box highlighted. hmmm
+            case 'ArrowLeft':
+                wrapAndScroll(hcursor, -speed, '.save-filters label');
+                break;
+            case 'ArrowRight':
+                wrapAndScroll(hcursor, speed, '.save-filters label');
+                break;
+            case 'Space':
+                document.querySelectorAll<HTMLElement>('.save-filters label').item($hcursor)?.click();
+                saveSearch?.focus();
                 break;
         }
     }
@@ -245,15 +251,13 @@
     }
 
     // save games (see also keyboard controls above)
-    let cursor = store(-1);
+    let vcursor = store(-1);
+    let hcursor = store(0);
     const wrapAround = (n: number, max: number, min = 0) => n > max - 1 ? min : n < min ? max - 1 : n;
-    const wrapAndScroll = (speed: number) => {
-        const cursorMin = subMenu === 'save' && !deleteSaveMode ? -1 : 0;
-        saveGames.then(sg => {
-            cursor.update(n => wrapAround(n + speed, sg.length, cursorMin))
-            const element = document.querySelectorAll<HTMLElement>('.saves .btn').item($cursor);
-            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
+    const wrapAndScroll = (cursor: Store<number>, speed: number, selector: string, min = 0) => {
+        const items = document.querySelectorAll<HTMLElement>(selector);
+        cursor.update(n => wrapAround(n + speed, items.length + min, min));
+        items.item(cursor.val - min)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     }
     let saveSearch: HTMLInputElement;
     let deleteSaveMode = false;
@@ -291,7 +295,7 @@
         await sgs.deleteGame(id)
         saveGames = sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' '));
         menuSounds.sfx.pistol();
-        saveGames.then(sg => cursor.update(n => wrapAround(n, sg.length, 0)));
+        saveGames.then(sg => vcursor.update(n => wrapAround(n, sg.length, 0)));
         typeSaveName = -2;
     };
     const selectSaveSlot = (name: string, id: number) => {
@@ -306,7 +310,7 @@
         saveGameName = '';
         loadGameSearchText = '';
         if (toggleSubmenu(menu)() === menu) {
-            $cursor = menu === 'save' ? -1 : 0;
+            $vcursor = menu === 'save' ? -1 : 0;
             tick().then(() => saveSearch?.focus());
         }
     }
@@ -504,6 +508,9 @@
                     on:click={() => deleteSaveMode = !deleteSaveMode}
                 >
                     <Icon src={Trash} theme='outline' size="18px" />
+                    {#if keyboardActive}
+                        <div class="kbd kbd-xs">DEL</div>
+                    {/if}
                 </button>
 
                 <label class="input input-bordered flex items-center gap-2 text-sm grow">
@@ -522,8 +529,8 @@
                     <button
                         class="btn btn-neutral h-[100px] no-animation p-0 overflow-hidden shadow-2xl relative"
                         on:click={() => selectSaveSlot('', -1)}
-                        class:btn-outline={-1 === $cursor}
-                        on:pointerenter={() => $cursor = -1}
+                        class:btn-outline={-1 === $vcursor}
+                        on:pointerenter={() => $vcursor = -1}
                     >
                         <img width="320" height="100" src={$lastRenderScreenshot ?? ""} alt={$map.name} />
                         {#if typeSaveName !== -1}
@@ -547,10 +554,10 @@
                         <button
                             class="btn h-auto no-animation p-0 overflow-hidden shadow-2xl relative"
                             on:click={() => selectSaveSlot(save.name, save.id)}
-                            class:btn-outline={i === $cursor}
-                            on:pointerenter={() => $cursor = i}
+                            class:btn-outline={i === $vcursor}
+                            on:pointerenter={() => $vcursor = i}
                         >
-                            {@render gameTile(save)}
+                            {@render gameTile(save, i)}
 
                             {#if !deleteSaveMode && typeSaveName === save.id}
                             <div class="savegame-text absolute left-2 p-2 bg-black rounded-lg text-start text-primary text-xl max-w-60 overflow-hidden text-ellipsis"
@@ -574,6 +581,9 @@
                     on:click={() => deleteSaveMode = !deleteSaveMode}
                 >
                     <Icon src={Trash} theme='outline' size="18px" />
+                    {#if keyboardActive}
+                        <div class="kbd kbd-xs">DEL</div>
+                    {/if}
                 </button>
 
                 <label class="input input-bordered flex items-center gap-2 text-sm grow">
@@ -593,10 +603,10 @@
                         <button
                             class="btn w-full h-auto no-animation p-0 overflow-hidden shadow-2xl relative"
                             on:click={() => deleteSaveMode ? typeSaveName = save.id : loadGame(save)}
-                            class:btn-outline={i === $cursor}
-                            on:pointerenter={() => $cursor = i}
+                            class:btn-outline={i === $vcursor}
+                            on:pointerenter={() => $vcursor = i}
                         >
-                            {@render gameTile(save)}
+                            {@render gameTile(save, i)}
                         </button>
                         {@render deleteButton(save)}
                     </div>
@@ -608,7 +618,7 @@
     {/if}
 </div>
 
-{#snippet gameTile(save: SaveGame)}
+{#snippet gameTile(save: SaveGame, index: number)}
     <img width="320" height="100" src={save.image} alt={save.mapInfo.name} />
 
     <div class="absolute bottom-2 right-2 p-2 items-end flex flex-col gap-2 bg-black rounded-lg text-secondary"
@@ -626,7 +636,7 @@
         </div>
     </div>
 
-    {#if typeSaveName !== save.id}
+    {#if typeSaveName !== save.id && save.name.length}
     <div class="absolute left-2 p-2 bg-black rounded-lg text-start text-primary text-xl max-w-60 overflow-hidden text-ellipsis"
         style:--tw-bg-opacity={.5}
     >
@@ -634,10 +644,12 @@
     </div>
     {/if}
 
+    {#if $vcursor === index}
     <div
-        class="absolute text-2xl"
+        class="absolute text-2xl text-secondary"
         class:hidden={!deleteSaveMode}
     ><Icon src={Trash} theme='outline' size="36px" /></div>
+    {/if}
 {/snippet}
 
 {#snippet deleteButton(save: SaveGame)}
@@ -660,13 +672,24 @@
     {#await visibleGameFilters then visibleFilters}
     {@const gameFilters = (games ?? []).map(e => e.searchText).flat().filter((e, i, arr) => arr.indexOf(e) === i)}
     {@const relevantFilters = visibleFilters.filter(e => selectedFilters.includes(e) || gameFilters.includes(e))}
-    <div class="flex gap-4 p-2 items-center justify-start sticky top-16 z-10 bg-inherit shadow-2xl overflow-x-scroll scroll-">
-        {#each relevantFilters as filter}
-            <button on:click={toggleGameFilter(filter)}
-                class="btn btn-secondary btn-sm no-animation lowercase"
-                class:btn-outline={!selectedFilters.includes(filter)}
-            >{filter}</button>
+    <div class="flex gap-4 p-2 items-center justify-start sticky top-16 z-10 bg-inherit shadow-2xl overflow-x-scroll">
+        <span><Icon src={Funnel} theme='outline' size="24px" /></span>
+        <ul class="save-filters menu menu-horizontal flex-nowrap">
+        {#each relevantFilters as filter, i}
+            {@const checked = selectedFilters.includes(filter)}
+            <li>
+                <label
+                    class="label cursor-pointer gap-1"
+                    class:active={i === $hcursor}
+                    on:pointerenter={() => $hcursor = i}
+                >
+                    <input type="checkbox" class="checkbox checkbox-xs"
+                        {checked} on:change={toggleGameFilter(filter)} />
+                    <span class="label-text text-sm lowercase">{filter}</span>
+                </label>
+            </li>
         {/each}
+        </ul>
     </div>
     {/await}
 {/snippet}
