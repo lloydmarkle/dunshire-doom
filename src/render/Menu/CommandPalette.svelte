@@ -19,6 +19,7 @@
     import { menuSetting, type MenuSetting } from "./menu";
 
     export let active: boolean;
+    export let ignoreKeyboardInput = false;
 
     const { wad } = useDoom();
     const { settingsMenu, editor, audio, soundGain } = useAppContext();
@@ -91,6 +92,9 @@
 
     let searchBox: HTMLInputElement;
     function keydown(ev: KeyboardEvent) {
+        if (ignoreKeyboardInput) {
+            return;
+        }
         if (ev.code === 'Slash') {
             if (!active) {
                 ev.preventDefault();

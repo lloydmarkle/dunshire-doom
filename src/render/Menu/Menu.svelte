@@ -116,17 +116,17 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { type Game, SoundIndex, type Store, data, exportMap, randInt, store } from "../../doom";
+    import { type Game, SoundIndex, data, randInt } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
     import TouchControlsMenu from "./TouchControlsMenu.svelte";
+    import SaveGameMenu from "./SaveGameMenu.svelte";
     import { Icon } from '@steeze-ui/svelte-icon'
     import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica, MagnifyingGlass, Trash, ExclamationTriangle, Funnel } from '@steeze-ui/heroicons'
-    import { SaveGameStore, type SaveGame } from "../../SaveGameStore";
 
     const { game, viewSize } = useDoom();
-    const { settingsMenu, editor, pointerLock, fullscreen, restoreGame, lastRenderScreenshot } = useAppContext();
+    const { settingsMenu, editor, pointerLock, fullscreen, lastRenderScreenshot } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
     const { intermission, map } = game;
     const settings = menuCategories(settingsMenu);
@@ -163,65 +163,18 @@
     let keyboardActive = false;
     function keydown(ev: KeyboardEvent) {
         keyboardActive = true;
-        if (paletteActive) {
+        if (paletteActive || subMenu.length) {
             return;
         }
 
-        const saveMenu = subMenu === 'load' || subMenu === 'save'
-        if (!saveMenu) {
-            const specialKeys = ev.ctrlKey || ev.metaKey;
-            if (ev.key.toUpperCase() === 'L' && !specialKeys) {
-                toggleSaveGamesSubmenu('load')();
-                ev.preventDefault();
-            }
-            if (ev.key.toUpperCase() === 'S' && !specialKeys) {
-                toggleSaveGamesSubmenu('save')();
-                ev.preventDefault();
-            }
-            return;
+        const specialKeys = ev.ctrlKey || ev.metaKey;
+        if (ev.key.toUpperCase() === 'L' && !specialKeys) {
+            toggleSubmenu('load')();
+            ev.preventDefault();
         }
-        // don't let keys go to command palette if a menu is active
-        ev.stopPropagation();
-
-        const wrapMin = subMenu === 'save' && !deleteSaveMode ? -1 : 0;
-        const speed = ev.shiftKey ? 3 : 1
-        switch (ev.code) {
-            case 'ArrowUp':
-                wrapAndScroll(vcursor, -speed, '.saves .btn', wrapMin);
-                break;
-            case 'ArrowDown':
-                wrapAndScroll(vcursor,speed, '.saves .btn', wrapMin);
-                break;
-            case 'Delete':
-                deleteSaveMode = !deleteSaveMode;
-                break;
-            case 'Enter':
-            case 'Return':
-                if (!deleteSaveMode && subMenu === 'load') {
-                    saveGames.then(sg => loadGame(sg[$vcursor]));
-                } else if (typeSaveName === -2) {
-                    if ($vcursor === -1) {
-                        selectSaveSlot('', $vcursor);
-                    } else {
-                        saveGames.then(sg => selectSaveSlot(sg[$vcursor].name, sg[$vcursor].id));
-                    }
-                } else if (deleteSaveMode) {
-                    saveGames.then(sg => deleteSave(sg[$vcursor].id));
-                } else if (subMenu === 'save') {
-                    saveGame(saveGameName, typeSaveName);
-                }
-                break;
-            // TODO: left-right-space is awkward for toggling filters and also with search box highlighted. hmmm
-            case 'ArrowLeft':
-                wrapAndScroll(hcursor, -speed, '.save-filters label');
-                break;
-            case 'ArrowRight':
-                wrapAndScroll(hcursor, speed, '.save-filters label');
-                break;
-            case 'Space':
-                document.querySelectorAll<HTMLElement>('.save-filters label').item($hcursor)?.click();
-                saveSearch?.focus();
-                break;
+        if (ev.key.toUpperCase() === 'S' && !specialKeys) {
+            toggleSubmenu('save')();
+            ev.preventDefault();
         }
     }
     function keyup(ev: KeyboardEvent) {
@@ -231,9 +184,7 @@
         switch (ev.code) {
             case 'Backquote':
             case 'Escape':
-                if (typeSaveName !== -2) {
-                    typeSaveName = -2;
-                    menuSounds.sfx.swtchx();
+                if (deleteMode || textEditMode) {
                     return;
                 }
                 if (subMenu) {
@@ -250,80 +201,10 @@
         pointerLock.requestLock();
     }
 
-    // save games (see also keyboard controls above)
-    let vcursor = store(-1);
-    let hcursor = store(0);
-    const wrapAround = (n: number, max: number, min = 0) => n > max - 1 ? min : n < min ? max - 1 : n;
-    const wrapAndScroll = (cursor: Store<number>, speed: number, selector: string, min = 0) => {
-        const items = document.querySelectorAll<HTMLElement>(selector);
-        cursor.update(n => wrapAround(n + speed, items.length + min, min));
-        items.item(cursor.val - min)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    }
-    let saveSearch: HTMLInputElement;
-    let deleteSaveMode = false;
-    let typeSaveName = -2;
-    let saveGameName = '';
-    const sgs = new SaveGameStore();
-    let lastWadName = game.wad.name.split('&').pop().split('=').pop().toUpperCase();
-    let selectedFilters = [lastWadName];
-    $: visibleGameFilters = (async (): Promise<string[]> => [
-            lastWadName,
-            ...(await sgs.filters).filter(e => e[1] > 2 && e[0].length > 1 && !e[0].startsWith('M')).map(e => e[0]),
-        ].filter((e, i, arr) => arr.indexOf(e) === i))();
-    let loadGameSearchText = '';
-    $: saveGames = (subMenu === 'load' || subMenu === 'save')
-        ? sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' '))
-        : Promise.resolve([] as SaveGame[]);
-    function saveGame(name: string, id?: number) {
-        const img = $lastRenderScreenshot ?? "";
-        const save = exportMap($map);
-        sgs.storeGame(name, img, $map.game, save, id === -1 ? undefined : id);
-        $map.player.hudMessage.set('Game saved.');
-        menuSounds.sfx.pistol();
-        resumeGame();
-    }
-    async function loadGame(save: SaveGame) {
-        menuSounds.sfx.pistol();
-        const mapExport = await save.mapExport();
-        // loading a game may need to recreate the game instance (if skill level or wads change) but even if it doesn't,
-        // we need to load the game state so set a flag here to be loaded in the main doom component.
-        window.location.hash = `#${save.wads.map(e => 'wad=' + e).join('&')}&skill=${save.skill}&map=${save.mapInfo.name}`;
-        restoreGame.set(mapExport);
-        resumeGame();
-    }
-    const deleteSave = async (id: number) => {
-        await sgs.deleteGame(id)
-        saveGames = sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' '));
-        menuSounds.sfx.pistol();
-        saveGames.then(sg => vcursor.update(n => wrapAround(n, sg.length, 0)));
-        typeSaveName = -2;
-    };
-    const selectSaveSlot = (name: string, id: number) => {
-        typeSaveName = id;
-        saveGameName = name;
-        menuSounds.sfx.pistol();
-        tick().then(() => document.querySelector<HTMLElement>('.saves .btn-outline input')?.focus());
-    }
-    const toggleSaveGamesSubmenu = (menu: string) => () => {
-        deleteSaveMode = false;
-        typeSaveName = -2;
-        saveGameName = '';
-        loadGameSearchText = '';
-        if (toggleSubmenu(menu)() === menu) {
-            $vcursor = menu === 'save' ? -1 : 0;
-            tick().then(() => saveSearch?.focus());
-        }
-    }
-    const toggleGameFilter = (name: string) => () => {
-        if (selectedFilters.includes(name)) {
-            selectedFilters = selectedFilters.filter(e => e !== name);
-        } else {
-            selectedFilters = [...selectedFilters, name];
-        }
-    }
-
     let paletteActive = false;
 
+    let deleteMode = false;
+    let textEditMode = false;
     let subMenu = '';
     $: if (paletteActive) subMenu = '';
     let subMenuNode: HTMLElement;
@@ -337,11 +218,8 @@
     $: soundCache = createSoundBufferCache(audio, game.wad);
     $: menuSounds = menuSoundPlayer(audio, soundGain, soundCache);
     $: menuSounds.channelGain = (1 / 20 * Math.sqrt(Math.log($maxSoundChannels)));
-    onMount(() => {
-        document.querySelectorAll('.btn').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
-        document.querySelectorAll('label').forEach(b => b.addEventListener('pointerenter', menuSounds.sfx.pstop));
-        document.querySelectorAll('input[type="checkbox"]').forEach(b => b.addEventListener('click', menuSounds.sfx.pistol));
-    });
+    let menuRoot: HTMLDivElement;
+    onMount(() => applySoundsToDOM(menuRoot, menuSounds));
     $: if (subMenuNode) {
         (!subMenu ? menuSounds.sfx.swtchx : menuSounds.sfx.swtchn)();
         tick().then(() => applySoundsToDOM(subMenuNode, menuSounds));
@@ -349,7 +227,7 @@
 </script>
 
 <svelte:window
-    on:keyup|preventDefault={keyup}
+    on:keyup={keyup}
     on:keydown={keydown}
     on:pointermove={() => keyboardActive = false}
 />
@@ -362,7 +240,8 @@
     class="absolute inset-0 opacity-50 bg-neutral pointer-events-none"
 ></div>
 
-<div class="game-menu absolute top-0 left-0 bottom-0 grid select-none"
+<div bind:this={menuRoot}
+    class="game-menu absolute top-0 left-0 bottom-0 grid select-none"
     class:keyboard-controls={keyboardActive}
 >
     <div transition:fly={{ x: "-100%", duration: transitionDuration }} class="
@@ -402,14 +281,14 @@
             {#if $map}
                 <button class="btn relative"
                     class:submenu-selected={subMenu === 'load'}
-                    on:click={toggleSaveGamesSubmenu('load')}
+                    on:click={toggleSubmenu('load')}
                 >
                     Load
                     <kbd class="absolute right-4 kbd">L</kbd>
                 </button>
                 <button class="btn relative"
                     class:submenu-selected={subMenu === 'save'}
-                    on:click={toggleSaveGamesSubmenu('save')}
+                    on:click={toggleSubmenu('save')}
                 >
                     Save
                     <kbd class="absolute right-4 kbd">S</kbd>
@@ -460,7 +339,7 @@
 
         {#if !touchDevice}
         <div class:palette-active={paletteActive}>
-            <CommandPalette bind:active={paletteActive} />
+            <CommandPalette bind:active={paletteActive} ignoreKeyboardInput={subMenu !== ''} />
         </div>
         {/if}
 
@@ -475,7 +354,7 @@
         overflow-y-scroll bottom-0 top-0
         pb-80 md:pb-10 md:left-96
         "
-        class:delete-mode={deleteSaveMode}
+        class:delete-mode={deleteMode}
         transition:fly|global={{ x: menuFlyDirection, duration: transitionDuration }}
     >
         <button class="btn btn-secondary w-full sticky top-0 z-20 md:hidden" on:click={() => subMenu = ''}>Back</button>
@@ -501,198 +380,22 @@
         {:else if subMenu === 'cheats'}
             <CheatsMenu player={$map.player} />
         {:else if subMenu === 'save'}
-            <h2 class="flex justify-center sticky top-12 bg-base-200 z-10 md:hidden">Save</h2>
-            <div class="flex flex-wrap gap-4 p-2 items-center justify-start sticky top-0 z-10 bg-inherit">
-                <button class="btn"
-                    class:btn-outline={deleteSaveMode}
-                    on:click={() => deleteSaveMode = !deleteSaveMode}
-                >
-                    <Icon src={Trash} theme='outline' size="18px" />
-                    {#if keyboardActive}
-                        <div class="kbd kbd-xs">DEL</div>
-                    {/if}
-                </button>
-
-                <label class="input input-bordered flex items-center gap-2 text-sm grow">
-                    <Icon src={MagnifyingGlass} theme='outline' size="12px" />
-                    <input bind:this={saveSearch} type="text" placeholder="Search" bind:value={loadGameSearchText} />
-                </label>
-            </div>
-            {#await saveGames}
-                <div class="absolute inset-0 flex justify-center items-center z-20" out:fade={{ duration: 400 }}>
-                    <span class="loading loading-spinner loading-lg"></span>
-                </div>
-            {:then games}
-                {@render quickFilters(games)}
-                <div class="saves flex flex-col gap-2 px-8 py-2">
-                    {#if !deleteSaveMode}
-                    <button
-                        class="btn btn-neutral h-[100px] no-animation p-0 overflow-hidden shadow-2xl relative"
-                        on:click={() => selectSaveSlot('', -1)}
-                        class:btn-outline={-1 === $vcursor}
-                        on:pointerenter={() => $vcursor = -1}
-                    >
-                        <img width="320" height="100" src={$lastRenderScreenshot ?? ""} alt={$map.name} />
-                        {#if typeSaveName !== -1}
-                            <div class="absolute flex justify-center items-center text-xl text-secondary rounded-lg"
-                                style:--tw-bg-opacity={.2}
-                            >
-                                New save game
-                            </div>
-                        {:else}
-                            <div class="savegame-text absolute left-2 p-2 bg-black rounded-lg text-start text-primary text-xl max-w-60 overflow-hidden text-ellipsis"
-                                style:--tw-bg-opacity={.5}
-                            >
-                                <input type="text" class="absolute opacity-0 h-0 w-0" bind:value={saveGameName} />
-                                {saveGameName}
-                            </div>
-                        {/if}
-                    </button>
-                    {/if}
-                    {#each games as save, i (save.id)}
-                    <div class="relative">
-                        <button
-                            class="btn h-auto no-animation p-0 overflow-hidden shadow-2xl relative"
-                            on:click={() => selectSaveSlot(save.name, save.id)}
-                            class:btn-outline={i === $vcursor}
-                            on:pointerenter={() => $vcursor = i}
-                        >
-                            {@render gameTile(save, i)}
-
-                            {#if !deleteSaveMode && typeSaveName === save.id}
-                            <div class="savegame-text absolute left-2 p-2 bg-black rounded-lg text-start text-primary text-xl max-w-60 overflow-hidden text-ellipsis"
-                            style:--tw-bg-opacity={.5}
-                            >
-                                <input type="text" class="absolute opacity-0 h-0 w-0" bind:value={saveGameName} />
-                                {saveGameName}
-                            </div>
-                            {/if}
-                        </button>
-                        {@render deleteButton(save)}
-                        </div>
-                    {/each}
-                </div>
-            {/await}
+            <SaveGameMenu {menuSounds} {keyboardActive}
+                map={$map} mode='save'
+                bind:deleteGameMode={deleteMode}
+                bind:editMode={textEditMode}
+            />
         {:else if subMenu === 'load'}
-            <h2 class="flex justify-center sticky top-12 bg-base-200 z-20 md:hidden">Load</h2>
-            <div class="flex flex-wrap gap-4 p-2 items-center justify-start sticky top-0 z-10 bg-inherit shadow-2xl">
-                <button class="btn"
-                    class:btn-outline={deleteSaveMode}
-                    on:click={() => deleteSaveMode = !deleteSaveMode}
-                >
-                    <Icon src={Trash} theme='outline' size="18px" />
-                    {#if keyboardActive}
-                        <div class="kbd kbd-xs">DEL</div>
-                    {/if}
-                </button>
-
-                <label class="input input-bordered flex items-center gap-2 text-sm grow">
-                    <Icon src={MagnifyingGlass} theme='outline' size="12px" />
-                    <input bind:this={saveSearch} type="text" placeholder="Search" bind:value={loadGameSearchText} />
-                </label>
-            </div>
-            {#await saveGames}
-                <div class="absolute inset-0 flex justify-center items-center z-20" out:fade={{ duration: 400 }}>
-                    <span class="loading loading-spinner loading-lg"></span>
-                </div>
-            {:then games}
-                {@render quickFilters(games)}
-                <div class="saves flex flex-col gap-2 px-8 py-2">
-                {#each games as save, i (save.id)}
-                    <div class="relative">
-                        <button
-                            class="btn w-full h-auto no-animation p-0 overflow-hidden shadow-2xl relative"
-                            on:click={() => deleteSaveMode ? typeSaveName = save.id : loadGame(save)}
-                            class:btn-outline={i === $vcursor}
-                            on:pointerenter={() => $vcursor = i}
-                        >
-                            {@render gameTile(save, i)}
-                        </button>
-                        {@render deleteButton(save)}
-                    </div>
-                {/each}
-                </div>
-            {/await}
+            <SaveGameMenu {menuSounds} {keyboardActive}
+                map={$map} mode='load'
+                bind:deleteGameMode={deleteMode}
+                bind:editMode={textEditMode}
+            />
         {/if}
     </div>
     {/if}
 </div>
 
-{#snippet gameTile(save: SaveGame, index: number)}
-    <img width="320" height="100" src={save.image} alt={save.mapInfo.name} />
-
-    <div class="absolute bottom-2 right-2 p-2 items-end flex flex-col gap-2 bg-black rounded-lg text-secondary"
-        style:--tw-bg-opacity={.5}
-    >
-        <span>{save.mapInfo.totalKills === 0 ? '100' : Math.floor(save.mapInfo.kills * 100 / save.mapInfo.totalKills)}%</span>
-        <div class="flex items-end">
-            <span>{save.mapInfo.name}:</span>
-            <span>{data.skills[save.skill - 1].alias}</span>
-        </div>
-        <div>
-        {#each save.wads as name}
-            <div class="badge badge-secondary badge-xs">{name}</div>
-        {/each}
-        </div>
-    </div>
-
-    {#if typeSaveName !== save.id && save.name.length}
-    <div class="absolute left-2 p-2 bg-black rounded-lg text-start text-primary text-xl max-w-60 overflow-hidden text-ellipsis"
-        style:--tw-bg-opacity={.5}
-    >
-        {save.name}
-    </div>
-    {/if}
-
-    {#if $vcursor === index}
-    <div
-        class="absolute text-2xl text-secondary"
-        class:hidden={!deleteSaveMode}
-    ><Icon src={Trash} theme='outline' size="36px" /></div>
-    {/if}
-{/snippet}
-
-{#snippet deleteButton(save: SaveGame)}
-    {#if deleteSaveMode && typeSaveName === save.id}
-        <div
-            transition:fly={{ y:'-4rem', duration: 200 }}
-            class="alert alert-warning flex absolute top-4 z-20"
-        >
-            <span><Icon src={ExclamationTriangle} theme='outline' size="24px" /></span>
-            <span>Delete save "{save.name}"?</span>
-            <div class="flex gap-2 ms-auto">
-                <button class="btn" on:click={() => deleteSave(save.id)}>Yes</button>
-                <button class="btn" on:click={() => typeSaveName = -2}>No</button>
-            </div>
-        </div>
-    {/if}
-{/snippet}
-
-{#snippet quickFilters(games: SaveGame[])}
-    {#await visibleGameFilters then visibleFilters}
-    {@const gameFilters = (games ?? []).map(e => e.searchText).flat().filter((e, i, arr) => arr.indexOf(e) === i)}
-    {@const relevantFilters = visibleFilters.filter(e => selectedFilters.includes(e) || gameFilters.includes(e))}
-    <div class="flex gap-4 p-2 items-center justify-start sticky top-16 z-10 bg-inherit shadow-2xl overflow-x-scroll">
-        <span><Icon src={Funnel} theme='outline' size="24px" /></span>
-        <ul class="save-filters menu menu-horizontal flex-nowrap">
-        {#each relevantFilters as filter, i}
-            {@const checked = selectedFilters.includes(filter)}
-            <li>
-                <label
-                    class="label cursor-pointer gap-1"
-                    class:active={i === $hcursor}
-                    on:pointerenter={() => $hcursor = i}
-                >
-                    <input type="checkbox" class="checkbox checkbox-xs"
-                        {checked} on:change={toggleGameFilter(filter)} />
-                    <span class="label-text text-sm lowercase">{filter}</span>
-                </label>
-            </li>
-        {/each}
-        </ul>
-    </div>
-    {/await}
-{/snippet}
 
 {#if subMenu === 'controls' && showTouchControls}
     <div
@@ -720,32 +423,15 @@
         }
     }
 
-    .savegame-text::after {
-        content: '_';
-        animation: cursor-pulse .2s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate-reverse;
-    }
-    @keyframes cursor-pulse {
-        to { opacity: 0.3; }
-    }
-
-    .saves .btn img {
-        height: 100px;
-        object-fit: cover;
-    }
-    .saves .btn-outline img {
-        transform-origin: top center;
-        transition: transform 0.2s;
-    }
-    .saves .btn-outline img {
-        transform: scale(1.02);
-    }
-
     .delete-mode {
+        /* cool! ...but fragile during upgrade? */
+        --n: 20% .2 40;
+        --b3: 80% .4 40;
+        --b2: 40% .3 40;
+        --b1: 20% .3 40;
+
         --tw-bg-opacity: 1;
-        background-color: rgb(153 27 27 / var(--tw-bg-opacity))
-    }
-    .delete-mode .saves .btn {
-        filter: grayscale(100%);
+        background-color: oklch(var(--b1) / var(--tw-bg-opacity))
     }
 
     .submenu-selected {
