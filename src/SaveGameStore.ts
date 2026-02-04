@@ -72,7 +72,7 @@ export class SaveGameStore {
         })
     }
 
-    async storeGame(name: string, image: string, game: Game, data: MapExport, id?: number): Promise<SaveGameRecord> {
+    async storeGameRecord(data: MapExport, record: Omit<BaseSaveGame, 'searchText'>): Promise<SaveGameRecord> {
         const db = await this.db;
         // indexdb hack to get text search working. It's far from perfect. Maybe it's just better to filter in JS?
         const searchText = [
@@ -81,13 +81,23 @@ export class SaveGameStore {
                 : ['E', 'M', data.game.mapName.slice(0, 2), data.game.mapName.slice(2, 4)]),
             data.game.mapName,
             ...data.game.wads.map(e => e.toUpperCase()),
-            ...name.toUpperCase().split(' '),
+            ...record.name.toUpperCase().split(' '),
         ];
         // TODO compress? Or maybe only compress at a certain size?
         const gameBytes = new TextEncoder().encode(JSON.stringify(data)).buffer;
-        const saveData: SaveGameRecord = {
+        const saveData: SaveGameRecord = { ...record, searchText, saveData: gameBytes };
+        const tr = db.transaction('saves', 'readwrite')
+            .objectStore('saves')
+            .put(saveData);
+        return new Promise((resolve, reject) => {
+            tr.onerror = reject;
+            tr.onsuccess = () => resolve(saveData);
+        });
+    }
+
+    async storeGame(name: string, image: string, game: Game, data: MapExport, id?: number): Promise<SaveGameRecord> {
+        return this.storeGameRecord(data, {
             ...(id && { id }),
-            searchText,
             name,
             image,
             lastModified: new Date().getTime(),
@@ -104,14 +114,6 @@ export class SaveGameStore {
                 totalSecrets: game.map.val.stats.totalSecrets,
                 time: game.map.val.stats.elapsedTime,
             },
-            saveData: gameBytes,
-        };
-        const tr = db.transaction('saves', 'readwrite')
-            .objectStore('saves')
-            .put(saveData);
-        return new Promise((resolve, reject) => {
-            tr.onsuccess = () => resolve(saveData);
-            tr.onerror = reject;
         });
     }
 
@@ -124,6 +126,7 @@ export class SaveGameStore {
         await Promise.all(terms.length
             ? terms.map(term => this.querySearchText(store, term, queryResults))
             : [this.querySearchText(store, '', queryResults)]);
+
         const result = [...queryResults.values()]
             .filter(e => terms.every(t => e.searchText.includes(t)))
             .sort((a, b) => b.lastModified - a.lastModified);

@@ -118,6 +118,23 @@
     }
 
     function keydown(ev: KeyboardEvent) {
+        switch (ev.code) {
+            case 'Enter':
+            case 'Return':
+                if (!deleteGameMode && mode === 'load') {
+                    allSaveGames.then(sg => loadGame(sg[vcursor]));
+                } else if (selectedSave === -2) {
+                    allSaveGames.then(sg => selectSaveSlot(sg[vcursor].name, sg[vcursor].id));
+                } else if (deleteGameMode) {
+                    allSaveGames.then(sg => deleteSave(sg[vcursor].id));
+                } else if (mode === 'save') {
+                    saveGame(saveGameName, selectedSave);
+                }
+                break;
+        }
+        if (editMode) {
+            return;
+        }
         const speed = ev.shiftKey ? 3 : 1
         switch (ev.code) {
             case 'ArrowUp':
@@ -133,18 +150,6 @@
                     vcursor = Math.max(0, vcursor + dir);
                 }
                 deleteGameMode = !deleteGameMode;
-                break;
-            case 'Enter':
-            case 'Return':
-                if (!deleteGameMode && mode === 'load') {
-                    allSaveGames.then(sg => loadGame(sg[vcursor]));
-                } else if (selectedSave === -2) {
-                    allSaveGames.then(sg => selectSaveSlot(sg[vcursor].name, sg[vcursor].id));
-                } else if (deleteGameMode) {
-                    allSaveGames.then(sg => deleteSave(sg[vcursor].id));
-                } else if (mode === 'save') {
-                    saveGame(saveGameName, selectedSave);
-                }
                 break;
             // TODO: left-right-space is awkward for toggling filters and also with search box highlighted. hmmm
             case 'ArrowLeft':

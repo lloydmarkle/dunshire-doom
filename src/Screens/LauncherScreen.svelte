@@ -50,7 +50,7 @@
     import { data, store, tickTime, type DoomWad } from "../doom";
     import { WadStore, type WADInfo } from "../WadStore";
     import Picture from "../render/Components/Picture.svelte";
-    import { Home, MagnifyingGlass } from "@steeze-ui/heroicons";
+    import { Funnel, Home, MagnifyingGlass } from "@steeze-ui/heroicons";
     import { Icon } from "@steeze-ui/svelte-icon";
     import { useAppContext } from "../render/DoomContext";
     import { createSoundBufferCache } from "../render/SoundPlayer.svelte";
@@ -60,6 +60,7 @@
     import PreloadWad, { preloadedWads } from "./Launcher/PreloadWad.svelte";
     import { SpeakerWave, SpeakerXMark } from "@steeze-ui/heroicons";
     import WadList from './Launcher/WadList.svelte';
+    import { SaveGameStore, type SaveGame } from "../SaveGameStore";
 
     export let wads: WADInfo[];
     export let wadStore: WadStore;
@@ -68,7 +69,7 @@
     $: preloadWads = preloadedWads.filter(e => !iWads.find(w => w.name === e.link.split('/').pop().split('.').shift()))
     $: pWads = wads.filter(wad => !wad.iwad);
 
-    const { audio, soundGain, settings, musicTrack } = useAppContext();
+    const { audio, soundGain, settings, musicTrack, restoreGame } = useAppContext();
     const { maxSoundChannels, muted } = settings;
     $: menuSounds = menuSoundPlayer(audio, soundGain, wad ? createSoundBufferCache(audio, wad) : null);
     $: msfx = menuSounds.sfx;
@@ -147,6 +148,30 @@
     }
     $: parseUrlHash(window.location.hash, iWads);
 
+    // save games
+    const sgs = new SaveGameStore();
+    let selectedFilters = [];
+    let lastFilters: string[] = [];
+    const skipFilters = [/^MAP$/, /^MAP\d\d$/, /^E\dM\d$/, /^E\d$/, /^M\d$/];
+    $: sgs.filters.then(f => f.filter(e => !skipFilters.some(re => re.test(e[0])) && e[0].length > 1).map(e => e[0]))
+        .then(f => lastFilters = f);
+    let lastSaves: SaveGame[] = [];
+    $: saveGames = sgs.loadGames(selectedFilters.join(' ')).then(sg => lastSaves = sg);
+    const loadGame = (save: SaveGame) => async () => {
+        const mapExport = await save.mapExport();
+        // loading a game may need to recreate the game instance (if skill level or wads change) but even if it doesn't,
+        // we need to load the game state so set a flag here to be loaded in the main doom component.
+        window.location.hash = `#${save.wads.map(e => 'wad=' + e).join('&')}&skill=${save.skill}&map=${save.mapInfo.name}`;
+        restoreGame.set(mapExport);
+    }
+    const toggleGameFilter = (name: string) => () => {
+        if (selectedFilters.includes(name)) {
+            selectedFilters = selectedFilters.filter(e => e !== name);
+        } else {
+            selectedFilters = [...selectedFilters, name];
+        }
+    }
+
     $: screen =
         wad && startPlaying && mapNames.includes('E1M1') && !mapName ? 'select-episode' :
         wad && startPlaying ? 'select-skill' :
@@ -159,21 +184,33 @@
     let cursor = store(0);
     let section = store('');
     const keyboardControllers = (() => {
-        const gridMover = (name: string, selector: string) => {
-            const info = { rows: 0, cols: 0, cells: 0, buttons: null as NodeListOf<HTMLElement> };
-            const measure = () => {
-                const grid = rootNode?.querySelector<HTMLElement>(selector);
-                if (grid) {
-                    info.cells = grid.childElementCount;
-                    info.buttons = grid.querySelectorAll('.btn');
-                    // Based on https://stackoverflow.com/questions/49506393
-                    const style = getComputedStyle(grid);
-                    info.rows = style.gridTemplateRows.split(' ').length;
-                    info.cols = style.gridTemplateColumns.split(' ').length;
-                }
+        type MoverInfo = { rows: number, cols: number, cells: number, buttons: NodeListOf<HTMLElement> };
+        const gridMeasure = (selector: string, buttonSelector = '.btn') => (info: MoverInfo) => {
+            const grid = rootNode?.querySelector<HTMLElement>(selector);
+            if (grid) {
+                info.cells = grid.childElementCount;
+                info.buttons = grid.querySelectorAll(buttonSelector);
+                // Based on https://stackoverflow.com/questions/49506393
+                const style = getComputedStyle(grid);
+                info.rows = style.gridTemplateRows.split(' ').length;
+                info.cols = style.gridTemplateColumns.split(' ').length;
             }
-            tick().then(() => measure());
+        };
+        const flexMeasure = (selector: string, buttonSelector = '.btn') => (info: MoverInfo) => {
+            const root = rootNode?.querySelector<HTMLElement>(selector);
+            if (root) {
+                info.cells = root.childElementCount;
+                info.buttons = root.querySelectorAll(buttonSelector);
+                // Based on https://stackoverflow.com/questions/49506393
+                const style = getComputedStyle(root);
+                info.rows = style.flexDirection.startsWith('column') ? info.cells : 1;
+                info.cols = style.flexDirection.startsWith('row') ? info.cells : 1;
+            }
+        };
 
+        const mover = (name: string, measureElement: (info: MoverInfo) => void) => {
+            const info = { rows: 0, cols: 0, cells: 0, buttons: null as NodeListOf<HTMLElement> };
+            const measure = () => measureElement(info);
             const monitor = () => {
                 const obs = new ResizeObserver(measure);
                 obs.observe(rootNode);
@@ -191,12 +228,12 @@
                     cursor.update(n => wrapAround(n - 1, max, min));
                 } else if (ev.code === 'ArrowRight') {
                     cursor.update(n => wrapAround(n + 1, max, min));
-                } else if (ev.code === 'Enter' || ev.code === 'Return') {
+                } else if (ev.code === 'Enter' || ev.code === 'Return' || ev.code === 'Space') {
                     info.buttons.item(cursor.val).click();
                     ev.preventDefault();
                 }
             };
-            return { name, info, move, monitor };
+            return { name, info, move, monitor, measure };
         };
 
         let resetCursor = () => {};
@@ -214,7 +251,7 @@
         };
         const wrapAround = (n: number, max: number, min = 0) => n > max - 1 ? min : n < min ? max - 1 : n;
 
-        const episodeGrid = gridMover('episode', '.card-actions .grid');
+        const episodeGrid = mover('episode', gridMeasure('.card-actions .grid'));
         const episode = captureCursor(0, ev => {
             episodeGrid.move(ev);
             if (ev.code === 'Escape') {
@@ -223,47 +260,58 @@
         }, episodeGrid.monitor);
 
         const root = (): KeyboardEventHandler<Window> => {
-            if (recentlyUsed.items.length) {
-                const stackedGrid =
-                    (before: ReturnType<typeof gridMover>, main: ReturnType<typeof gridMover>, after: ReturnType<typeof gridMover>) =>
-                    (): KeyboardEventHandler<Window> => {
-                        resetState();
-                        resetState = main.monitor();
-                        return ev => {
-                            if (ev.code === 'ArrowUp') {
-                                if (cursor.val - main.info.cols < 0) {
-                                    cursor.update(v => before.info.cols * (before.info.rows - 1) + (v % before.info.cols))
-                                    return section.set(before.name);
-                                }
-                                cursor.update(n => wrapAround(n - main.info.cols, main.info.cells));
-                            } else if (ev.code === 'ArrowDown') {
-                                if (cursor.val + main.info.cols >= main.info.cells) {
-                                    cursor.update(v => v % after.info.cols);
-                                    return section.set(after.name);
-                                }
-                                cursor.update(n => wrapAround(n + main.info.cols, main.info.cells));
-                            } else {
-                                main.move(ev);
-                            }
-                            const element = main.info.buttons.item($cursor);
-                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        };
-                    };
-
-                const recentGrid = gridMover('recent', '.recent-grid');
-                const gameGrid = gridMover('game', '.game-grid');
-                const recentGridHandler = stackedGrid(gameGrid, recentGrid, gameGrid);
-                const gameGridHandler = stackedGrid(recentGrid, gameGrid, recentGrid);
-                let currentHandler: KeyboardEventHandler<Window>;
-                if (!section.val.length) {
-                    section.set('recent');
-                }
-                section.subscribe(val => currentHandler = (val === 'game' ? gameGridHandler() : recentGridHandler()));
-                return ev => currentHandler(ev);
+            if (!recentlyUsed.items.length) {
+                section.set('game');
+                const gameGrid = mover('game', gridMeasure('.game-grid'));
+                return captureCursor(0, gameGrid.move, gameGrid.monitor)();
             }
-            section.set('game');
-            const gameGrid = gridMover('game', '.game-grid');
-            return captureCursor(0, gameGrid.move, gameGrid.monitor)();
+
+            const stackedGrid =
+                (before: ReturnType<typeof mover>, main: ReturnType<typeof mover>, after: ReturnType<typeof mover>) =>
+                (): KeyboardEventHandler<Window> => {
+                    resetState();
+                    resetState = main.monitor();
+                    return ev => {
+                        if (ev.code === 'ArrowUp') {
+                            if (cursor.val - main.info.cols < 0) {
+                                before.measure();
+                                cursor.update(v => before.info.cols * (before.info.rows - 1) + (v % before.info.cols));
+                                return section.set(before.name);
+                            }
+                            cursor.update(n => wrapAround(n - main.info.cols, main.info.cells));
+                        } else if (ev.code === 'ArrowDown') {
+                            if (cursor.val + main.info.cols >= main.info.cells) {
+                                after.measure();
+                                cursor.update(v => v % after.info.cols);
+                                return section.set(after.name);
+                            }
+                            cursor.update(n => wrapAround(n + main.info.cols, main.info.cells));
+                        } else {
+                            main.move(ev);
+                        }
+                        const element = main.info.buttons.item($cursor);
+                        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    };
+                };
+
+            const saveFiltersMover = mover('save-filters', flexMeasure('.save-filters', '.label'));
+            const saveGameGrid = mover('saves', gridMeasure('.load-save-grid'));
+            const recentGrid = mover('recent', gridMeasure('.recent-grid'));
+            const gameGrid = mover('game', gridMeasure('.game-grid'));
+            const saveFiltersHandler = stackedGrid(gameGrid, saveFiltersMover, saveGameGrid);
+            const saveGridHandler = stackedGrid(saveFiltersMover, saveGameGrid, recentGrid);
+            const recentGridHandler = stackedGrid(saveGameGrid, recentGrid, gameGrid);
+            const gameGridHandler = stackedGrid(recentGrid, gameGrid, saveGameGrid);
+            let currentHandler: KeyboardEventHandler<Window>;
+            if (!section.val.length) {
+                section.set('recent');
+            }
+            section.subscribe(val => currentHandler =
+                val === 'save-filters' ? saveFiltersHandler() :
+                val === 'game' ? gameGridHandler() :
+                val === 'saves' ? saveGridHandler() :
+                recentGridHandler());
+            return ev => currentHandler(ev);
         };
 
         const skill = captureCursor(3, ev => {
@@ -271,7 +319,7 @@
                 cursor.update(n => wrapAround(n - 1, data.skills.length));
             } else if (ev.code === 'ArrowDown') {
                 cursor.update(n => wrapAround(n + 1, data.skills.length));
-            } else if (ev.code === 'Enter' || ev.code === 'Return') {
+            } else if (ev.code === 'Enter' || ev.code === 'Return' || ev.code === 'Space') {
                 rootNode.querySelector<HTMLElement>('.card-actions .pulse-saturation').click();
                 ev.preventDefault();
             } else if (ev.code === 'Escape') {
@@ -305,7 +353,7 @@
                 }
             })();
             const wadScreenController = captureCursor(0, ev => {
-                if (ev.code === 'Enter' || ev.code === 'Return') {
+                if (ev.code === 'Enter' || ev.code === 'Return' || ev.code === 'Space') {
                     rootNode.querySelector<HTMLElement>('.card-actions .btn').click();
                 } else if (ev.code === 'Escape') {
                     rootNode.querySelector<HTMLElement>('.flex .btn').click();
@@ -356,8 +404,86 @@
     class="launcher-screen px-4 py-2 pb-24 sm:px-8 mx-auto"
     class:keyboard-controls={keyboardActive}
 >
+    {#if lastFilters.length}
+        <div class="divider">Quick Load</div>
+        <div class="quick-load-controls
+            flex gap-2 items-center justify-start
+            shadow-2xl bg-base-100 rounded-2xl py-2 px-4
+            max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-4rem)]
+        ">
+            <a href="#tab=save-games" class="btn">Manage Saves</a>
+            <span><Icon src={Funnel} theme='outline' size="24px" /></span>
+            <ul class="save-filters menu menu-horizontal flex-nowrap overflow-x-scroll">
+                {#each lastFilters as filter, i}
+                    {@const checked = selectedFilters.includes(filter)}
+                    <li>
+                        <label
+                            class="label cursor-pointer gap-1"
+                            class:active={i === $cursor && 'save-filters' === $section}
+                            on:pointerenter={cursorSection('save-filters', i)}
+                        >
+                            <input type="checkbox" class="checkbox checkbox-xs no-animation" {checked}
+                                on:change={toggleGameFilter(filter)} />
+                            <span class="label-text text-sm lowercase">{filter}</span>
+                        </label>
+                    </li>
+                {/each}
+            </ul>
+        </div>
+
+        <div class="load-save-grid
+            relative pt-4
+            grid grid-cols-2 gap-4 place-content-start
+            md:grid-cols-3 lg:grid-cols-4 sm:gap-8"
+        >
+        {#await saveGames}
+            <div class="absolute inset-0 flex justify-center items-center z-20" out:fade={{ duration: 400 }}>
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        {:then sg}
+            {#if !sg.length}
+                No save games matching filter: "{selectedFilters.join(' ').toLocaleLowerCase()}"
+            {/if}
+        {/await}
+        {#each lastSaves.slice(0, 8) as save, i}
+            <button
+                class="btn w-full h-auto no-animation p-0 overflow-hidden shadow-2xl relative"
+                on:click={loadGame(save)}
+                class:pulse-highlight={i === $cursor && 'saves' === $section}
+                class:btn-outline={i === $cursor && 'saves' === $section}
+                on:pointerenter={cursorSection('saves', i)}
+            >
+                <img width="320" height="200" src={save.image} alt={save.mapInfo.name} />
+
+                <div class="absolute bottom-2 right-2 p-2 items-end flex flex-col gap-2 bg-black rounded-lg text-secondary"
+                    style:--tw-bg-opacity={.5}
+                >
+                    <span>{save.mapInfo.totalKills === 0 ? '100' : Math.floor(save.mapInfo.kills * 100 / save.mapInfo.totalKills)}%</span>
+                    <div class="flex items-end">
+                        <span>{save.mapInfo.name}:</span>
+                        <span>{data.skills[save.skill - 1].alias}</span>
+                    </div>
+                    <div>
+                    {#each save.wads as name}
+                        <div class="badge badge-secondary badge-xs">{name}</div>
+                    {/each}
+                    </div>
+                </div>
+
+                {#if save.name.length}
+                <div class="absolute left-2 top-2 p-2 bg-black rounded-lg text-start text-primary text-sm max-w-60 overflow-hidden text-ellipsis"
+                    style:--tw-bg-opacity={.5}
+                >
+                    {save.name}
+                </div>
+                {/if}
+            </button>
+        {/each}
+        </div>
+    {/if}
+
     {#if recentlyUsed.items.length}
-        <div class="divider">Recent Games</div>
+        <div class="divider">Recent Maps</div>
         <div class="recent-grid
             grid grid-cols-2 gap-4 place-content-start
             md:grid-cols-3 lg:grid-cols-4 sm:gap-8"
@@ -373,7 +499,7 @@
                 >
                     <img width="320" height="200" src={info.image} alt={info.wad} />
 
-                    <div class="absolute bottom-2 left-2 p-2 items-start flex flex-col gap-2 bg-black rounded-lg"
+                    <div class="absolute bottom-2 right-2 p-2 items-end flex flex-col gap-2 bg-black rounded-lg"
                         style:--tw-bg-opacity={.5}
                     >
                         <div
@@ -383,7 +509,7 @@
                             <span>{data.skills[info.skill - 1].alias}</span>
                         </div>
                         <div>
-                        {#each wadNames as name, i}
+                        {#each wadNames as name}
                             <div class="badge badge-secondary badge-xs">{name}</div>
                         {/each}
                         </div>
@@ -391,8 +517,8 @@
                 </a>
             {/each}
         </div>
-        <div class="divider">Games</div>
     {/if}
+    <div class="divider">New Game</div>
     <div class="game-grid
         grid grid-cols-2 gap-4 place-content-start
         md:grid-cols-3 lg:grid-cols-4 sm:gap-8"

@@ -126,7 +126,7 @@
     import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica, MagnifyingGlass, Trash, ExclamationTriangle, Funnel } from '@steeze-ui/heroicons'
 
     const { game, viewSize } = useDoom();
-    const { settingsMenu, editor, pointerLock, fullscreen, lastRenderScreenshot } = useAppContext();
+    const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
     const { intermission, map } = game;
     const settings = menuCategories(settingsMenu);

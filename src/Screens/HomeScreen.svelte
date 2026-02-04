@@ -3,6 +3,7 @@
     import AppInfo from "../render/Components/AppInfo.svelte";
     import WadDropbox from "../render/Components/WadDropbox.svelte";
     import LauncherScreen from "./LauncherScreen.svelte";
+    import SaveScreen from "./Saves/SaveScreen.svelte";
     import { useAppContext } from "../render/DoomContext";
     import { menuCategories } from "../render/Menu/Menu.svelte";
     import { type WadStore } from "../WadStore";
@@ -24,12 +25,13 @@
     let haveIWads = $derived($wads.some(wad => wad.iwad));
     let screens = $derived(haveIWads ? [
         ['Play', ''],
+        ['Saves', 'tab=save-games', true],
         ['WADs', 'tab=wads'],
         ['Settings', 'tab=settings'],
-    ] : []);
+    ] as [string, string, boolean][] : []);
 
     let screen = $state('Play');
-    function parseUrlHash(hash: string, scs: string[][]) {
+    function parseUrlHash(hash: string, scs: typeof screens) {
         const params = new URLSearchParams(hash.substring(1));
         const sc = params.get('tab');
         screen = scs.find(e => e[1].split('=')[1] === sc)?.[0] ?? 'Play';
@@ -47,8 +49,10 @@
 
         <div class="navbar-center">
             <div role="tablist" class="tabs tabs-bordered">
-                {#each screens as [name, url]}
-                    <a role="tab" class="tab" class:tab-active={screen === name} href="#{url}">{name}</a>
+                {#each screens as [name, url, hidden]}
+                    {#if !hidden}
+                        <a role="tab" class="tab" class:tab-active={screen === name} href="#{url}">{name}</a>
+                    {/if}
                 {/each}
             </div>
         </div>
@@ -82,6 +86,8 @@
 
         {#if screen === 'Play' && haveIWads}
             <LauncherScreen {wadStore} {wad} wads={$wads} />
+        {:else if screen === 'Saves'}
+            <SaveScreen />
         {:else if screen === 'WADs'}
             <WadManagerScreen {wadStore} />
         {:else if screen === 'Settings'}
@@ -100,8 +106,10 @@
 
     {#if haveIWads && !wad}
         <div class="btm-nav sm:hidden z-10 bg-base-300">
-            {#each screens as [name, url]}
-                <a role="tab" class:active={screen === name} href="#{url}">{name}</a>
+            {#each screens as [name, url, hidden]}
+                {#if !hidden}
+                    <a role="tab" class:active={screen === name} href="#{url}">{name}</a>
+                {/if}
             {/each}
         </div>
     {/if}
