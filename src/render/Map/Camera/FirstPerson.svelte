@@ -1,9 +1,7 @@
 <script lang="ts">
-    import { T } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
-    import { onDestroy } from "svelte";
-    import { monitorMapObject } from "../SvelteBridge";
 
     export let yScale: number;
 
@@ -15,13 +13,14 @@
 
     const { position, angle } = camera;
 
-    onDestroy(monitorMapObject(map, player, mo => {
-        $position.x = mo.position.x;
-        $position.y = mo.position.y;
-        $position.z = mo.position.z + $viewHeight;
-        $angle.x = mo.pitch + HALF_PI;
-        $angle.z = mo.direction - HALF_PI;
-    }));
+    useTask('cam-1p', () => {
+        $position.x = player.position.x;
+        $position.y = player.position.y;
+        $position.z = map.player.position.z + $viewHeight;
+        $angle.x = player.pitch + HALF_PI;
+        $angle.z = player.direction - HALF_PI;
+    }, { stage: useThrelte().renderStage, before: 'doom-render' });
+    // why does doing this in the task cause the floor to jank when riding lifts?
     $: $position.z = map.player.position.z + $viewHeight;
 </script>
 

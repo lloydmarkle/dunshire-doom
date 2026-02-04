@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { T, useStage, useTask, useThrelte } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     // TODO: does pmndrs/postprocessing offer an advantage here?
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
     import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
@@ -61,18 +61,14 @@
     $: setupEffectComposer($camera, hudScene);
     $: composer.setSize($size.width, $size.height);
 
-    useTask(delta => {
+    useTask('doom-render', delta => {
         composer.render(delta);
-    }, { stage: renderStage });
 
-    // capture screenshots for save games
-    const afterRenderStage = useStage('after-render', { after: renderStage });
-    useTask(delta => {
+        // capture screenshots for save games
         if (!paused) {
             $lastRenderScreenshot = null;
         } else if (!$lastRenderScreenshot && map.isActive) {
             // make sure we only capture screenshots from the "active" map
-            composer.render(delta);
             const tCanvas = document.createElement('canvas');
             tCanvas.width = 160;
             tCanvas.height = 100;
@@ -80,7 +76,7 @@
             ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, tCanvas.width, tCanvas.height);
             $lastRenderScreenshot = tCanvas.toDataURL('image/png');
         }
-    }, { stage: afterRenderStage });
+    }, { stage: renderStage });
 
     // A fun little hack to make the game feel like it used to on my 486sx25
     const { simulate486, pixelScale, renderMode } = settings;
@@ -113,8 +109,10 @@
         let frameReq = requestAnimationFrame(function renderFrame(time) {
             time *= .001;
             frameReq = requestAnimationFrame(renderFrame);
-            // update within 50ms on editor selection otherwise use 1fps
-            let ft = !paused ? frameTime : ($editor.selected ? .05 : 1);
+            // slow down update frequency to 1fps when paused EXCEPT:
+            // 1) capture lastRenderScreenshot for save games before slowing down
+            // 2) use 20fps if the inspector (editor) is turned on
+            let ft = !paused || !$lastRenderScreenshot ? frameTime : ($editor.selected ? .05 : 1);
             if (time - lastFrameTime > ft) {
                 advance();
                 lastFrameTime = time - (time % ft);

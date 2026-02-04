@@ -34,13 +34,13 @@
     ];
     panels.forEach(p => stats.addPanel(p.panel));
 
-    const { start, stop } = useTask(() => {
+    const { start, stop } = useTask('stats', () => {
         stats.end();
         panels.forEach(p => p.updateInfo());
 
         renderer.info.reset();
         stats.begin();
-    }, { stage: renderStage });
+    }, { stage: renderStage, after: 'doom-render' });
 
     $: if ($showStats) {
         start();

@@ -2,6 +2,7 @@ import { StateIndex, states } from "./doom-things-info";
 import type { LineDef, Sector } from "./map-data";
 import { MapObject, stopVelocity } from "./map-object";
 import type { MapRuntime } from "./map-runtime";
+import { ticksPerSecond, tickTime } from "./math";
 import type { SpriteStateMachine } from "./sprite";
 import { inventoryWeapon, thingSpec } from "./things";
 
@@ -75,7 +76,6 @@ export const exportMap = (map: MapRuntime) => {
     const game = {
         mapName: map.name,
         skill: map.game.skill,
-        tic: Math.trunc(map.game.time.tick.val),
         elapsedTime: map.game.time.elapsed,
         playTime: map.game.time.playTime,
         rngIndex: map.game.rng.index,
@@ -274,10 +274,9 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
     data.map.actions.forEach(e => map.actions.add(e));
 
     // restore game time
-    (map.game as any).nextTickTime = data.game.elapsedTime;
-    map.game.time.elapsed = data.game.elapsedTime;
     map.game.time.playTime = data.game.playTime;
-    map.game.time.tick.set(data.game.tic);
+    map.game.time.elapsed = data.game.elapsedTime;
+    (map.game as any).nextTickTime = Math.ceil(data.game.elapsedTime / tickTime) * tickTime;
     if (data.game.rngIndex > -1) {
         (map.game.rng as any)._index = data.game.rngIndex;
     }

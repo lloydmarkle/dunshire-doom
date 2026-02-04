@@ -3,10 +3,8 @@
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
     import { Vector3 } from "three";
-    import { tweened } from "svelte/motion";
+    import { Tween } from "svelte/motion";
     import { quadOut } from "svelte/easing";
-    import { onDestroy } from "svelte";
-    import { monitorMapObject } from "../SvelteBridge";
 
     export let yScale: number;
 
@@ -14,13 +12,26 @@
     const { map, camera } = useDoomMap();
     const { cameraMode } = map.game.settings;
 
+    const { position, angle } = camera;
+    const tz = new Tween(0, { easing: quadOut });
     const followHeight = 46;
     const shoulderOffset = -10;
     let zoom = 50;
-    useTask(() => {
+    useTask('cam-follow', () => {
+        $angle.x = map.player.pitch + HALF_PI;
+        $angle.z = map.player.direction - HALF_PI;
+
+        tz.set(map.player.position.z);
+        $position.x = -Math.sin(-$angle.x) * -Math.sin(-$angle.z) * zoom + map.player.position.x + shoulderOffset * Math.cos($angle.z);
+        $position.y = -Math.sin(-$angle.x) * -Math.cos(-$angle.z) * zoom + map.player.position.y + shoulderOffset * Math.sin($angle.z);
+        $position.z = Math.cos($angle.x) * zoom + tz.current + followHeight;
+        if ($cameraMode === '3p') {
+            clipPosition($position);
+        }
+
         zoom = Math.max(10, Math.min(200, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-    }, { stage: useThrelte().renderStage });
+    }, { stage: useThrelte().renderStage, before: 'doom-render' });
 
     const _ppos = new Vector3();
     const _3pDir = new Vector3();
@@ -48,21 +59,6 @@
             }
         });
     }
-
-    const { position, angle } = camera;
-    const tz = tweened(0, { easing: quadOut });
-    onDestroy(monitorMapObject(map, map.player, mo => {
-        $angle.x = mo.pitch + HALF_PI;
-        $angle.z = mo.direction - HALF_PI;
-
-        $tz = mo.position.z;
-        $position.x = -Math.sin(-$angle.x) * -Math.sin(-$angle.z) * zoom + mo.position.x + shoulderOffset * Math.cos($angle.z);
-        $position.y = -Math.sin(-$angle.x) * -Math.cos(-$angle.z) * zoom + mo.position.y + shoulderOffset * Math.sin($angle.z);
-        $position.z = Math.cos($angle.x) * zoom + $tz + followHeight;
-        if ($cameraMode === '3p') {
-            clipPosition($position);
-        }
-    }));
 </script>
 
 <T.PerspectiveCamera

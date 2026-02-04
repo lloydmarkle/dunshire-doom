@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { T, useTask, useThrelte } from "@threlte/core";
+    import { T, useStage, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import type { SpriteSheet } from "./SpriteAtlas";
     import { createSpriteMaterialTransparent, createSpriteMaterial } from "./Materials";
@@ -76,11 +76,11 @@
         ? (time: number) => $uniforms.tics.value = $tranUniforms.tics.value = time
         : (time: number) => $uniforms.tics.value = $tranUniforms.tics.value = 0;
     // NOTE: use a task instead of $: to make sure we have the latest value before rendering
-    useTask(() => {
+    useTask('sprite-uniform', () => {
         updateCameraUniforms($threlteCam, $position, $angle);
         updateTimeUniform(map.game.time.tick.val);
         updateInterpolationUniform(map.game.time.tick.val);
-    }, { stage: useThrelte().renderStage });
+    }, { stage: useThrelte().renderStage, before: 'doom-render' });
 
     function updateInspectorUniforms(edit) {
         // map objects have 'health' so only handle those

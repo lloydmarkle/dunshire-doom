@@ -2,10 +2,9 @@
     import { HALF_PI } from "../../../doom";
     import { T, useTask, useThrelte } from "@threlte/core";
     import { useDoomMap } from "../../DoomContext";
-    import { expoIn } from "svelte/easing";
+    import { expoIn, quadIn, quadOut } from "svelte/easing";
     import { Vector3 } from "three";
-    import { onDestroy } from "svelte";
-    import { monitorMapObject } from "../SvelteBridge";
+    import { Tween } from "svelte/motion";
 
     export let yScale: number;
 
@@ -20,24 +19,24 @@
     const position = camera.position;
     const lookPos = new Vector3();
 
-    onDestroy(monitorMapObject(map, map.player, mo => {
-        lookPos.copy(mo.position);
+    const tz = new Tween(0, { easing: quadIn, duration: 60 });
+    useTask('cam-ortho', () => {
+        lookPos.copy(map.player.position);
         lookPos.z += $viewHeightNoBob;
 
-        const yaw = mo.direction - HALF_PI;
+        const yaw = map.player.direction - HALF_PI;
         $tCam.position.set(
-            -Math.sin(-yaw) * camDistance + mo.position.x,
-            -Math.cos(-yaw) * camDistance + mo.position.y,
-            Math.cos(pitch) * camDistance + mo.position.z + $viewHeightNoBob,
+            -Math.sin(-yaw) * camDistance + map.player.position.x,
+            -Math.cos(-yaw) * camDistance + map.player.position.y,
+            Math.cos(pitch) * camDistance + map.player.position.z + $viewHeightNoBob,
         );
         $tCam.lookAt(lookPos);
-        $position = $tCam.position;
-    }));
+        tz.set($tCam.position.z);
+        $position.set($tCam.position.x, $tCam.position.y, tz.current);
 
-    useTask(() => {
         zoomVal = Math.max(1, Math.min(1000, zoomVal + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-    }, { stage: renderStage });
+    }, { stage: renderStage, before: 'doom-render' });
 </script>
 
 <T.OrthographicCamera

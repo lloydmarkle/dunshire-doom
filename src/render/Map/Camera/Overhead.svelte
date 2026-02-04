@@ -2,11 +2,10 @@
     import { T, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
-    import { tweened } from "svelte/motion";
+    import { Tween } from "svelte/motion";
     import { quadOut } from "svelte/easing";
     import { FogExp2 } from "three";
     import { onDestroy } from "svelte";
-    import { monitorMapObject } from "../SvelteBridge";
 
     export let yScale: number;
 
@@ -14,23 +13,21 @@
     const { map, camera, skyColor: skyColor } = useDoomMap();
 
     let zoom = 200;
-    useTask(() => {
+    const tz = new Tween(0, { easing: quadOut });
+    useTask('cam-bird', () => {
+        $position.x = map.player.position.x;
+        $position.y = map.player.position.y;
+        $position.z = zoom + tz.current;
+        $angle.z = map.player.direction - HALF_PI;
+
+        tz.set(map.player.position.z);
+
         zoom = Math.max(100, Math.min(2500, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-    }, { stage: useThrelte().renderStage });
+    }, { stage: useThrelte().renderStage, before: 'doom-render' });
 
     const { position, angle } = camera;
     $: $angle.x = 0;
-
-    const tz = tweened(0, { easing: quadOut });
-    onDestroy(monitorMapObject(map, map.player, mo => {
-        $position.x = map.player.position.x;
-        $position.y = map.player.position.y;
-        $position.z = zoom + $tz;
-        $angle.z = map.player.direction - HALF_PI;
-
-        $tz = mo.position.z
-    }));
 
     const threlte = useThrelte();
     const originalFog = threlte.scene.fog;
