@@ -199,7 +199,7 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
         const thing = data.map.things[i];
         // now that we have the list of mobjs, reset their chase and trace targets
         if ('chaseTargetId' in thing) mobjs[i].chaseTarget = mobjs[thing.chaseTargetId];
-        if ('tracerTarget' in thing) mobjs[i].tracerTarget = mobjs[thing.tracerTargetId];
+        if ('tracerTargetId' in thing) mobjs[i].tracerTarget = mobjs[thing.tracerTargetId];
         // add them to the map list
         map.objs.add(mobjs[i]);
         map.events.emit('mobj-added', mobjs[i]);

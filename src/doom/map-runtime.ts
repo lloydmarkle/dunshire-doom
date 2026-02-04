@@ -187,6 +187,7 @@ export class MapRuntime {
             keys: '',
         });
         this.player = new PlayerMapObject(store(inv), playerThing);
+        this.player.initializeStateMachine();
         this.players[this.players.length - 1] = this.player;
         this.objs.add(this.player);
         this.events.emit('mobj-added', this.player);
@@ -263,6 +264,7 @@ export class MapRuntime {
 
     spawn(moType: MapObjectIndex, x: number, y: number, z?: number, direction?: number) {
         let mobj = new MapObject(this, thingSpec(moType), { x, y }, direction ?? 0);
+        mobj.initializeStateMachine();
         if (z !== undefined) {
             mobj.position.z = z;
         }

@@ -54,7 +54,7 @@ export class SpriteStateMachine {
         } while (!this.ticks)
 
         this.ticks = Math.max(0, this.ticks + tickOffset);
-        this.updateSprite()
+        this.updateSprite();
     }
 
     updateSprite() {

@@ -489,11 +489,13 @@ export class MapObject {
             map.events.emit('mobj-updated-position', this);
         };
         this.applyPositionChanged();
+    }
 
+    initializeStateMachine() {
         // set state last because it may trigger other actions (like find player or play a sound)
         this._state.setState(this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
-        this._state.randomizeTicks(map.game.rng);
+        this._state.randomizeTicks(this.map.game.rng);
     }
 
     dispose() {
