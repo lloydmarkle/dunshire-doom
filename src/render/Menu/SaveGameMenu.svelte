@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount, tick } from 'svelte';
     import { data, exportMap, MapRuntime } from '../../doom';
-    import { SaveGameStore, type SaveGame } from '../../SaveGameStore';
+    import { SaveGameStore, type SaveGame } from '../../SaveGameStore.svelte';
     import { useAppContext, useDoom } from '../DoomContext';
     import { Icon } from '@steeze-ui/svelte-icon';
     import { ExclamationTriangle, Funnel, MagnifyingGlass, Trash } from '@steeze-ui/heroicons';
@@ -55,8 +55,7 @@
         ].filter((e, i, arr) => arr.indexOf(e) === i));
 
     let loadGameSearchText = $state('');
-    const fetchSaveGames = () => sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' '));
-    let filteredSaveGames = $derived.by(fetchSaveGames);
+    let filteredSaveGames = $derived(sgs.rev && sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' ')));
     let placeholderGames = $derived(!saveMenu ? [] : [{
         id: -1,
         image: $lastRenderScreenshot ?? '',
@@ -86,7 +85,6 @@
 
     const deleteSave = async (id: number) => {
         await sgs.deleteGame(id);
-        filteredSaveGames = fetchSaveGames();
         menuSounds.sfx.pistol();
         selectedSave = -2;
         tick().then(() => vcursor = wrapAndScroll(vcursor, 0, '.saves .btn'));

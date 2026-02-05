@@ -60,7 +60,7 @@
     import PreloadWad, { preloadedWads } from "./Launcher/PreloadWad.svelte";
     import { SpeakerWave, SpeakerXMark } from "@steeze-ui/heroicons";
     import WadList from './Launcher/WadList.svelte';
-    import { SaveGameStore, type SaveGame } from "../SaveGameStore";
+    import { SaveGameStore, type SaveGame } from "../SaveGameStore.svelte";
 
     export let wads: WADInfo[];
     export let wadStore: WadStore;
@@ -156,7 +156,7 @@
     $: sgs.filters.then(f => f.filter(e => !skipFilters.some(re => re.test(e[0])) && e[0].length > 1).map(e => e[0]))
         .then(f => lastFilters = f);
     let lastSaves: SaveGame[] = [];
-    $: saveGames = sgs.loadGames(selectedFilters.join(' ')).then(sg => lastSaves = sg);
+    $: saveGames = sgs.loadGames(sgs.rev && selectedFilters.join(' ')).then(sg => lastSaves = sg);
     const toggleGameFilter = (name: string) => () => {
         if (selectedFilters.includes(name)) {
             selectedFilters = selectedFilters.filter(e => e !== name);

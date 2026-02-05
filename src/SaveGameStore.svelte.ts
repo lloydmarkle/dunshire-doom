@@ -19,8 +19,6 @@ interface BaseSaveGame {
         totalItems: number;
         time: number;
     };
-    mapExport?: () => Promise<MapExport>;
-    saveData?: ArrayBuffer;
 }
 export interface SaveGame extends BaseSaveGame {
     id: number;
@@ -28,22 +26,28 @@ export interface SaveGame extends BaseSaveGame {
     restoreMap: () => Promise<void>;
     mapExport: () => Promise<MapExport>;
 }
-interface SaveGameRecord extends BaseSaveGame {
-    saveData: ArrayBuffer;
-}
 
+const tables = {
+    mapExport: 'saves',
+    info: 'save-info',
+}
 export class SaveGameStore {
     private db: Promise<IDBDatabase>;
+    // TODO: I wonder if this could be more svelte-y by using $derived(this.rev && ...)?
     filters: Promise<[string, number][]>;
+    rev = $state(1);
 
     constructor(private restoreGame: Store<MapExport>) {
         const dbRequest = indexedDB.open('doom-saves', 1);
         this.db = new Promise<IDBDatabase>((resolve, reject) => {
             dbRequest.onupgradeneeded = ev => {
                 const db: IDBDatabase = (ev.target as any).result;
-                if (!db.objectStoreNames.contains('saves')) {
-                    const store = db.createObjectStore('saves', { keyPath: 'id', autoIncrement: true, });
+                if (!db.objectStoreNames.contains(tables.info)) {
+                    const store = db.createObjectStore(tables.info, { keyPath: 'id', autoIncrement: true, });
                     store.createIndex('searchText', 'searchText', { multiEntry: true });
+                }
+                if (!db.objectStoreNames.contains(tables.mapExport)) {
+                    db.createObjectStore(tables.mapExport, { keyPath: 'id' });
                 }
             };
             dbRequest.onsuccess = ev => resolve((ev.target as any).result);
@@ -55,7 +59,7 @@ export class SaveGameStore {
 
     private async loadFilters() {
         const db = await this.db;
-        const store = db.transaction('saves', 'readonly').objectStore('saves');
+        const store = db.transaction(tables.info, 'readonly').objectStore(tables.info);
         const req = store.openCursor();
         return new Promise<[string, number][]>((resolve, reject) => {
             const freq = new Map<string, number>();
@@ -74,7 +78,7 @@ export class SaveGameStore {
         })
     }
 
-    async storeGameRecord(data: MapExport, record: Omit<BaseSaveGame, 'searchText'>): Promise<SaveGameRecord> {
+    async storeGameRecord(data: MapExport, record: Omit<BaseSaveGame, 'searchText'>): Promise<number> {
         const db = await this.db;
         // indexdb hack to get text search working. It's far from perfect. Maybe it's just better to filter in JS?
         const searchText = [
@@ -85,19 +89,27 @@ export class SaveGameStore {
             ...data.game.wads.map(e => e.toUpperCase()),
             ...record.name.toUpperCase().split(' '),
         ];
-        // TODO compress? Or maybe only compress at a certain size?
-        const gameBytes = new TextEncoder().encode(JSON.stringify(data)).buffer;
-        const saveData: SaveGameRecord = { ...record, searchText, saveData: gameBytes };
-        const tr = db.transaction('saves', 'readwrite')
-            .objectStore('saves')
-            .put(saveData);
+        const tr = db.transaction([tables.info, tables.mapExport], 'readwrite');
+        const ref = tr.objectStore(tables.info).put({ ...record, searchText })
         return new Promise((resolve, reject) => {
+            let id: number;
+            ref.onsuccess = ev => {
+                id = (ev.target as any).result;
+                // TODO compress? Or maybe only compress at a certain size?
+                const buff = new TextEncoder().encode(JSON.stringify(data)).buffer;
+                tr.objectStore(tables.mapExport).put({ id, buff });
+            };
+
             tr.onerror = reject;
-            tr.onsuccess = () => resolve(saveData);
+            tr.onabort = reject;
+            tr.oncomplete = () => {
+                this.rev += 1;
+                resolve(id);
+            };
         });
     }
 
-    async storeGame(name: string, image: string, game: Game, data: MapExport, id?: number): Promise<SaveGameRecord> {
+    async storeGame(name: string, image: string, game: Game, data: MapExport, id?: number): Promise<number> {
         return this.storeGameRecord(data, {
             ...(id && { id }),
             name,
@@ -121,7 +133,7 @@ export class SaveGameStore {
 
     async loadGames(searchText: string): Promise<SaveGame[]> {
         const db = await this.db;
-        const store = db.transaction('saves', 'readonly').objectStore('saves');
+        const store = db.transaction(tables.info, 'readonly').objectStore(tables.info);
 
         const queryResults = new Map<number, SaveGame>();
         const terms = searchText.split(' ').filter(e => e.length);
@@ -133,12 +145,26 @@ export class SaveGameStore {
             .filter(e => terms.every(t => e.searchText.includes(t)))
             .sort((a, b) => b.lastModified - a.lastModified);
         result.forEach(save => {
-            let restoredData: MapExport = null;
-            save.mapExport = async () => restoredData = restoredData ?? JSON.parse(new TextDecoder().decode(save.saveData));
+            let restoredData: Promise<MapExport> = null;
+            save.mapExport = async () => restoredData = restoredData ?? this.loadMapExport(save.id);
             save.launchUrl = `#${save.wads.map(e => 'wad=' + e).join('&')}&skill=${save.skill}&map=${save.mapInfo.name}`;
             save.restoreMap = () => save.mapExport().then(data => this.restoreGame.set(data));
         });
         return Promise.resolve(result);
+    }
+
+    private async loadMapExport(id: number): Promise<MapExport> {
+        const db = await this.db;
+        const store = db.transaction(tables.mapExport, 'readonly').objectStore(tables.mapExport)
+        const req = store.get(id);
+        return new Promise((resolve, reject) => {
+            req.onerror = reject;
+            req.onsuccess = ev => {
+                const record = (ev.target as any).result;
+                const mapExport = JSON.parse(new TextDecoder().decode(record.buff));
+                resolve(mapExport);
+            }
+        });
     }
 
     private querySearchText(store: IDBObjectStore, term: string, result: Map<number, SaveGame>) {
@@ -163,11 +189,16 @@ export class SaveGameStore {
 
     async deleteGame(id: number) {
         const db = await this.db;
-        const store = db.transaction('saves', 'readwrite').objectStore('saves');
-        const req = store.delete(id);
+        const tr = db.transaction([tables.info, tables.mapExport], 'readwrite');
+        tr.objectStore(tables.info).delete(id);
+        tr.objectStore(tables.mapExport).delete(id);
         return new Promise<void>((resolve, reject) => {
-            req.onerror = reject;
-            req.onsuccess = () => resolve();
+            tr.onabort = reject;
+            tr.onerror = reject;
+            tr.oncomplete = () => {
+                this.rev += 1;
+                resolve();
+            }
         });
     }
 }

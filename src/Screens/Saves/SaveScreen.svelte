@@ -2,12 +2,11 @@
     import { fade, fly } from "svelte/transition";
     import { data } from "../../doom";
     import { useAppContext } from "../../render/DoomContext";
-    import { SaveGameStore, type SaveGame } from "../../SaveGameStore";
+    import { SaveGameStore, type SaveGame } from "../../SaveGameStore.svelte";
     import { Icon } from "@steeze-ui/svelte-icon";
     import { ArrowDownTray, ExclamationTriangle, Funnel, MagnifyingGlass, Trash } from "@steeze-ui/heroicons";
     import type { ChangeEventHandler } from "svelte/elements";
     import { Unzip, UnzipInflate, Zip, ZipDeflate } from "fflate";
-    import { toTrianglesDrawMode } from "three/examples/jsm/utils/BufferGeometryUtils";
 
     const { restoreGame } = useAppContext();
 
@@ -16,13 +15,12 @@
     let selectedCount = $derived(Object.keys(selected).length);
 
     const sgs = new SaveGameStore(restoreGame);
-    const fetchSaves = () => sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' '));
     const skipFilters = [/^MAP$/, /^\d\d$/, /^MAP\d\d$/, /^E\dM\d$/, /^E\d$/, /^M\d$/];
     let saveFilters = $derived(sgs.filters.then(f => f.filter(e => !skipFilters.some(re => re.test(e[0])) && e[0].length > 1).map(e => e[0])));
 
     let loadGameSearchText = $state('');
     let selectedFilters = $state([]);
-    let storedSaveGames = $derived.by(fetchSaves);
+    let storedSaveGames = $derived(sgs.rev && sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' ')));
     let saveGames = $derived(storedSaveGames.then(games => [
             ...games,
             ...Object.values(selected),
@@ -55,7 +53,6 @@
 
     const deleteGames = async () => {
         await Promise.all(Object.keys(selected).map(id => sgs.deleteGame(parseInt(id))));
-        storedSaveGames = fetchSaves();
         selected = {};
         deleteMode = false;
     }
@@ -82,7 +79,6 @@
                 // avoid save injection where a malicious save could overwrite an existing save
                 delete saveState.id;
                 await sgs.storeGameRecord(mapExport, saveState);
-                storedSaveGames = fetchSaves();
             };
             file.start();
         };
@@ -125,7 +121,8 @@
             const mapExport = await saves[i].mapExport();
             const copy = { ...saves[i], mapExport };
             delete copy.searchText;
-            delete copy.saveData;
+            delete copy.restoreMap;
+            delete copy.launchUrl;
             delete copy.id;
 
             // TODO: do we get a smaller file size if we store the image separately? (as binary). We could also store
@@ -201,21 +198,20 @@
                 {/await}
             </ul>
         </div>
-    </div>
 
-    {#if deleteMode}
-    <div
-        transition:fly={{ y:'-4rem' }}
-        class="alert alert-warning flex absolute top-8 z-30"
-    >
-        <span><Icon src={ExclamationTriangle} theme='outline' size="24px" /></span>
-        <span>Remove {selectedCount} save game{selectedCount === 1 ? '' : 's'}?</span>
-        <div class="flex gap-2 ms-auto">
-            <button class="btn" onclick={deleteGames}>Yes</button>
-            <button class="btn" onclick={() => deleteMode = false}>No</button>
+        {#if deleteMode}
+        <div class="absolute inset-0 top-8 mx-8" transition:fly={{ y:'-2rem' }}>
+            <div class="alert alert-warning z-30">
+                <span><Icon src={ExclamationTriangle} theme='outline' size="24px" /></span>
+                <span>Remove {selectedCount} save game{selectedCount === 1 ? '' : 's'}?</span>
+                <div class="flex gap-2">
+                    <button class="btn" onclick={deleteGames}>Yes</button>
+                    <button class="btn" onclick={() => deleteMode = false}>No</button>
+                </div>
+            </div>
         </div>
+        {/if}
     </div>
-    {/if}
 
     {#await saveGames}
         <div class="absolute inset-0 flex justify-center items-center z-20" out:fade={{ duration: 400 }}>

@@ -2,7 +2,7 @@ import { StateIndex, states } from "./doom-things-info";
 import type { LineDef, Sector } from "./map-data";
 import { MapObject, stopVelocity } from "./map-object";
 import type { MapRuntime } from "./map-runtime";
-import { ticksPerSecond, tickTime } from "./math";
+import { tickTime } from "./math";
 import type { SpriteStateMachine } from "./sprite";
 import { inventoryWeapon, thingSpec } from "./things";
 
