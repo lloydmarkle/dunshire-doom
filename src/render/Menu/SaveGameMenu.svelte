@@ -46,7 +46,7 @@
         return cursor;
     }
 
-    const sgs = new SaveGameStore();
+    const sgs = new SaveGameStore(restoreGame);
     let lastWadName = game.wad.name.split('&').pop().split('=').pop().toUpperCase();
     let selectedFilters = $state([lastWadName]);
     let visibleGameFilters = $derived.by(async (): Promise<string[]> => [
@@ -79,11 +79,8 @@
 
     async function loadGame(save: SaveGame) {
         menuSounds.sfx.pistol();
-        const mapExport = await save.mapExport();
-        // loading a game may need to recreate the game instance (if skill level or wads change) but even if it doesn't,
-        // we need to load the game state so set a flag here to be loaded in the main doom component.
-        window.location.hash = `#${save.wads.map(e => 'wad=' + e).join('&')}&skill=${save.skill}&map=${save.mapInfo.name}`;
-        restoreGame.set(mapExport);
+        window.location.hash = save.launchUrl;
+        save.restoreMap();
         resumeGame();
     }
 

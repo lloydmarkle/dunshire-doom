@@ -149,7 +149,7 @@
     $: parseUrlHash(window.location.hash, iWads);
 
     // save games
-    const sgs = new SaveGameStore();
+    const sgs = new SaveGameStore(restoreGame);
     let selectedFilters = [];
     let lastFilters: string[] = [];
     const skipFilters = [/^MAP$/, /^MAP\d\d$/, /^E\dM\d$/, /^E\d$/, /^M\d$/];
@@ -157,13 +157,6 @@
         .then(f => lastFilters = f);
     let lastSaves: SaveGame[] = [];
     $: saveGames = sgs.loadGames(selectedFilters.join(' ')).then(sg => lastSaves = sg);
-    const loadGame = (save: SaveGame) => async () => {
-        const mapExport = await save.mapExport();
-        // loading a game may need to recreate the game instance (if skill level or wads change) but even if it doesn't,
-        // we need to load the game state so set a flag here to be loaded in the main doom component.
-        window.location.hash = `#${save.wads.map(e => 'wad=' + e).join('&')}&skill=${save.skill}&map=${save.mapInfo.name}`;
-        restoreGame.set(mapExport);
-    }
     const toggleGameFilter = (name: string) => () => {
         if (selectedFilters.includes(name)) {
             selectedFilters = selectedFilters.filter(e => e !== name);
@@ -409,7 +402,7 @@
         <div class="quick-load-controls
             flex gap-2 items-center justify-start
             shadow-2xl bg-base-100 rounded-2xl py-2 px-4
-            max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-4rem)]
+            max-w-[calc(100vw-2rem)] sm:max-w-[min(86.5rem,calc(100vw-4rem))]
         ">
             <a href="#tab=save-games" class="btn">Manage Saves</a>
             <span><Icon src={Funnel} theme='outline' size="24px" /></span>
@@ -446,9 +439,10 @@
             {/if}
         {/await}
         {#each lastSaves.slice(0, 8) as save, i}
-            <button
+            <a
                 class="btn w-full h-auto no-animation p-0 overflow-hidden shadow-2xl relative"
-                on:click={loadGame(save)}
+                href={save.launchUrl}
+                on:click={save.restoreMap}
                 class:pulse-highlight={i === $cursor && 'saves' === $section}
                 class:btn-outline={i === $cursor && 'saves' === $section}
                 on:pointerenter={cursorSection('saves', i)}
@@ -477,7 +471,7 @@
                     {save.name}
                 </div>
                 {/if}
-            </button>
+            </a>
         {/each}
         </div>
     {/if}

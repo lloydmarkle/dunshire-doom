@@ -1,4 +1,4 @@
-import { type Game, type MapExport } from "./doom";
+import { type Game, type MapExport, type Store } from "./doom";
 
 interface BaseSaveGame {
     id?: number;
@@ -24,6 +24,8 @@ interface BaseSaveGame {
 }
 export interface SaveGame extends BaseSaveGame {
     id: number;
+    launchUrl: string;
+    restoreMap: () => Promise<void>;
     mapExport: () => Promise<MapExport>;
 }
 interface SaveGameRecord extends BaseSaveGame {
@@ -34,7 +36,7 @@ export class SaveGameStore {
     private db: Promise<IDBDatabase>;
     filters: Promise<[string, number][]>;
 
-    constructor() {
+    constructor(private restoreGame: Store<MapExport>) {
         const dbRequest = indexedDB.open('doom-saves', 1);
         this.db = new Promise<IDBDatabase>((resolve, reject) => {
             dbRequest.onupgradeneeded = ev => {
@@ -130,7 +132,12 @@ export class SaveGameStore {
         const result = [...queryResults.values()]
             .filter(e => terms.every(t => e.searchText.includes(t)))
             .sort((a, b) => b.lastModified - a.lastModified);
-        result.forEach(e => e.mapExport = async () => JSON.parse(new TextDecoder().decode(e.saveData)));
+        result.forEach(save => {
+            let restoredData: MapExport = null;
+            save.mapExport = async () => restoredData = restoredData ?? JSON.parse(new TextDecoder().decode(save.saveData));
+            save.launchUrl = `#${save.wads.map(e => 'wad=' + e).join('&')}&skill=${save.skill}&map=${save.mapInfo.name}`;
+            save.restoreMap = () => save.mapExport().then(data => this.restoreGame.set(data));
+        });
         return Promise.resolve(result);
     }
 

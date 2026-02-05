@@ -15,7 +15,7 @@
     let selected = $state<{ [key: number]: SaveGame }>({});
     let selectedCount = $derived(Object.keys(selected).length);
 
-    const sgs = new SaveGameStore();
+    const sgs = new SaveGameStore(restoreGame);
     const fetchSaves = () => sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' '));
     const skipFilters = [/^MAP$/, /^\d\d$/, /^MAP\d\d$/, /^E\dM\d$/, /^E\d$/, /^M\d$/];
     let saveFilters = $derived(sgs.filters.then(f => f.filter(e => !skipFilters.some(re => re.test(e[0])) && e[0].length > 1).map(e => e[0])));
@@ -28,14 +28,6 @@
             ...Object.values(selected),
         ].filter((e, i, arr) => arr.findIndex(g => g.id === e.id) === i)));
     let selectAll = $derived(selectedCount && saveGames.then(sg => sg.every(save => selected[save.id])));
-
-    const loadGame = (save: SaveGame) => async () => {
-        const mapExport = await save.mapExport();
-        // loading a game may need to recreate the game instance (if skill level or wads change) but even if it doesn't,
-        // we need to load the game state so set a flag here to be loaded in the main doom component.
-        window.location.hash = `#${save.wads.map(e => 'wad=' + e).join('&')}&skill=${save.skill}&map=${save.mapInfo.name}`;
-        restoreGame.set(mapExport);
-    }
 
     const toggleGameFilter = (name: string) => () => {
         if (selectedFilters.includes(name)) {
@@ -232,12 +224,16 @@
     {:then saves}
         <ul class="menu pb-24 gap-1">
         {#each saves as save}
-            <li class="relative rounded-lg overflow-hidden z-10" style:--bg-image="url({save.image})">
-                <label class="label cursor-pointer justify-start gap-4">
+            <li class="relative rounded-lg overflow-hidden z-10 bg-url" style:--bg-image="url({save.image})">
+                <label class="cursor-pointer justify-start gap-4">
+                    <a class="btn btn-primary h-32" href={save.launchUrl} onclick={save.restoreMap}>Play</a>
+
                     <input type="checkbox" class="checkbox"
                         checked={save.id in selected} onchange={() => selectSave(save)} />
 
-                    <div class="h-32 flex items-center text-xl text-primary max-w-96 overflow-hidden text-ellipsis">{save.name}</div>
+                    <div class="flex items-center text-xl text-primary max-w-80">
+                        <span class="overflow-hidden text-ellipsis">{save.name}</span>
+                    </div>
 
                     <div class="absolute bottom-2 right-2 p-2 items-end flex flex-col gap-1 rounded-lg text-secondary"
                         style:--tw-bg-opacity={.5}
@@ -254,7 +250,7 @@
                         </div>
                         <div>
                         {#each save.wads as name}
-                            <div class="badge badge-secondary badge-xs">{name}</div>
+                            <div class="badge badge-secondary">{name}</div>
                         {/each}
                         </div>
                     </div>
@@ -272,7 +268,7 @@
 {/snippet}
 
 <style>
-    .menu li:after {
+    .menu .bg-url:after {
         transition: transform .2s;
         content: '';
         position: absolute;
