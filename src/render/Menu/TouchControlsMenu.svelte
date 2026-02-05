@@ -1,11 +1,10 @@
 <script lang="ts">
     import { get, type Writable } from "svelte/store";
-    import { createDefaultSettings, useAppContext, useDoom } from "../DoomContext";
+    import { createDefaultSettings, useAppContext } from "../DoomContext";
     import TouchControls from "../Controls/TouchControls.svelte";
     import { fly } from "svelte/transition";
 
     export let subMenu: string;
-    const viewSize = useDoom().viewSize;
 
     const settings = useAppContext().settings;
     const { touchDeadZone, tapTriggerTime, touchLookSpeed, analogMovement, touchAreaSize } = settings;
@@ -32,7 +31,9 @@
     }
 
     let showDeadZone = false;
-    $: defaultTouchZonePosition = { x: $viewSize.width * .25, y: $viewSize.height * .6 };
+    let viewSizeX = 0;
+    let viewSizeY = 0;
+    $: defaultTouchZonePosition = { x: viewSizeX * .25, y: viewSizeY * .6 };
 
     // tap test
     let tapTestState: 'clear' | 'active' | 'hold' = 'clear';
@@ -60,6 +61,8 @@
 </div>
 
 <div
+    bind:clientWidth={viewSizeX}
+    bind:clientHeight={viewSizeY}
     class="
         absolute inset-0 flex justify-between items-end
         text-center align-bottom pb-12 px-4 bottom-0
@@ -103,7 +106,7 @@
         </label>
         <label class="label">
             <span class="label-text text-xs">Touch area <span class="text-primary">[{$touchAreaSize}]</span>px</span>
-            <input type="range" class="range" bind:value={$touchAreaSize} min={4} max={0.5 * Math.min($viewSize.height, $viewSize.width)} />
+            <input type="range" class="range" bind:value={$touchAreaSize} min={4} max={0.5 * Math.min(viewSizeY, viewSizeX)} />
         </label>
         <label class="label"
             on:touchstart={() => showDeadZone = true}

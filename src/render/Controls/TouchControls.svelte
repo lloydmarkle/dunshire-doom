@@ -174,19 +174,6 @@
     };
 
     let showWeaponMenu = false;
-    function weaponTouchMove(ev: PointerEvent) {
-        const btn = document.elementFromPoint(ev.clientX, ev.clientY);
-        if (btn instanceof HTMLButtonElement && btn.getAttribute('class').includes('wbutton')) {
-            btn.focus()
-        }
-    }
-    function weaponTouchEnd(ev: PointerEvent) {
-        const btn = document.elementFromPoint(ev.clientX, ev.clientY);
-        if (btn instanceof HTMLButtonElement && btn.getAttribute('class').includes('wbutton')) {
-            btn.click();
-        }
-        showWeaponMenu = false
-    }
     const selectWeapon = (num: number) => () => {
         showWeaponMenu = false;
         if (player.weapon.val.name !== playerWeapons[num].name) {
