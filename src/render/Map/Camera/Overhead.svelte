@@ -14,7 +14,7 @@
 
     let zoom = 200;
     const tz = new Tween(0, { easing: quadOut });
-    useTask('cam-bird', () => {
+    useTask(() => {
         $position.x = map.player.position.x;
         $position.y = map.player.position.y;
         $position.z = zoom + tz.current;

@@ -34,7 +34,7 @@
     ];
     panels.forEach(p => stats.addPanel(p.panel));
 
-    const { start, stop } = useTask('stats', () => {
+    const { start, stop } = useTask(() => {
         stats.end();
         panels.forEach(p => p.updateInfo());
 

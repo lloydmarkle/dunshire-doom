@@ -20,7 +20,7 @@
     const lookPos = new Vector3();
 
     const tz = new Tween(0, { easing: quadIn, duration: 60 });
-    useTask('cam-ortho', () => {
+    useTask(() => {
         lookPos.copy(map.player.position);
         lookPos.z += $viewHeightNoBob;
 

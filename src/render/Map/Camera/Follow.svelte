@@ -17,7 +17,7 @@
     const followHeight = 46;
     const shoulderOffset = -10;
     let zoom = 50;
-    useTask('cam-follow', () => {
+    useTask(() => {
         $angle.x = map.player.pitch + HALF_PI;
         $angle.z = map.player.direction - HALF_PI;
 

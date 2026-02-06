@@ -76,7 +76,7 @@
         ? (time: number) => $uniforms.tics.value = $tranUniforms.tics.value = time
         : (time: number) => $uniforms.tics.value = $tranUniforms.tics.value = 0;
     // NOTE: use a task instead of $: to make sure we have the latest value before rendering
-    useTask('sprite-uniform', () => {
+    useTask(() => {
         updateCameraUniforms($threlteCam, $position, $angle);
         updateTimeUniform(map.game.time.tick.val);
         updateInterpolationUniform(map.game.time.tick.val);

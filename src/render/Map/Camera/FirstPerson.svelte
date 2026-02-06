@@ -13,7 +13,7 @@
 
     const { position, angle } = camera;
 
-    useTask('cam-1p', () => {
+    useTask(() => {
         $position.x = player.position.x;
         $position.y = player.position.y;
         $position.z = map.player.position.z + $viewHeight;
