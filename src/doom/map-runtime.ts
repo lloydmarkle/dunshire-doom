@@ -308,22 +308,6 @@ export class MapRuntime {
             }
         });
 
-        // update wall/flat animations
-        this.animatedTextures.forEach(anim => {
-            if (this.game.time.tickN.val % anim.speed === 0) {
-                anim.index = (anim.index + 1) % anim.frames.length;
-                anim.line[anim.side][anim.prop] = anim.frames[anim.index];
-                this.events.emit('wall-texture', anim.line);
-            }
-        });
-        this.animatedFlats.forEach(anim => {
-            if (this.game.time.tickN.val % anim.speed === 0) {
-                anim.index = (anim.index + 1) % anim.frames.length;
-                anim.sector[anim.prop] = anim.frames[anim.index];
-                this.events.emit('sector-flat', anim.sector);
-            }
-        });
-
         this.objs.forEach(thing => thing.tick());
 
         // FIXME: this is apparently very expensive with lots of hit scanners
@@ -378,23 +362,41 @@ export class MapRuntime {
         this.animatedTextures.clear();
         this.animatedFlats.clear();
 
-        // initialize animated textures
-        for (const sector of this.data.sectors) {
-            this.initializeFlatTextureAnimation(sector, 'ceilFlat');
-            this.initializeFlatTextureAnimation(sector, 'floorFlat');
-        }
-        for (const linedef of this.data.linedefs) {
-            this.initializeWallTextureAnimation(linedef, 'right', 'lower');
-            this.initializeWallTextureAnimation(linedef, 'right', 'middle');
-            this.initializeWallTextureAnimation(linedef, 'right', 'upper');
-            if (linedef.left) {
-                this.initializeWallTextureAnimation(linedef, 'left', 'lower');
-                this.initializeWallTextureAnimation(linedef, 'left', 'middle');
-                this.initializeWallTextureAnimation(linedef, 'left', 'upper');
-            }
-        }
-
         if (renderMode === 'r1') {
+            // initialize animated textures
+            for (const sector of this.data.sectors) {
+                this.initializeFlatTextureAnimation(sector, 'ceilFlat');
+                this.initializeFlatTextureAnimation(sector, 'floorFlat');
+            }
+            for (const linedef of this.data.linedefs) {
+                this.initializeWallTextureAnimation(linedef, 'right', 'lower');
+                this.initializeWallTextureAnimation(linedef, 'right', 'middle');
+                this.initializeWallTextureAnimation(linedef, 'right', 'upper');
+                if (linedef.left) {
+                    this.initializeWallTextureAnimation(linedef, 'left', 'lower');
+                    this.initializeWallTextureAnimation(linedef, 'left', 'middle');
+                    this.initializeWallTextureAnimation(linedef, 'left', 'upper');
+                }
+            }
+
+            // update wall/flat animations
+            this.actions.add(() => {
+                this.animatedTextures.forEach(anim => {
+                    if (this.game.time.tickN.val % anim.speed === 0) {
+                        anim.index = (anim.index + 1) % anim.frames.length;
+                        anim.line[anim.side][anim.prop] = anim.frames[anim.index];
+                        this.events.emit('wall-texture', anim.line);
+                    }
+                });
+                this.animatedFlats.forEach(anim => {
+                    if (this.game.time.tickN.val % anim.speed === 0) {
+                        anim.index = (anim.index + 1) % anim.frames.length;
+                        anim.sector[anim.prop] = anim.frames[anim.index];
+                        this.events.emit('sector-flat', anim.sector);
+                    }
+                });
+            });
+
             for (const wall of this.data.linedefs) {
                 // TODO: disable these for R2?
                 if (wall.special === 48) {

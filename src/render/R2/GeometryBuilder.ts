@@ -59,7 +59,7 @@ export function geometryBuilder() {
         const vertexOffset = numVertex;
         numVertex += vertexCount;
 
-        geom.setAttribute('texN', int16BufferFrom([0], vertexCount));
+        geom.setAttribute('texN', int16BufferFrom([0, 0], vertexCount));
         geom.setAttribute('doomLight', int16BufferFrom([sectorNum], vertexCount));
         geom.setAttribute('doomOffset', sInt16BufferFrom([0, 0], vertexCount));
         geom.setAttribute(inspectorAttributeName, int16BufferFrom([0, 0], vertexCount));
@@ -75,7 +75,7 @@ export function geometryBuilder() {
         for (let i = 0; i < geom.attributes.uv.array.length; i++) {
             geom.attributes.uv.array[i] /= 64;
         }
-        geom.setAttribute('texN', int16BufferFrom([0], vertexCount));
+        geom.setAttribute('texN', int16BufferFrom([0, 0], vertexCount));
         geom.setAttribute('doomLight', int16BufferFrom([sectorNum], vertexCount));
         geom.setAttribute('doomOffset', sInt16BufferFrom([0, 0], vertexCount));
         geom.setAttribute(inspectorAttributeName, int16BufferFrom([1, sectorNum], vertexCount));
@@ -84,7 +84,7 @@ export function geometryBuilder() {
     };
 
     const emptyPlane = () => new PlaneGeometry(0, 0)
-        .setAttribute('texN', int16BufferFrom([0], 4))
+        .setAttribute('texN', int16BufferFrom([0, 0], 4))
         .setAttribute('doomLight', int16BufferFrom([0], 4))
         .setAttribute('doomOffset', sInt16BufferFrom([0, 0], 4))
         .setAttribute(inspectorAttributeName, int16BufferFrom([0, 0], 4));
@@ -617,11 +617,16 @@ export function mapGeometryUpdater(textures: MapTextureAtlas) {
             geo.attributes.uv.array[2 * vertexOffset + 7] = ((height % tx.height) + offsetY) * invHeight;
         geo.attributes.uv.array[2 * vertexOffset + 2] =
             geo.attributes.uv.array[2 * vertexOffset + 6] = (width + offsetX) * invWidth;
-        // set texture index
-        geo.attributes.texN.array.fill(index, vertexOffset, vertexOffset + 4);
-
-        geo.attributes.texN.needsUpdate = true;
         geo.attributes.uv.needsUpdate = true;
+
+            // set texture index and animation offset (if the texture is animated)
+        const animateFlag = textures.animationInfo.get(index) ? 1 : 0;
+        let end = (info.vertexCount + info.vertexOffset) * 2;
+        for (let i = info.vertexOffset * 2; i < end; i += 2) {
+            geo.attributes.texN.array[i + 0] = index;
+            geo.attributes.texN.array[i + 1] = animateFlag;
+        }
+        geo.attributes.texN.needsUpdate = true;
     };
 
     const changeWallHeight = (info: GeoInfo, top: number, height: number) => {
@@ -666,8 +671,13 @@ export function mapGeometryUpdater(textures: MapTextureAtlas) {
 
     const applyFlatTexture = (info: GeoInfo, textureName: string) => {
         const geo = info.geom;
-        let index = textures.flatTexture(textureName)[0];
-        geo.attributes.texN.array.fill(index, info.vertexOffset, info.vertexOffset + info.vertexCount);
+        const index = textures.flatTexture(textureName)[0];
+        const animateFlag = textures.animationInfo.get(index) ? 1 : 0;
+        let end = (info.vertexCount + info.vertexOffset) * 2;
+        for (let i = info.vertexOffset * 2; i < end; i += 2) {
+            geo.attributes.texN.array[i + 0] = index;
+            geo.attributes.texN.array[i + 1] = animateFlag;
+        }
         geo.attributes.texN.needsUpdate = true;
     };
 

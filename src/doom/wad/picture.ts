@@ -1,4 +1,4 @@
-import type { Color } from "three";
+import type { Color, TypedArray } from "three";
 import { dword, int16, word } from "./wadfile";
 
 export type Palette = Color[];
@@ -9,8 +9,8 @@ export interface Picture {
     readonly width: number;
     readonly height: number;
 
-    toBuffer(buffer: Uint8ClampedArray): void;
-    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, x: number, y: number): void;
+    toBuffer(buffer: TypedArray): void;
+    toAtlasBuffer(buffer: TypedArray, width: number, x: number, y: number): void;
 }
 
 export class FlatPicture implements Picture {
@@ -21,7 +21,7 @@ export class FlatPicture implements Picture {
 
     constructor(private lump: Uint8Array, readonly palette: Palette) {}
 
-    toBuffer(buffer: Uint8ClampedArray) {
+    toBuffer(buffer: TypedArray) {
         const size = this.width * this.height;
         for (let i = 0; i < size; i++) {
             let col = this.palette[this.lump[i]];
@@ -32,7 +32,7 @@ export class FlatPicture implements Picture {
         }
     }
 
-    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, ax: number, ay: number) {
+    toAtlasBuffer(buffer: TypedArray, width: number, ax: number, ay: number) {
         for (let x = 0; x < this.width; x++) {
             for (let y = 0; y < this.height; y++) {
                 let col = this.palette[this.lump[y * this.width + x]];
@@ -63,7 +63,7 @@ export class LumpPicture implements Picture {
         }
     }
 
-    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, ax: number, ay: number) {
+    toAtlasBuffer(buffer: TypedArray, width: number, ax: number, ay: number) {
         this.pixels((col, x, y) => {
             let i = 4 * ((ay + y) * width + x + ax);
             buffer[i + 0] = col.r;
@@ -73,7 +73,7 @@ export class LumpPicture implements Picture {
         });
     }
 
-    toBuffer(buffer: Uint8ClampedArray): void {
+    toBuffer(buffer: TypedArray): void {
         this.pixels((col, x, y) => {
             let i = 4 * (y * this.width + x);
             buffer[i + 0] = col.r;
@@ -83,7 +83,7 @@ export class LumpPicture implements Picture {
         });
     }
 
-    applyPatch(buff: Uint8ClampedArray, width: number, height: number, originX: number, originY: number) {
+    applyPatch(buff: TypedArray, width: number, height: number, originX: number, originY: number) {
         this.pixels((col, x, y) => {
             const tx = originX + x;
             const ty = originY + y;
@@ -98,7 +98,7 @@ export class LumpPicture implements Picture {
         });
     }
 
-    applyPatchAtlas(buff: Uint8ClampedArray, aWidth: number, ax: number, ay: number, width: number, height: number, originX: number, originY: number) {
+    applyPatchAtlas(buff: TypedArray, aWidth: number, ax: number, ay: number, width: number, height: number, originX: number, originY: number) {
         this.pixels((col, x, y) => {
             const tx = originX + x;
             const ty = originY + y;
@@ -150,13 +150,13 @@ export class PatchPicture implements Picture {
         readonly height: number,
         private patches: Patch[]) {}
 
-    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, x: number, y: number) {
+    toAtlasBuffer(buffer: TypedArray, width: number, x: number, y: number) {
         for (const patch of this.patches) {
             patch.pic.applyPatchAtlas(buffer, width, x, y, this.width, this.height, patch.originX, patch.originY);
         }
     }
 
-    toBuffer(buffer: Uint8ClampedArray): void {
+    toBuffer(buffer: TypedArray): void {
         for (const patch of this.patches) {
             patch.pic.applyPatch(buffer, this.width, this.height, patch.originX, patch.originY);
         }

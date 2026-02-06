@@ -1,5 +1,5 @@
-import { DataTexture, FloatType, NearestFilter, RepeatWrapping, SRGBColorSpace } from "three";
-import type { DoomWad, Picture } from "../../doom";
+import { DataTexture, FloatType, NearestFilter, RepeatWrapping, ShortType, SRGBColorSpace, UnsignedShortType } from "three";
+import type { DoomWad, Picture, TextureAnimation } from "../../doom";
 
 
 export function findNearestPower2(n: number) {
@@ -40,7 +40,8 @@ export class TextureAtlas {
         tAtlas.needsUpdate = true;
         this._index = tAtlas;
 
-        const { tSize, packing, texture } = findPacking(this.textures, this.maxSize);
+        const pack = findPacking(this.textures, this.maxSize);
+        const { tSize, packing, texture } = pack;
         this._texture = texture;
 
         for (const tx of packing) {
@@ -51,6 +52,7 @@ export class TextureAtlas {
             this.index.image.data[2 + tx.idx * 4] = (tx.x + tx.pic.width) / tSize;
             this.index.image.data[3 + tx.idx * 4] = (tx.y + tx.pic.height) / tSize;
         }
+        return pack;
     }
 }
 
@@ -148,11 +150,14 @@ export class TransparentWindowTexture implements Picture {
     }
 }
 
+type AtlasAnimationInfo = { speed: number, frames: number[] };
 export class MapTextureAtlas {
     index: DataTexture;
+    animation: DataTexture;
     texture: DataTexture;
     private textures = new Map<string, [number, Picture]>();
     private flats = new Map<string, [number, Picture]>();
+    readonly animationInfo = new Map<number, AtlasAnimationInfo>()
 
     constructor(private wad: DoomWad, private atlas: TextureAtlas) {
         const data = this.atlas.insertTexture(new TransparentWindowTexture());
@@ -160,9 +165,28 @@ export class MapTextureAtlas {
     }
 
     commit() {
-        this.atlas.commit();
+        const pack = this.atlas.commit();
         this.index = this.atlas.index;
         this.texture = this.atlas.texture;
+
+        // create texture to store animation info for shader
+        const size = this.index.width;
+        const img = new Float32Array(size * size * 4).fill(0);
+        for (const tx of pack.packing) {
+            const animInfo = this.animationInfo.get(tx.idx);
+            if (!animInfo) {
+                continue;
+            }
+            img[0 + tx.idx * 4] = animInfo.speed;
+            img[1 + tx.idx * 4] = animInfo.frames.indexOf(tx.idx);
+            img[2 + tx.idx * 4] = animInfo.frames.length;
+            img[3 + tx.idx * 4] = 0; // unused
+        }
+        this.animation = new DataTexture(img, size, size);
+        this.animation.type = FloatType;
+        this.animation.wrapS = this.animation.wrapT = RepeatWrapping;
+        this.animation.magFilter = this.animation.minFilter = NearestFilter;
+        this.animation.needsUpdate = true;
     }
 
     // animations cause jank after map load as the different frames are loaded into the atlas.
@@ -175,16 +199,7 @@ export class MapTextureAtlas {
             data = this.atlas.insertTexture(pic);
             this.textures.set(name, data);
 
-            if (this.wad.animatedWalls.has(name)) {
-                // load the rest of the animation frames
-                for (const frame of this.wad.animatedWalls.get(name).frames) {
-                    if (frame === name) {
-                        continue;
-                    }
-                    const pic = this.wad.wallTextureData(frame);
-                    this.textures.set(frame, this.atlas.insertTexture(pic));
-                }
-            }
+            this.tryStoreAnimationData(name, data[0], 'wallTextureData', this.wad.animatedWalls.get(name));
 
             const toggle = this.wad.switchToggle(name);
             if (toggle) {
@@ -203,17 +218,28 @@ export class MapTextureAtlas {
             data = this.atlas.insertTexture(pic);
             this.flats.set(name, data);
 
-            if (this.wad.animatedFlats.has(name)) {
-                // load the rest of the animation frames
-                for (const frame of this.wad.animatedFlats.get(name).frames) {
-                    if (frame === name) {
-                        continue;
-                    }
-                    const pic = this.wad.flatTextureData(frame);
-                    this.flats.set(frame, this.atlas.insertTexture(pic));
-                }
-            }
+            this.tryStoreAnimationData(name, data[0], 'flatTextureData', this.wad.animatedFlats.get(name));
         }
         return data;
+    }
+
+    private tryStoreAnimationData(textureName: string, startIndex: number, fn: 'flatTextureData' | 'wallTextureData', animInfo: TextureAnimation) {
+        if (!animInfo) {
+            return;
+        }
+        // load the rest of the animation frames
+        const atlasAnim = { speed: animInfo.speed, frames: [startIndex] };
+        this.animationInfo.set(startIndex, atlasAnim);
+
+        for (const frame of animInfo.frames) {
+            if (frame === textureName) {
+                continue;
+            }
+            const pic = this.wad[fn](frame);
+            const tx = this.atlas.insertTexture(pic);
+            atlasAnim.frames.push(tx[0]);
+            this.animationInfo.set(tx[0], atlasAnim);
+            this.flats.set(frame, tx);
+        }
     }
 }

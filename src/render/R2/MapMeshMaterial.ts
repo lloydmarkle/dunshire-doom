@@ -8,12 +8,14 @@ export const inspectorAttributeName = 'doomInspect';
 const vertex_pars = `
 #include <common>
 
-attribute uint texN;
+attribute uvec2 texN;
 attribute ivec2 doomOffset;
-uniform float time;
-uniform uint tWidth;
+uniform float tic;
+uniform float tWidth;
 uniform sampler2D tAtlas;
-uniform uint tAtlasWidth;
+uniform float tAtlasWidth;
+uniform sampler2D tAnimAtlas;
+uniform float tAnimAtlasWidth;
 
 varying vec4 vUV;
 varying vec2 vDim;
@@ -22,12 +24,22 @@ varying vec2 vOff;
 const uv_vertex = `
 #include <uv_vertex>
 
-float invAtlasWidth = 1.0 / float(tAtlasWidth);
-vec2 atlasUV = vec2( mod(float(texN), float(tAtlasWidth)), floor(float(texN) * invAtlasWidth));
+float invAtlasWidth = 1.0 / tAtlasWidth;
+
+float txIndex = float(texN.x);
+if (texN.y > 0u) {
+    vec2 animUV = vec2( mod(float(texN.x), tAtlasWidth), floor(float(texN.x) * invAtlasWidth));
+    animUV = (animUV + .5) * invAtlasWidth;
+    vec4 animInfo = texture2D( tAnimAtlas, animUV );
+    float animOffset = floor(mod(tic / animInfo.x + float(animInfo.y), animInfo.z));
+    txIndex = float(texN.x) + animOffset;
+}
+
+vec2 atlasUV = vec2( mod(txIndex, tAtlasWidth), floor(txIndex * invAtlasWidth));
 atlasUV = (atlasUV + .5) * invAtlasWidth;
 vUV = texture2D( tAtlas, atlasUV );
 vDim = vec2( vUV.z - vUV.x, vUV.w - vUV.y );
-vOff = vec2( float(doomOffset.x), float(doomOffset.y) ) * time / float(tWidth);
+vOff = vec2( float(doomOffset.x), float(doomOffset.y) ) * tic / tWidth;
 `;
 
 const fragment_pars = `
@@ -56,14 +68,15 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
         dInspect: { value: [-1, -1] } as IUniform<[number, number]>,
         doomExtraLight: { value: 0 } as IUniform<number>,
         doomFakeContrast: { value: 0 } as IUniform<number>,
-        time: { value: 0 } as IUniform<number>,
+        tic: { value: 0 } as IUniform<number>,
         // map lighting info
         tLightMap: { value: lighting.lightMap },
-        tLightMapWidth: { value: lighting.lightMap.image.width },
+        tLightMapWidth: { value: lighting.lightMap.width },
         // texture meta data
-        tWidth: { value: ta.texture.image.width },
+        tWidth: { value: ta.texture.width },
         tAtlas: { value: ta.index },
-        tAtlasWidth: { value: ta.index.image.width },
+        tAtlasWidth: { value: ta.index.width },
+        tAnimAtlas: { value: ta.animation },
     });
 
     const material = new MeshStandardMaterial({

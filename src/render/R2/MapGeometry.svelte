@@ -54,9 +54,9 @@
             2;
     $: updateFakeContrast($fakeContrast);
 
-    const updateTime = (time: number) =>
-        $tranUniforms.time.value = $uniforms.time.value = time;
-    $: updateTime($interpolateMovement ? $tickN : $tick);
+    const updateTime = (tic: number) =>
+        $tranUniforms.tic.value = $uniforms.tic.value = tic;
+    $: updateTime($interpolateMovement ? $tick : $tickN);
 
     const updateExtraLight = (extraLight: number) =>
         $tranUniforms.doomExtraLight.value =

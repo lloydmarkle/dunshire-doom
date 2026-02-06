@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Color, CubeTexture, DataTexture, NearestFilter, SRGBColorSpace } from "three";
+    import { Color, CubeTexture, DataTexture, NearestFilter, SRGBColorSpace, type TypedArray } from "three";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import { T, useThrelte } from "@threlte/core";
     import { randInt } from "three/src/math/MathUtils";
@@ -37,7 +37,7 @@
     const skyAvgColor = new Color(0, 0, 0);
 
     let skyWalls: DataTexture[] = [];
-    let buff: Uint8ClampedArray;
+    let buff: TypedArray;
     let c = 0;
     const widthRatio = sky.userData.width / width;
     for (let k = 0; k < widthRatio; k++) {

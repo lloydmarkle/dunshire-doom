@@ -16,7 +16,7 @@ const doom2SoundLumps = Object.keys(SoundIndex).slice(Object.keys(SoundIndex).le
     .filter(snd => snd !== 'sfx_None' && snd !== 'sfx_chgun')
     .map(snd => 'DS' + snd.toUpperCase().split('_')[1])
 
-type TextureAnimation = { frames: string[], speed: number };
+export type TextureAnimation = { frames: string[], speed: number };
 type WallTexture = { lump: Texture, pnames: string[] };
 export class DoomWad {
     private spriteFrameTable = new Map<string, SpriteFrame[][]>();
