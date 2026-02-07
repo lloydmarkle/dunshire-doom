@@ -1,6 +1,8 @@
 import { ActionIndex, SpriteNames, StateIndex, states, type State } from "./doom-things-info";
+import type { MapObject } from "./map-object";
 import type { RNG } from "./math";
 import { store } from "./store";
+import { stateChangeAction } from "./things";
 
 const FF_FULLBRIGHT = 0x8000;
 const FF_FRAMEMASK = 0x7fff;
@@ -8,10 +10,60 @@ const FF_FRAMEMASK = 0x7fff;
 export interface Sprite {
     name: string;
     frame: number;
-    state: State;
+    spriteIndex: number;
     fullbright: boolean;
     ticks: number;
 }
+
+const stateSprite = (() => {
+    const _sprite = { name: '', frame: 0, fullbright: false, ticks: 0, spriteIndex: 0 };
+    // TODO: the sp parameter is only needed for compatibility with r1. While it doesn't really
+    // impact performance, it would be nice to remove it for simplicity.
+    return (state: State, tics: number, sp?: Sprite) => {
+        sp = sp ?? _sprite;
+        sp.ticks = tics;
+        sp.name = SpriteNames[state.sprite];
+        sp.frame = state.frame & FF_FRAMEMASK;
+        sp.spriteIndex = state.spriteIndex;
+        sp.fullbright = (state.frame & FF_FULLBRIGHT) !== 0;
+        return sp;
+    };
+})();
+
+export const spriteStateMachine = (() => {
+    const tick = (mo: MapObject) => {
+        if (mo.stateIndex === StateIndex.S_NULL || mo.stateTics < 0) {
+            return;
+        }
+        mo.stateTics -= 1;
+        if (mo.stateTics === 0) {
+            set(mo, states[mo.stateIndex].nextState);
+        }
+    };
+
+    const set = (mo: MapObject, stateIndex: StateIndex, ticOffset = 0) => {
+        let state: State;
+        do {
+            mo.stateIndex = stateIndex;
+            if (stateIndex === StateIndex.S_NULL) {
+                mo.map.destroy(mo);
+                return;
+            }
+            state = states[stateIndex];
+            mo.stateTics = state.tics;
+            stateChangeAction(state.action, mo);
+            stateIndex = state.nextState;
+        } while (!state.tics)
+
+        mo.stateTics = Math.max(0, mo.stateTics + ticOffset);
+        mo.map.events.emit('mobj-updated-sprite', mo, stateSprite(state, mo.stateTics));
+    };
+
+    const sprite = (mo: MapObject, sprite?: Sprite) =>
+        stateSprite(states[mo.stateIndex], mo.stateTics, sprite);
+
+    return { tick, sprite, set }
+})();
 
 export class SpriteStateMachine {
     private ticks: number;
@@ -60,10 +112,10 @@ export class SpriteStateMachine {
     updateSprite() {
         let sprite = this.sprite.val;
         if (!sprite) {
-            sprite = { name: '', frame: 0, fullbright: false, ticks: 0, state: this.state };
+            sprite = { name: '', frame: 0, fullbright: false, ticks: 0, spriteIndex: 0 };
             this.sprite.set(sprite);
         }
-        sprite.state = this.state;
+        sprite.spriteIndex = this.state.spriteIndex;
         sprite.ticks = this.ticks;
         sprite.name = SpriteNames[this.state.sprite];
         sprite.frame = this.state.frame & FF_FRAMEMASK;

@@ -63,5 +63,5 @@ export const stateChangeAction = (action: ActionIndex, mobj: MapObject) => {
         mobj.map.game.settings.monsterAI.val === 'disabled' ? noActions :
         monsterAiActions;
     const fn = actions[action] ?? aiActions[action];
-    return fn?.(mobj);
+    fn?.(mobj);
 };

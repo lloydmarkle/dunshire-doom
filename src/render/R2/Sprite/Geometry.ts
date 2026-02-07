@@ -1,5 +1,5 @@
 import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
-import { HALF_PI, MapObjectIndex, MFFlags, PlayerMapObject, type MapObject, type Sector, type Sprite  } from "../../../doom";
+import { HALF_PI, MapObjectIndex, MFFlags, PlayerMapObject, spriteStateMachine, type MapObject, type Sector, type Sprite  } from "../../../doom";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
 import type { SpriteMaterial } from "./Materials";
@@ -53,7 +53,7 @@ class RenderSprite {
     }
 
     updateSprite(sprite: Sprite) {
-        this.mesh.geometry.attributes.texN.array[this.n * 2] = sprite.state.spriteIndex;
+        this.mesh.geometry.attributes.texN.array[this.n * 2] = sprite.spriteIndex;
 
         // rendering flags
         this.mesh.geometry.attributes.texN.array[this.n * 2 + 1] = (
@@ -178,7 +178,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         mesh.count = Math.max(n + 1, mesh.count);
 
         const rInfo = new RenderSprite(idx, mo, mesh, n, env);
-        rInfo.updateSprite(mo.sprite.val);
+        rInfo.updateSprite(spriteStateMachine.sprite(mo));
         rInfo.updatePosition();
         rmobjs.set(mo.id, rInfo);
         return rInfo;

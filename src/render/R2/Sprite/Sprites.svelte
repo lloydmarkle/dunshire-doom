@@ -1,12 +1,12 @@
 <script lang="ts">
-    import { T, useStage, useTask, useThrelte } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import type { SpriteSheet } from "./SpriteAtlas";
     import { createSpriteMaterialTransparent, createSpriteMaterial } from "./Materials";
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
     import { onDestroy, onMount } from "svelte";
-    import { MapRuntime, MFFlags, PlayerMapObject, tickTime, type MapObject as MO, type Sprite } from "../../../doom";
+    import { spriteStateMachine, MapRuntime, MFFlags, PlayerMapObject, tickTime, type MapObject as MO, type Sprite } from "../../../doom";
     import type { MapLighting } from "../MapLighting";
 
     export let map: MapRuntime;
@@ -155,7 +155,7 @@
 
         if (mo instanceof PlayerMapObject) {
             // weapon sprites are also updated this way so we have to be careful
-            sprite = mo.sprite.val;
+            sprite = spriteStateMachine.sprite(map.player);
             // make sure weapon sprites update
             mo.weapon.val.sprite.set(map.player.weapon.val.sprite.val);
             mo.weapon.val.flashSprite.set(map.player.weapon.val.flashSprite.val);

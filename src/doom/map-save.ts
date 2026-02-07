@@ -3,7 +3,7 @@ import type { LineDef, Sector } from "./map-data";
 import { MapObject, stopVelocity } from "./map-object";
 import type { MapRuntime } from "./map-runtime";
 import { tickTime } from "./math";
-import type { SpriteStateMachine } from "./sprite";
+import { spriteStateMachine, type SpriteStateMachine } from "./sprite";
 import { inventoryWeapon, thingSpec } from "./things";
 
 export type MapExport = ReturnType<typeof exportMap>;
@@ -19,15 +19,14 @@ export const exportMap = (map: MapRuntime) => {
         direction: mobj.direction,
         position: mobj.position,
         ...(mobj.velocity.lengthSq() > stopVelocity && { velocity: mobj.velocity }),
-        // These values come directly from type so only save them if they are not default values
+        // Many values come directly from type so only save them if they are not default values
         ...(mobj.health.val !== (mobj as any).spec.mo.spawnhealth && { health: mobj.health.val }),
         ...(mobj.info.radius !== (mobj as any).spec.mo.radius && { radius: mobj.info.radius }),
         ...(mobj.info.height !== (mobj as any).spec.mo.height && { height: mobj.info.height }),
         ...(mobj.info.flags !== (mobj as any).spec.mo.flags && { flags: mobj.info.flags }),
-        // TODO: sprite and tics... hmmm, no good interface for export or import
-        state: (mobj as any)._state.stateIndex,
-        ...((mobj as any)._state.ticks !== -1 && { stateTics: (mobj as any)._state.ticks }),
-        // ai (only save these values if they are populated)
+        ...(mobj.stateIndex !== mobj.info.spawnstate && { state: mobj.stateIndex }),
+        ...{ stateTics: mobj.stateTics },
+        // ai
         ...(mobj.movedir > -1 && { movedir: mobj.movedir }),
         ...(mobj.movecount && { movecount: mobj.movecount }),
         ...(mobj.reactiontime && { reactiontime: mobj.reactiontime }),
@@ -119,9 +118,7 @@ export const exportMap = (map: MapRuntime) => {
 export const importMap = (map: MapRuntime, data: MapExport) => {
     // TODO: sprite and tics... hmmm, no good interface for export or import
     const restoreSprite = (ssm: SpriteStateMachine, state: StateIndex, tics: number) => {
-        (ssm as any).stateIndex = state;
         (ssm as any).state = states[state];
-        (ssm as any).ticks = tics;
         if (state) {
             ssm.updateSprite();
         }
@@ -188,7 +185,8 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
         if ('reactiontime' in thing) mo.reactiontime = thing.reactiontime;
         if ('chaseThreshold' in thing) mo.chaseThreshold = thing.chaseThreshold;
         if ('lastPlayerCheck' in thing) mo.lastPlayerCheck = thing.lastPlayerCheck;
-        restoreSprite((mo as any)._state, thing.state, thing.stateTics);
+        mo.stateIndex = thing.state ?? mo.info.spawnstate;
+        if ('stateTics' in thing) mo.stateTics = thing.stateTics;
     }
     mobjs.reverse();
     // destroy non-player mobjs becasue the loop below will add them back. Note also remove player to make sure it is added

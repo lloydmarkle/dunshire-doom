@@ -1,11 +1,11 @@
 import { store, type Store } from "./store";
-import { thingSpec, stateChangeAction } from "./things";
+import { thingSpec } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, signedLineDistance, type Vertex, randInt, tickTime, ticksPerSecond, sweepAABBLine } from "./math";
 import { hittableThing, type Sector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block, baseMoveTrace, type BlockRegion, zeroVec } from "./map-data";
 import { type GameTime } from "./game";
-import { SpriteStateMachine } from "./sprite";
+import { spriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon, ThingSpec } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
@@ -345,10 +345,6 @@ export class MapObject {
     sectorMap = new Map<Sector, number>();
     private readonly mover: Mover;
 
-    protected _state = new SpriteStateMachine(
-        sprite => this.map.events.emit('mobj-updated-sprite', this, sprite),
-        action => stateChangeAction(action, this),
-        () => this.map.destroy(this));
     protected _zFloor = -Infinity;
     protected _zCeil = Infinity;
     get zCeil() { return this._zCeil; }
@@ -366,6 +362,8 @@ export class MapObject {
     chaseTarget: MapObject;
     tracerTarget: MapObject;
     lastPlayerCheck = 0;
+    stateIndex = StateIndex.S_NULL;
+    stateTics = 0;
 
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
     readonly sectorChanged: (sector: Sector) => void;
@@ -378,7 +376,6 @@ export class MapObject {
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
     readonly position: Vector3;
-    readonly sprite = this._state.sprite;
     readonly velocity = new Vector3();
     readonly renderShadow = store(false);
     // misc data set and used by the renderer
@@ -493,9 +490,11 @@ export class MapObject {
 
     initializeStateMachine() {
         // set state last because it may trigger other actions (like find player or play a sound)
-        this._state.setState(this.info.spawnstate);
+        spriteStateMachine.set(this, this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
-        this._state.randomizeTicks(this.map.game.rng);
+        if (this.stateTics > 0) {
+            this.stateTics = this.map.game.rng.int(1, this.stateTics);
+        }
     }
 
     dispose() {
@@ -505,8 +504,8 @@ export class MapObject {
         (this as any).applyPositionChanged = () => {};
     }
 
-    get spriteTime() { return 1 / states[this._state.index].tics; }
-    get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
+    get spriteTime() { return 1 / states[this.stateIndex].tics; }
+    get spriteCompletion() { return 1 - this.stateTics * this.spriteTime; }
 
     tick() {
         this._isMoving = this.velocity.lengthSq() > stopVelocity;
@@ -516,7 +515,7 @@ export class MapObject {
         this.updatePosition();
         this.applyGravity();
 
-        this._state.tick();
+        spriteStateMachine.tick(this);
         // TODO: update movecount (+other nightmare-only handling)
 
         if (this._positionChanged) {
@@ -576,7 +575,7 @@ export class MapObject {
         if (setChaseTarget) {
             this.chaseTarget = source;
             this.chaseThreshold = 100;
-            if (this._state.index === this.info.spawnstate && this.info.seestate !== StateIndex.S_NULL) {
+            if (this.stateIndex === this.info.spawnstate && this.info.seestate !== StateIndex.S_NULL) {
                 this.setState(this.info.seestate);
             }
         }
@@ -653,7 +652,7 @@ export class MapObject {
     }
 
     setState(stateIndex: number, tickOffset: number = 0) {
-        this._state.setState(stateIndex, tickOffset);
+        spriteStateMachine.set(this, stateIndex, tickOffset);
     }
 
     pickup(mobj: MapObject) {
@@ -858,9 +857,9 @@ export class PlayerMapObject extends MapObject {
         }
 
         const vel = this.velocity.length();
-        if (this._state.index === StateIndex.S_PLAY && vel > .5) {
+        if (this.stateIndex === StateIndex.S_PLAY && vel > .5) {
             this.setState(StateIndex.S_PLAY_RUN1);
-        } else if (this._state.index === StateIndex.S_PLAY_RUN1 && vel < .2) {
+        } else if (this.stateIndex === StateIndex.S_PLAY_RUN1 && vel < .2) {
             this.setState(StateIndex.S_PLAY);
         }
     }

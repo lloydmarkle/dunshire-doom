@@ -414,7 +414,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         shootMissile(player, MapObjectIndex.MT_BFG);
     },
 
-    // This isn't really a "weapon" thing (the BFG spray comes frmm the missile) but because the trace is so
+    // This isn't really a "weapon" thing (the BFG spray comes from the missile) but because the trace is so
     // similar to firing a weapon, I'm leaving it here for now.
     [ActionIndex.A_BFGSpray]: (mobj, weapon) => {
         // shooter is the chaseTarget who fired this missile
