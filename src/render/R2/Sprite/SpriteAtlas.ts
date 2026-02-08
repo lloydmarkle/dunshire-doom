@@ -87,8 +87,8 @@ export class SpriteSheet {
 
         // assign State.spriteIndex:
         for (const state of states) {
-            if (spriteFrames[SpriteNames[state.sprite]]) {
-                state.spriteIndex = spriteFrames[SpriteNames[state.sprite]][state.frame & 0x7fff];
+            if (spriteFrames[state.spriteName]) {
+                state.spriteIndex = spriteFrames[state.spriteName][state.frame & 0x7fff];
             }
         }
     }

@@ -1,4 +1,4 @@
-import { ActionIndex, SpriteNames, StateIndex, states, type State } from "./doom-things-info";
+import { ActionIndex, StateIndex, states, type State } from "./doom-things-info";
 import type { MapObject } from "./map-object";
 import type { RNG } from "./math";
 import { store } from "./store";
@@ -22,7 +22,7 @@ const stateSprite = (() => {
     return (state: State, tics: number, sp?: Sprite) => {
         sp = sp ?? _sprite;
         sp.ticks = tics;
-        sp.name = SpriteNames[state.sprite];
+        sp.name = state.spriteName;
         sp.frame = state.frame & FF_FRAMEMASK;
         sp.spriteIndex = state.spriteIndex;
         sp.fullbright = (state.frame & FF_FULLBRIGHT) !== 0;
@@ -117,7 +117,7 @@ export class SpriteStateMachine {
         }
         sprite.spriteIndex = this.state.spriteIndex;
         sprite.ticks = this.ticks;
-        sprite.name = SpriteNames[this.state.sprite];
+        sprite.name = this.state.spriteName;
         sprite.frame = this.state.frame & FF_FRAMEMASK;
         sprite.fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
         this.notify(sprite);

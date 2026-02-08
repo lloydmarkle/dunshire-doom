@@ -59,7 +59,7 @@
     function editorThing(idx: any) {
         const value = thingSpec(idx);
         const state = states[value.mo.spawnstate];
-        const sprite = SpriteNames[state.sprite];
+        const sprite = state.spriteName;
         const frames = (sprite && wad.spriteFrames(sprite)) ?? [];
         const text = `${value.description} (${value.type})`;
         if (frames.length === 0) {
