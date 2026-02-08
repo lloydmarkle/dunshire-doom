@@ -96,7 +96,7 @@ export const exportMap = (map: MapRuntime) => {
         deltaViewHeight: (map.player as any).deltaViewHeight,
         stats: map.player.stats,
         extraLight: map.player.extraLight.val,
-        weaponPosition: map.player.weapon.val.position.val,
+        weaponPosition: map.player.weapon.val.position,
         weaponState: map.player.weapon.val.stateSM.stateIndex,
         weaponTic: map.player.weapon.val.stateSM.stateTics,
         weaponFlashState: map.player.weapon.val.flashSM.stateIndex,
@@ -140,7 +140,6 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
     map.player.weapon.val.stateSM.stateTics = data.player.weaponTic;
     map.player.weapon.val.flashSM.stateIndex = data.player.weaponFlashState;
     map.player.weapon.val.flashSM.stateTics = data.player.weaponFlashTic;
-    map.player.weapon.val.position.update(vec => vec.set(data.player.weaponPosition.x, data.player.weaponPosition.y));
 
     // restore mobjs
     let mobjs: MapObject[] = [];

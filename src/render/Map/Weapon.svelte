@@ -2,7 +2,7 @@
     import { T, useThrelte } from "@threlte/core";
     import { createSprite, weaponTop, type PlayerMapObject, type Sprite } from "../../doom";
     import WeaponSprite from "../Components/WeaponSprite.svelte";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import { monitorMapObject } from "./SvelteBridge";
     import { onMount } from "svelte";
 
@@ -11,8 +11,14 @@
         yScale: number;
     }
     let { player, yScale }: Props = $props();
+
+    const { settings } = useAppContext();
+    const { cameraMode, interpolateMovement } = settings;
     const { weapon } = $derived(player);
-    let { position } = $derived($weapon);
+    const tick = useDoom().game.time.tick;
+    let partialTic = $derived($interpolateMovement ? $tick - Math.trunc($tick) - 1 : 0);
+    let position = $state({ x: 0, y : 0 });
+    let vel = $state({ x: 0, y : 0 });
 
     const mapEvents = useDoomMap().map.events;
     let sprite = $state<Sprite>(createSprite());
@@ -20,19 +26,24 @@
     onMount(mapEvents.auto('weapon-sprite', (weapon, flash) => {
         sprite = weapon;
         flashSprite = flash;
+        vel.x = $weapon.position.x - position.x;
+        vel.y = $weapon.position.y - position.y;
+        position.x = $weapon.position.x;
+        position.y = $weapon.position.y;
     }));
 
     let sector = $derived(player.sector);
     onMount(() => monitorMapObject(player.map, player, mo => sector = mo.sector));
 
     const { size } = useThrelte();
-    const cameraMode = useDoom().game.settings.cameraMode;
     let scale = $derived($cameraMode === '1p' ? Math.max(2.5, $size.height / 200) : 2);
     let screenPositionX = $derived($cameraMode === '1p'
-        ? $position.x - (160 * scale) // center screen
-        : $position.x - $size.width * .5); // left side
+        ? (partialTic * vel.x + position.x) - (160 * scale) // center screen
+        : (partialTic * vel.x + position.x) - $size.width * .5); // left side
     let screenPositionY = $derived(
-        scale * ($position.y + weaponTop) +
+        // NOTE: use partialTick-1 when weapon is lowering to avoid the big jump on first A_Lower
+        // ((vel.y < 0 ? partialTic - 1 : partialTic) * vel.y + position.y + weaponTop) * scale +
+        (partialTic * vel.y + position.y + weaponTop) * scale +
         // Why 135?? *shrug* it looks about right
         -$size.height * .5 + (135 * scale));
 </script>

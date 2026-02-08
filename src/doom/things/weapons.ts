@@ -13,7 +13,7 @@ import { propagateSound } from "./monsters";
 import type { MapRuntime } from "../map-runtime";
 
 export const weaponTop = 32;
-const weaponBottom = 32 - 128;
+export const weaponBottom = 32 - 128;
 
 type WeaponName =
     'chainsaw' | 'fist' | 'pistol' | 'super shotgun' | 'shotgun' | 'chaingun' | 'rocket launcher' | 'plasma rifle' | 'bfg';
@@ -54,7 +54,7 @@ export class PlayerWeapon {
     private player: PlayerMapObject;
     flashSM: ReturnType<typeof weaponStateMachine>;
     stateSM: ReturnType<typeof weaponStateMachine>;
-    readonly position = store<Vector2>(new Vector2(0, weaponBottom));
+    readonly position = new Vector2(0, weaponBottom);
 
     constructor(
         readonly name: WeaponName,
@@ -78,7 +78,6 @@ export class PlayerWeapon {
         this.player.refire = false;
         this.stateSM = weaponStateMachine(this.player, this);
         this.flashSM = weaponStateMachine(this.player, this);
-
         this.stateSM.set(this.upState);
 
         if (this.name === 'chainsaw') {
@@ -246,30 +245,24 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         weapon.flash();
     },
     [ActionIndex.A_Lower]: (player, weapon) => {
-        weapon.position.update(pos => {
-            if (player.isDead) {
-                pos.y = weaponBottom;
-                return pos;
-            }
+        if (player.isDead) {
+            weapon.position.y = weaponBottom;
+            return;
+        }
 
-            pos.y -= 6;
-            if (pos.y < weaponBottom) {
-                pos.y = weaponBottom;
-                player.weapon.set(player.nextWeapon.fn());
-                player.nextWeapon = null;
-            }
-            return pos;
-        });
+        weapon.position.y -= 6;
+        if (weapon.position.y < weaponBottom) {
+            weapon.position.y = weaponBottom;
+            player.weapon.set(player.nextWeapon.fn());
+            player.nextWeapon = null;
+        }
     },
     [ActionIndex.A_Raise]: (player, weapon) => {
-        weapon.position.update(pos => {
-            pos.y += 6;
-            if (pos.y > weaponTop) {
-                pos.y = weaponTop;
-                weapon.ready();
-            }
-            return pos;
-        });
+        weapon.position.y += 6;
+        if (weapon.position.y > weaponTop) {
+            weapon.position.y = weaponTop;
+            weapon.ready();
+        }
     },
     [ActionIndex.A_WeaponReady]: (player, weapon) => {
         if (player.nextWeapon) {
@@ -287,12 +280,9 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         }
 
         // bob the weapon based on movement speed
-        weapon.position.update(pos => {
-            let angle = (weaponBobTime * player.map.game.time.elapsed) * HALF_PI;
-            pos.x = Math.cos(angle) * player.bob;
-            pos.y = weaponTop - (Math.cos(angle * 2 - Math.PI) + 1) * .5 * player.bob;
-            return pos;
-        });
+        let angle = (weaponBobTime * player.map.game.time.elapsed) * HALF_PI;
+        weapon.position.x = Math.cos(angle) * player.bob;
+        weapon.position.y = weaponTop - (Math.cos(angle * 2 - Math.PI) + 1) * .5 * player.bob;
     },
     [ActionIndex.A_ReFire]: (player, weapon) => {
         if (player.attacking) {
