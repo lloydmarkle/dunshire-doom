@@ -1,7 +1,5 @@
-import { ActionIndex, StateIndex, states, type State } from "./doom-things-info";
+import { StateIndex, states, type State } from "./doom-things-info";
 import { MapObject } from "./map-object";
-import type { RNG } from "./math";
-import { store } from "./store";
 import { stateChangeAction } from "./things";
 
 const FF_FULLBRIGHT = 0x8000;
@@ -57,10 +55,11 @@ export const mobjStateMachine = stateMachine<MapObject>(
                 return;
             }
             state = states[stateIndex];
+            mo.stateTics = state.tics;
             stateChangeAction(state.action, mo);
             stateIndex = state.nextState;
-        } while (!state.tics)
+        } while (!mo.stateTics)
 
-        mo.stateTics = Math.max(0, state.tics + ticOffset);
+        mo.stateTics = Math.max(0, mo.stateTics + ticOffset);
         mo.map.events.emit('mobj-updated-sprite', mo, stateSprite(state, mo.stateTics));
     });

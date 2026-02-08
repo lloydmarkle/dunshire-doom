@@ -33,10 +33,11 @@ const weaponStateMachine = (player: PlayerMapObject, weapon: PlayerWeapon) => {
                 return;
             }
             state = states[stateIndex];
+            ws.stateTics = state.tics;
             weaponActions[state.action]?.(player, weapon);
             stateIndex = state.nextState;
-        } while (!state.tics)
-        ws.stateTics = Math.max(0, state.tics + ticOffset);
+        } while (!ws.stateTics)
+        ws.stateTics = Math.max(0, ws.stateTics + ticOffset);
     });
 
     const sprite = createSprite();
