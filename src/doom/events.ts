@@ -4,6 +4,10 @@ type Listener<T extends unknown[] = any> = (...args: T) => void;
 export class EventEmitter<T extends Record<string, unknown[]>> {
     private listeners: { [key in keyof T]?: Listener<any>[] } = {}
 
+    copyFrom(emitter: EventEmitter<T>) {
+        this.listeners = { ...emitter.listeners };
+    }
+
     removeAllListeners() {
         this.listeners = {};
     }

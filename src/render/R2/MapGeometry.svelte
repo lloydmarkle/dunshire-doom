@@ -18,13 +18,14 @@
 
     const { editor, settings } = useAppContext();
     const { fakeContrast, playerLight, useTextures } = settings;
-    const { renderSectors } = useDoomMap();
+    const { renderSectors, dataCache } = useDoomMap();
     const { tickN, tick } = map.game.time;
 
     console.time('map-geo')
-    const ta = new MapTextureAtlas(map.game.wad, new TextureAtlas(threlte.renderer.capabilities.maxTextureSize));
-    const { geometry, skyGeometry, translucentGeometry, dispose } = buildMapGeometry(ta, map, renderSectors);
-    onDestroy(dispose);
+    const ta = dataCache('textureAtlas', () => new MapTextureAtlas(map.game.wad, new TextureAtlas(threlte.renderer.capabilities.maxTextureSize)));
+    const { geometry, skyGeometry, translucentGeometry } = dataCache('mapGeometry',
+        () => buildMapGeometry(ta, map, renderSectors),
+        geom => geom.dispose());
     console.timeEnd('map-geo')
 
     const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lighting);

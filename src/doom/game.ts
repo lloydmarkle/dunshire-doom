@@ -165,8 +165,12 @@ export class Game implements SoundEmitter {
         }
 
         try {
-            const mapData = new MapData(lumps);
-            this.map.set(new MapRuntime(mapName, mapData, this));
+            if (this.map.val && mapName === this.map.val.name) {
+                this.map.set(MapRuntime.transfer(this.map.val));
+            } else {
+                const mapData = new MapData(lumps);
+                this.map.set(new MapRuntime(mapName, mapData, this));
+            }
         } catch (exception) {
             throwDoomError({
                 code: 1,

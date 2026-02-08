@@ -207,6 +207,16 @@ export class MapRuntime {
         this.input = new GameInput(this, game.input);
     }
 
+    static transfer(currentMap: MapRuntime) {
+        // CAUTION: the order of each step in thi method can be sensitive
+        currentMap.objs.forEach(o => currentMap.destroy(o));
+        currentMap.initialMapState.restore();
+        const newMap = new MapRuntime(currentMap.name, currentMap.data, currentMap.game);
+        // HACK! There are sector/linedef update events we want to keep
+        (newMap as any).events = currentMap.events
+        return newMap;
+    }
+
     dispose() {
         this.disposables.forEach(sub => sub());
         this.disposables.length = 0;
@@ -428,7 +438,7 @@ export class MapRuntime {
             } else if (ld.special === 255) {
                 ld.scrollSpeed = { dx: ld.right.xOffset.initial, dy: ld.right.yOffset.initial };
             } else if (ld.special === 1024) {
-                for (const line of this.linedefsByTag.get(ld.tag)) {
+                for (const line of this.linedefsByTag.get(ld.tag) ?? []) {
                     line.scrollSpeed = { dx: ld.right.xOffset.initial / 8, dy: ld.right.yOffset.initial / 8 };
                 }
             } else if (ld.special >= 250 && ld.special <= 253) {
@@ -441,7 +451,7 @@ export class MapRuntime {
                 const rate = 1.0 / (ld.special === 254 ? 32 : 8);
                 const { dx, dy, length } = linedefSlope(ld);
                 const angle = Math.atan2(dy, dx);
-                for (const line of this.linedefsByTag.get(ld.tag)) {
+                for (const line of this.linedefsByTag.get(ld.tag) ?? []) {
                     if (line === ld) {
                         continue;
                     }

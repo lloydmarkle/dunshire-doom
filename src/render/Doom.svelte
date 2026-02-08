@@ -1,13 +1,13 @@
 <script lang="ts">
     import { type Game, importMap, randInt, randomNorm, store } from "../doom";
-    import { onMount, setContext, tick, type Snippet } from "svelte";
+    import { onDestroy, onMount, setContext, tick, type Snippet } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
     import { Canvas } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
     import SvgMapRoot from "./Svg/Root.svelte";
-    import MapContext from "./Map/Context.svelte";
+    import MapContext, { clearCache } from "./Map/Context.svelte";
     import Intermission from "./Intermission/Intermission.svelte";
     import SoundPlayer from "./SoundPlayer.svelte";
     import WipeContainer from "./Components/WipeContainer.svelte";
@@ -30,6 +30,10 @@
     setContext("doom-game-context", doomContext);
     const { settings, pointerLock, musicTrack, error, restoreGame } = useAppContext();
     const { cameraMode, showPlayerInfo, timescale, fpsLimit, simulate486 } = settings;
+
+    // clean up cached map data
+    onDestroy(clearCache);
+    onDestroy(() => $map?.dispose());
 
     let screenName = $derived(
         $restoreGame ? 'restore' :

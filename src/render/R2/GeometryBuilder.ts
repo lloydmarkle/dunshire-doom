@@ -455,9 +455,6 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
 
     const mapBuilder = mapGeometryBuilder(textureAtlas);
 
-    // We're going to subscribe to a whole bunch of property change events so we better keep track of
-    // the unsubscribes so we don't leak memory in HMR situation (or when reloading a map)
-    let disposables: (() => void)[] = [];
     let linedefUpdaters = new Map<number, MapUpdater>();
     const sectorZChanges = new Map<number, MapUpdater[]>();
     const sectorFlatChanges = new Map<number, MapUpdater[]>();
@@ -565,6 +562,10 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
             appendUpdater(sectorFlatChanges, controlSec, changer);
         }
     }
+
+    // We subscribe to a property change events so keep track of unsubscribes
+    // so we don't leak memory in HMR situation (or when reloading a map)
+    let disposables: (() => void)[] = [];
 
     const updateLinedefTexture = (line: LineDef) => linedefUpdaters.get(line.num)?.(mapUpdater);
     mapRuntime.events.on('wall-texture', updateLinedefTexture);

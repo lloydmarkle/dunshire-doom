@@ -6,6 +6,7 @@ import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
 import { createFullscreenControls } from './Controls/FullscreenControls';
 import { menuSetting } from './Menu/menu';
+import { type MapDataCache } from './Map/Context.svelte'
 
 export const createDefaultSettings = () => {
     const gameSettings: GameSettings = {
@@ -215,6 +216,7 @@ export const useAppContext = (): ReturnType<typeof createAppContext> => getConte
 export const useDoom = (): ReturnType<typeof createGameContext> => getContext('doom-game-context');
 export const useDoomMap = (): {
     map: MapRuntime,
+    dataCache: MapDataCache,
     renderSectors: RenderSector[],
     skyColor: Color,
     camera: { position: Store<Vector3>, angle: Store<Euler> },

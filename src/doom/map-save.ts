@@ -193,27 +193,8 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
         map.events.emit('mobj-added', mobjs[i]);
     }
 
-    // restore map sectors by using initial values then applying saved diffs
-    for (let i = 0; i < map.initialMapState.sectors.length; i++) {
-        const ini = map.initialMapState.sectors[i];
-        const sec = map.data.sectors[i];
-        sec.specialData = null; // clear as it will be updated during restore later
-        sec.type = ini.type;
-        if (ini.zCeil !== sec.zCeil || ini.zFloor !== sec.zFloor) {
-            sec.zCeil = ini.zCeil;
-            sec.zFloor = ini.zFloor;
-            map.events.emit('sector-z', sec);
-        }
-        if (ini.ceilFlat !== sec.ceilFlat || ini.floorFlat !== sec.floorFlat) {
-            sec.ceilFlat = ini.ceilFlat;
-            sec.floorFlat = ini.floorFlat;
-            map.events.emit('sector-flat', sec);
-        }
-        if (ini.light !== sec.light) {
-            sec.light = ini.light;
-            map.events.emit('sector-light', sec);
-        }
-    }
+    // restore map sectors and linedefs then apply saved diffs
+    map.initialMapState.restore();
     for (let sec of data.map.sectors) {
         const dest = map.data.sectors[sec.num];
         if ('type' in sec) dest.type = sec.type;
@@ -231,18 +212,6 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
             dest.zCeil = sec.zCeil ?? dest.zCeil;
             dest.zFloor = sec.zFloor ?? dest.zFloor;
             map.events.emit('sector-z', dest);
-        }
-    }
-    // now handle linedefs the same way
-    for (let i = 0; i < map.initialMapState.linedefs.length; i++) {
-        const ini = map.initialMapState.linedefs[i];
-        const ld = map.data.linedefs[i];
-        if (ini.lower !== ld.right.lower || ini.middle !== ld.right.middle || ini.upper !== ld.right.upper || ini.special !== ld.special) {
-            ld.right.lower = ini.lower ?? ld.right.lower;
-            ld.right.middle = ini.middle ?? ld.right.middle;
-            ld.right.upper = ini.upper ?? ld.right.upper;
-            ld.special = ini.special ?? ld.special;
-            map.events.emit('wall-texture', ld);
         }
     }
     for (let ld of data.map.linedefs) {
@@ -287,5 +256,42 @@ export const captureInitialMapState = (map: MapRuntime) => {
         middle: ld.right.middle,
         upper: ld.right.upper,
     }));
-    return { sectors, linedefs, };
+
+    const restore = () => {
+        for (let i = 0; i < sectors.length; i++) {
+            const ini = sectors[i];
+            const sec = map.data.sectors[i];
+            sec.soundTarget = null;
+            sec.specialData = null;
+            sec.type = ini.type;
+            if (ini.zCeil !== sec.zCeil || ini.zFloor !== sec.zFloor) {
+                sec.zCeil = ini.zCeil;
+                sec.zFloor = ini.zFloor;
+                map.events.emit('sector-z', sec);
+            }
+            if (ini.ceilFlat !== sec.ceilFlat || ini.floorFlat !== sec.floorFlat) {
+                sec.ceilFlat = ini.ceilFlat;
+                sec.floorFlat = ini.floorFlat;
+                map.events.emit('sector-flat', sec);
+            }
+            if (ini.light !== sec.light) {
+                sec.light = ini.light;
+                map.events.emit('sector-light', sec);
+            }
+        }
+
+        for (let i = 0; i < linedefs.length; i++) {
+            const ini = linedefs[i];
+            const ld = map.data.linedefs[i];
+            if (ini.lower !== ld.right.lower || ini.middle !== ld.right.middle || ini.upper !== ld.right.upper || ini.special !== ld.special) {
+                ld.right.lower = ini.lower ?? ld.right.lower;
+                ld.right.middle = ini.middle ?? ld.right.middle;
+                ld.right.upper = ini.upper ?? ld.right.upper;
+                ld.special = ini.special ?? ld.special;
+                map.events.emit('wall-texture', ld);
+            }
+        }
+    }
+
+    return { sectors, linedefs, restore };
 }
