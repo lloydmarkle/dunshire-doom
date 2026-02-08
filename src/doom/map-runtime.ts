@@ -21,6 +21,8 @@ type MapEvents = {
     ['mobj-removed']: [MapObject];
     ['mobj-updated-sprite']: [MapObject, Sprite];
     ['mobj-updated-position']: [MapObject];
+    // player weapon (sprite and flashSprite)
+    ['weapon-sprite']: [Sprite, Sprite];
     // map changes
     ['sector-light']: [Sector],
     ['sector-z']: [Sector],

@@ -6,7 +6,7 @@
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
     import { onDestroy, onMount } from "svelte";
-    import { spriteStateMachine, MapRuntime, MFFlags, PlayerMapObject, tickTime, type MapObject as MO, type Sprite } from "../../../doom";
+    import { MapRuntime, MFFlags, tickTime, type MapObject as MO, type Sprite } from "../../../doom";
     import type { MapLighting } from "../MapLighting";
 
     export let map: MapRuntime;
@@ -153,13 +153,6 @@
             return;
         }
 
-        if (mo instanceof PlayerMapObject) {
-            // weapon sprites are also updated this way so we have to be careful
-            sprite = spriteStateMachine.sprite(map.player);
-            // make sure weapon sprites update
-            mo.weapon.val.sprite.set(map.player.weapon.val.sprite.val);
-            mo.weapon.val.flashSprite.set(map.player.weapon.val.flashSprite.val);
-        }
         mo.renderData['rinfo']?.updateSprite(sprite);
     }
     const removeMobjs = (mo: MapObject) => {
@@ -168,19 +161,11 @@
     }
     const updateMobjPosition = (mo: MapObject) => mo.renderData['rinfo']?.updatePosition()
 
-    onMount(() => {
-        map.objs.forEach(addMobj);
-        map.events.on('mobj-added', addMobj);
-        map.events.on('mobj-removed', removeMobjs);
-        map.events.on('mobj-updated-sprite', updateMobjSprite);
-        map.events.on('mobj-updated-position', updateMobjPosition);
-        return () => {
-            map.events.off('mobj-added', addMobj);
-            map.events.off('mobj-removed', removeMobjs);
-            map.events.off('mobj-updated-sprite', updateMobjSprite);
-            map.events.off('mobj-updated-position', updateMobjPosition);
-        }
-    });
+    onMount(() => map.objs.forEach(addMobj));
+    onMount(map.events.auto('mobj-added', addMobj));
+    onMount(map.events.auto('mobj-removed', removeMobjs));
+    onMount(map.events.auto('mobj-updated-sprite', updateMobjSprite));
+    onMount(map.events.auto('mobj-updated-position', updateMobjPosition));
 </script>
 
 <T is={opaqGeo.root} onclick={hit} renderOrder={1} />

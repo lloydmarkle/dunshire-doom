@@ -5,7 +5,7 @@ import { Vector3 } from "three";
 import { HALF_PI, signedLineDistance, type Vertex, randInt, tickTime, ticksPerSecond, sweepAABBLine } from "./math";
 import { hittableThing, type Sector, type TraceHit, hitSkyFlat, hitSkyWall, type TraceParams, type Block, baseMoveTrace, type BlockRegion, zeroVec } from "./map-data";
 import { type GameTime } from "./game";
-import { spriteStateMachine } from "./sprite";
+import { mobjStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon, ThingSpec } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
@@ -490,7 +490,7 @@ export class MapObject {
 
     initializeStateMachine() {
         // set state last because it may trigger other actions (like find player or play a sound)
-        spriteStateMachine.set(this, this.info.spawnstate);
+        mobjStateMachine.set(this, this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
         if (this.stateTics > 0) {
             this.stateTics = this.map.game.rng.int(1, this.stateTics);
@@ -515,7 +515,7 @@ export class MapObject {
         this.updatePosition();
         this.applyGravity();
 
-        spriteStateMachine.tick(this);
+        mobjStateMachine.tick(this);
         // TODO: update movecount (+other nightmare-only handling)
 
         if (this._positionChanged) {
@@ -652,7 +652,7 @@ export class MapObject {
     }
 
     setState(stateIndex: number, tickOffset: number = 0) {
-        spriteStateMachine.set(this, stateIndex, tickOffset);
+        mobjStateMachine.set(this, stateIndex, tickOffset);
     }
 
     pickup(mobj: MapObject) {

@@ -1,10 +1,10 @@
 import { Euler, Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
-import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "../doom-things-info";
+import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states, type State } from "../doom-things-info";
 import { store } from "../store";
 import { HALF_PI, QUARTER_PI, ticksPerSecond } from '../math';
 import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween, missileMover } from '../map-object';
-import { SpriteStateMachine } from '../sprite';
+import { createSprite, stateMachine, type SpriteState } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { hitSkyFlat, type Sector, hitSkyWall, type TraceParams, zeroVec } from "../map-data";
 import { itemPickedUp, noPickUp } from "./pickup";
@@ -24,20 +24,37 @@ export interface InventoryWeapon {
     fn: () => PlayerWeapon;
 }
 
+const weaponStateMachine = (player: PlayerMapObject, weapon: PlayerWeapon) => {
+    const sm = stateMachine((ws: SpriteState, stateIndex: StateIndex, ticOffset = 0) => {
+        let state: State;
+        do {
+            ws.stateIndex = stateIndex;
+            if (stateIndex === StateIndex.S_NULL) {
+                return;
+            }
+            state = states[stateIndex];
+            weaponActions[state.action]?.(player, weapon);
+            stateIndex = state.nextState;
+        } while (!state.tics)
+        ws.stateTics = Math.max(0, state.tics + ticOffset);
+    });
+
+    const sprite = createSprite();
+    let ws = {
+        stateIndex: StateIndex.S_NULL,
+        stateTics: 0,
+        set: (idx: StateIndex, ticOffset = 0) => sm.set(ws, idx, ticOffset),
+        sprite: () => ws.stateIndex === StateIndex.S_NULL ? null : sm.sprite(ws, sprite),
+        tick: () => sm.tick(ws),
+    }
+    return ws;
+}
+
 export class PlayerWeapon {
     private player: PlayerMapObject;
-    private _sprite = new SpriteStateMachine(
-        sprite => this.player.map.events.emit('mobj-updated-sprite', this.player, sprite),
-        action => weaponActions[action]?.(this.player, this),
-        self => self.sprite.set(null));
-    private _flashSprite = new SpriteStateMachine(
-        sprite => this.player.map.events.emit('mobj-updated-sprite', this.player, sprite),
-        action => weaponActions[action]?.(this.player, this),
-        self => self.sprite.set(null));
+    flashSM: ReturnType<typeof weaponStateMachine>;
+    stateSM: ReturnType<typeof weaponStateMachine>;
     readonly position = store<Vector2>(new Vector2(0, weaponBottom));
-    readonly sprite = this._sprite.sprite;
-    readonly flashSprite = this._flashSprite.sprite;
-    get state() { return this._sprite.index; }
 
     constructor(
         readonly name: WeaponName,
@@ -51,22 +68,26 @@ export class PlayerWeapon {
     ) {}
 
     tick() {
-        this._sprite.tick();
-        this._flashSprite.tick();
+        this.stateSM.tick();
+        this.flashSM.tick();
+        this.player.map.events.emit('weapon-sprite', this.stateSM.sprite(), this.flashSM.sprite());
     }
 
     activate(player: PlayerMapObject) {
         this.player = player;
         this.player.refire = false;
-        this._sprite.setState(this.upState);
+        this.stateSM = weaponStateMachine(this.player, this);
+        this.flashSM = weaponStateMachine(this.player, this);
+
+        this.stateSM.set(this.upState);
 
         if (this.name === 'chainsaw') {
             player.map.game.playSound(SoundIndex.sfx_sawup, player);
         }
     }
-    deactivate() { this._sprite.setState(this.downState); }
-    ready() { this._sprite.setState(this.readyState); }
-    flash(offset = 0) { this._flashSprite.setState(this.flashState + offset); }
+    deactivate() { this.stateSM.set(this.downState); }
+    ready() { this.stateSM.set(this.readyState); }
+    flash(offset = 0) { this.flashSM.set(this.flashState + offset); }
     fire() {
         if (this.player.nextWeapon) {
             // once weapon is down, nextWeapon will be activated
@@ -76,7 +97,7 @@ export class PlayerWeapon {
 
         if (this.ammoType === 'none' || this.player.inventory.val.ammo[this.ammoType].amount >= this.ammoPerShot) {
             this.player.setState(StateIndex.S_PLAY_ATK1);
-            this._sprite.setState(this.attackState);
+            this.stateSM.set(this.attackState);
             propagateSound(this.player);
         } else {
             chooseNewWeapon(this.player)
@@ -261,7 +282,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
             weapon.fire();
         }
 
-        if (weapon.name === 'chainsaw' && weapon.state === StateIndex.S_SAW) {
+        if (weapon.name === 'chainsaw' && weapon.stateSM.stateIndex === StateIndex.S_SAW) {
             player.map.game.playSound(SoundIndex.sfx_sawidl, player);
         }
 
@@ -380,7 +401,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
     },
 
     [ActionIndex.A_FireCGun]: (player, weapon) => {
-        weapon.flash(weapon.sprite.val.frame);
+        weapon.flash(weapon.stateSM.sprite().frame);
         player.setState(StateIndex.S_PLAY_ATK2);
         useAmmo(player, weapon);
         player.map.game.playSound(SoundIndex.sfx_pistol, player);

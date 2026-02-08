@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { DoomWad, Game, type MapObject, MapObjectIndex, MapRuntime, MFFlags, SoundIndex, spriteStateMachine, ticksPerSecond, tickTime, WadFile } from "../../doom";
+import { DoomWad, Game, type MapObject, MapObjectIndex, MapRuntime, MFFlags, SoundIndex, mobjStateMachine, ticksPerSecond, tickTime, WadFile } from "../../doom";
 import { createDefaultSettings } from '../../render/DoomContext';
 import { expect } from 'chai';
 
@@ -186,7 +186,7 @@ describe('linedef specials (E1M2)', () => {
             waitTime(game, 36 + 150);
 
             expect(removed).to.include(mobj.id);
-            expect(spriteStateMachine.sprite(monster).name).to.equal('POL5');
+            expect(mobjStateMachine.sprite(monster).name).to.equal('POL5');
         });
         // TODO: door states: openwaitclose, openstay, etc.
         // TODO: A Close and Stay Closed will rest on the head until it leaves the door sector.

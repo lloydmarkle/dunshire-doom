@@ -6,7 +6,7 @@
     import { useDoom, useDoomMap } from "../DoomContext";
     import type { Sprite } from "../../doom/sprite";
     import { ShadowsShader } from '../Shaders/ShadowsShader';
-    import { onDestroy } from "svelte";
+    import { onMount } from "svelte";
 
     export let sprite: Sprite;
     export let sector: Sector;
@@ -40,8 +40,7 @@
 
     $: light = sector.light;
     const updateLight = (sec: Sector) => light = (sec === sector) ? sec.light : light;
-    map.events.on('sector-light', updateLight);
-    onDestroy(() => map.events.off('sector-light', updateLight));
+    onMount(map.events.auto('sector-light', updateLight));
 
     // FIXME: we can't subscribe here anymore!
     $: if (sprite && (sprite.fullbright || light !== undefined)) {

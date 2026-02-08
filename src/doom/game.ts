@@ -76,8 +76,9 @@ export class Game implements SoundEmitter {
         scale: 1,
         elapsed: 0, // seconds
         delta: 0, // seconds
-        tickN: store(0),
-        tick: store(0), // tick as a real number
+        // always start at tick 1 (I forget why)
+        tickN: store(1),
+        tick: store(1), // tick as a real number
         partialTick: store(0), // TODO: remove when we remove R1
     }
     // helpful for tests to allow long time deltas

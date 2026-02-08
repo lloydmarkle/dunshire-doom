@@ -1,8 +1,8 @@
 <script lang="ts">
     import { T, useThrelte } from "@threlte/core";
-    import { weaponTop, type PlayerMapObject } from "../../doom";
+    import { createSprite, weaponTop, type PlayerMapObject, type Sprite } from "../../doom";
     import WeaponSprite from "../Components/WeaponSprite.svelte";
-    import { useDoom } from "../DoomContext";
+    import { useDoom, useDoomMap } from "../DoomContext";
     import { monitorMapObject } from "./SvelteBridge";
     import { onMount } from "svelte";
 
@@ -12,7 +12,15 @@
     }
     let { player, yScale }: Props = $props();
     const { weapon } = $derived(player);
-    let { sprite, flashSprite, position } = $derived($weapon);
+    let { position } = $derived($weapon);
+
+    const mapEvents = useDoomMap().map.events;
+    let sprite = $state<Sprite>(createSprite());
+    let flashSprite = $state<Sprite>();
+    onMount(mapEvents.auto('weapon-sprite', (weapon, flash) => {
+        sprite = weapon;
+        flashSprite = flash;
+    }));
 
     let sector = $derived(player.sector);
     onMount(() => monitorMapObject(player.map, player, mo => sector = mo.sector));
@@ -36,13 +44,13 @@
     position.y={screenPositionY}
 >
     <WeaponSprite
-        sprite={$sprite}
+        {sprite}
         {sector}
     />
-    {#if $flashSprite}
+    {#if flashSprite}
         <WeaponSprite
             flash
-            sprite={$flashSprite}
+            sprite={flashSprite}
             {sector}
         />
     {/if}

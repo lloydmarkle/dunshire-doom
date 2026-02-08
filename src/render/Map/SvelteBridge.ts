@@ -1,5 +1,5 @@
 import type { Vector3 } from 'three';
-import { MapRuntime, MFFlags, PlayerMapObject as PMO, spriteStateMachine, store, type LineDef, type MapObject as MO, type Sector, type Sprite, type Store } from '../../doom';
+import { MapRuntime, MFFlags, PlayerMapObject as PMO, mobjStateMachine, store, type LineDef, type MapObject as MO, type Sector, type Sprite, type Store } from '../../doom';
 import type { RenderSector } from '../RenderData';
 
 interface RenderData {
@@ -22,19 +22,14 @@ export function bridgeEventsToReadables(map: MapRuntime, renderSectors: RenderSe
     // This is a hack to re-enable the $sprite readable for R1.
     const updateSprite = (mo: MapObject, sprite: Sprite) => {
         mo.renderData['direction']?.set(mo.direction);
-        mo.renderData['sprite']?.update(sprite => spriteStateMachine.sprite(mo, sprite));
-        // NB: player needs special handling to update the weapon sprites
-        if (mo === map.player) {
-            map.player.weapon.val.sprite.set(map.player.weapon.val.sprite.val);
-            map.player.weapon.val.flashSprite.set(map.player.weapon.val.flashSprite.val);
-        }
+        mo.renderData['sprite']?.update(sprite => mobjStateMachine.sprite(mo, sprite));
     };
     const updateMobjPosition = (mo: MapObject) => {
         mo.renderData['position']?.set(mo.position);
         mo.renderData['sector']?.set(mo.sector);
     };
     const addMobj = (mo: MapObject) => {
-        mo.renderData['sprite'] = store({ ...spriteStateMachine.sprite(mo) });
+        mo.renderData['sprite'] = store({ ...mobjStateMachine.sprite(mo) });
         mo.renderData['position'] = store(mo.position);
         mo.renderData['direction'] = store(mo.direction);
         mo.renderData['sector'] = store(mo.sector);

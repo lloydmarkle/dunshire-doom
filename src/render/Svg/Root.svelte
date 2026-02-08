@@ -6,7 +6,7 @@
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import { Color } from "three";
     import type { RenderSector } from "../RenderData";
-    import { onDestroy } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { bridgeEventsToReadables, type MapObject as MObj } from "../Map/SvelteBridge";
 
     export let map: MapRuntime;
@@ -18,12 +18,8 @@
 
     let mobjs: MObj[] = map.objs as any;
     const updateMobjs = (mo: MObj) => mobjs = map.objs as any;
-    map.events.on('mobj-added', updateMobjs);
-    map.events.on('mobj-removed', updateMobjs);
-    onDestroy(() => {
-        map.events.off('mobj-added', updateMobjs);
-        map.events.off('mobj-removed', updateMobjs);
-    });
+    onMount(map.events.auto('mobj-added', updateMobjs));
+    onMount(map.events.auto('mobj-removed', updateMobjs));
 
     const { position, direction } = map.player.renderData as any;
     const { showBlockMap } = useAppContext().settings;

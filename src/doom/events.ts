@@ -18,6 +18,14 @@ export class EventEmitter<T extends Record<string, unknown[]>> {
         }
     }
 
+    // a svelte-y event handler because we so often mount and subscribe and want to auto unsubscribe
+    auto<K extends keyof T>(eventName: K, listener: Listener<T[K]>) {
+        return () => {
+            this.on(eventName, listener);
+            return () => this.off(eventName, listener);
+        }
+    }
+
     // TODO: maybe good to keep a count of subscribers so we don't accidentally create long subscription lists
     on<K extends keyof T>(eventName: K, listener: Listener<T[K]>) {
         if (!this.listeners[eventName]) {

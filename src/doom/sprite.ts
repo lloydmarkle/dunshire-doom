@@ -1,5 +1,5 @@
 import { ActionIndex, StateIndex, states, type State } from "./doom-things-info";
-import type { MapObject } from "./map-object";
+import { MapObject } from "./map-object";
 import type { RNG } from "./math";
 import { store } from "./store";
 import { stateChangeAction } from "./things";
@@ -15,10 +15,9 @@ export interface Sprite {
     ticks: number;
 }
 
+export const createSprite = () => ({ name: '', frame: 0, fullbright: false, ticks: 0, spriteIndex: 0 });
 const stateSprite = (() => {
-    const _sprite = { name: '', frame: 0, fullbright: false, ticks: 0, spriteIndex: 0 };
-    // TODO: the sp parameter is only needed for compatibility with r1. While it doesn't really
-    // impact performance, it would be nice to remove it for simplicity.
+    const _sprite = createSprite();
     return (state: State, tics: number, sp?: Sprite) => {
         sp = sp ?? _sprite;
         sp.ticks = tics;
@@ -30,18 +29,26 @@ const stateSprite = (() => {
     };
 })();
 
-export const spriteStateMachine = (() => {
-    const tick = (mo: MapObject) => {
-        if (mo.stateIndex === StateIndex.S_NULL || mo.stateTics < 0) {
+export type SpriteState = { stateIndex: StateIndex, stateTics: number };
+export const stateMachine = <T extends SpriteState>(
+    setState: (m: T, stateIndex: StateIndex, ticOffset?: number) => void,
+) => ({
+    set: setState,
+    tick: (m: T) => {
+        if (m.stateIndex === StateIndex.S_NULL || m.stateTics < 0) {
             return;
         }
-        mo.stateTics -= 1;
-        if (mo.stateTics === 0) {
-            set(mo, states[mo.stateIndex].nextState);
+        m.stateTics -= 1;
+        if (m.stateTics === 0) {
+            setState(m, states[m.stateIndex].nextState);
         }
-    };
+    },
+    sprite: (m: T, sprite?: Sprite) =>
+        stateSprite(states[m.stateIndex], m.stateTics, sprite),
+});
 
-    const set = (mo: MapObject, stateIndex: StateIndex, ticOffset = 0) => {
+export const mobjStateMachine = stateMachine<MapObject>(
+    (mo: MapObject, stateIndex: StateIndex, ticOffset = 0) => {
         let state: State;
         do {
             mo.stateIndex = stateIndex;
@@ -50,82 +57,10 @@ export const spriteStateMachine = (() => {
                 return;
             }
             state = states[stateIndex];
-            mo.stateTics = state.tics;
             stateChangeAction(state.action, mo);
             stateIndex = state.nextState;
         } while (!state.tics)
 
-        mo.stateTics = Math.max(0, mo.stateTics + ticOffset);
+        mo.stateTics = Math.max(0, state.tics + ticOffset);
         mo.map.events.emit('mobj-updated-sprite', mo, stateSprite(state, mo.stateTics));
-    };
-
-    const sprite = (mo: MapObject, sprite?: Sprite) =>
-        stateSprite(states[mo.stateIndex], mo.stateTics, sprite);
-
-    return { tick, sprite, set }
-})();
-
-export class SpriteStateMachine {
-    private ticks: number;
-    private stateIndex: StateIndex;
-    private state: State;
-    readonly sprite = store<Sprite>(null);
-    get ticsRemaining() { return this.ticks; }
-    get index() { return this.stateIndex; }
-
-    constructor(
-        private notify: (sprite: Sprite) => void,
-        private stateAction: (action: ActionIndex) => void,
-        // TODO: it would be nice not to need an action where state is null but weapons have one behaviour and monsters
-        // have another and I'm not sure how to express them
-        private onNull: (self: SpriteStateMachine) => void,
-    ) {}
-
-    tick() {
-        if (!this.state || this.ticks < 0) {
-            return;
-        }
-        this.ticks -= 1;
-        if (this.ticks === 0) {
-            this.setState(this.state.nextState);
-        }
-    }
-
-    setState(stateIndex: StateIndex, tickOffset = 0) {
-        do {
-            this.stateIndex = stateIndex;
-            if (stateIndex === StateIndex.S_NULL) {
-                this.onNull(this);
-                return;
-            }
-
-            this.state = states[stateIndex];
-            this.ticks = this.state.tics;
-            this.stateAction(this.state.action);
-            stateIndex = this.state.nextState;
-        } while (!this.ticks)
-
-        this.ticks = Math.max(0, this.ticks + tickOffset);
-        this.updateSprite();
-    }
-
-    updateSprite() {
-        let sprite = this.sprite.val;
-        if (!sprite) {
-            sprite = { name: '', frame: 0, fullbright: false, ticks: 0, spriteIndex: 0 };
-            this.sprite.set(sprite);
-        }
-        sprite.spriteIndex = this.state.spriteIndex;
-        sprite.ticks = this.ticks;
-        sprite.name = this.state.spriteName;
-        sprite.frame = this.state.frame & FF_FRAMEMASK;
-        sprite.fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
-        this.notify(sprite);
-    }
-
-    randomizeTicks(rng: RNG) {
-        if (this.ticks > 0) {
-            this.ticks = rng.int(1, this.ticks);
-        }
-    }
-}
+    });

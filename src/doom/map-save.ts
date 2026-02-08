@@ -1,9 +1,7 @@
-import { StateIndex, states } from "./doom-things-info";
 import type { LineDef, Sector } from "./map-data";
 import { MapObject, stopVelocity } from "./map-object";
 import type { MapRuntime } from "./map-runtime";
 import { tickTime } from "./math";
-import { spriteStateMachine, type SpriteStateMachine } from "./sprite";
 import { inventoryWeapon, thingSpec } from "./things";
 
 export type MapExport = ReturnType<typeof exportMap>;
@@ -98,12 +96,11 @@ export const exportMap = (map: MapRuntime) => {
         deltaViewHeight: (map.player as any).deltaViewHeight,
         stats: map.player.stats,
         extraLight: map.player.extraLight.val,
-        // TODO: like mobj sprites, we need a better interface here
         weaponPosition: map.player.weapon.val.position.val,
-        weaponState: (map.player.weapon.val as any)._sprite.stateIndex,
-        weaponTic: (map.player.weapon.val as any)._sprite.ticks,
-        weaponFlashState: (map.player.weapon.val as any)._flashSprite.stateIndex,
-        weaponFlashTic: (map.player.weapon.val as any)._flashSprite.ticks,
+        weaponState: map.player.weapon.val.stateSM.stateIndex,
+        weaponTic: map.player.weapon.val.stateSM.stateTics,
+        weaponFlashState: map.player.weapon.val.flashSM.stateIndex,
+        weaponFlashTic: map.player.weapon.val.flashSM.stateTics,
         inventory: {
             ...map.player.inventory.val,
             weapons: map.game.inventory.weapons.map(e => e?.name),
@@ -116,14 +113,6 @@ export const exportMap = (map: MapRuntime) => {
 };
 
 export const importMap = (map: MapRuntime, data: MapExport) => {
-    // TODO: sprite and tics... hmmm, no good interface for export or import
-    const restoreSprite = (ssm: SpriteStateMachine, state: StateIndex, tics: number) => {
-        (ssm as any).state = states[state];
-        if (state) {
-            ssm.updateSprite();
-        }
-    };
-
     // restore player inventory and weapon. Position and other bits come when restoring mobjs
     const player = map.player;
     player.damageCount.set(data.player.damageCount);
@@ -147,8 +136,10 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
     });
     if (data.player.inventory.nextWeapon) player.nextWeapon = inventoryWeapon(data.player.inventory.nextWeapon);
     player.weapon.set(inventoryWeapon(data.player.inventory.lastWeapon).fn());
-    restoreSprite((map.player.weapon.val as any)._sprite, data.player.weaponState, data.player.weaponTic);
-    restoreSprite((map.player.weapon.val as any)._flashSprite, data.player.weaponFlashState, data.player.weaponFlashTic);
+    map.player.weapon.val.stateSM.stateIndex = data.player.weaponState;
+    map.player.weapon.val.stateSM.stateTics = data.player.weaponTic;
+    map.player.weapon.val.flashSM.stateIndex = data.player.weaponFlashState;
+    map.player.weapon.val.flashSM.stateTics = data.player.weaponFlashTic;
     map.player.weapon.val.position.update(vec => vec.set(data.player.weaponPosition.x, data.player.weaponPosition.y));
 
     // restore mobjs
