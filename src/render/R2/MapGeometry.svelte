@@ -22,8 +22,14 @@
     const { tickN, tick } = map.game.time;
 
     console.time('map-geo')
-    const ta = dataCache('textureAtlas', () => new MapTextureAtlas(map.game.wad, new TextureAtlas(threlte.renderer.capabilities.maxTextureSize)));
-    const { geometry, skyGeometry, translucentGeometry } = dataCache('mapGeometry',
+    if (import.meta.hot) {
+        import.meta.hot.acceptExports('MapGeometry',m => {
+            dataCache.remove('textureAtlas');
+            dataCache.remove('mapGeometry');
+        });
+    }
+    const ta = dataCache.fetch('textureAtlas', () => new MapTextureAtlas(map.game.wad, new TextureAtlas(threlte.renderer.capabilities.maxTextureSize)));
+    const { geometry, skyGeometry, translucentGeometry } = dataCache.fetch('mapGeometry',
         () => buildMapGeometry(ta, map, renderSectors),
         geom => geom.dispose());
     console.timeEnd('map-geo')

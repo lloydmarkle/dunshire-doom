@@ -102,10 +102,6 @@ export function geometryBuilder() {
 type MapGeometryUpdater = ReturnType<typeof mapGeometryUpdater>;
 type MapUpdater = (m: MapGeometryUpdater) => void;
 
-const chooseSector = (transferSector: Sector, sector: Sector) =>
-    (transferSector && (transferSector.zFloor < sector.zFloor || transferSector.zCeil > sector.zCeil))
-        ? transferSector : sector;
-
 const chooseTexture = (ld: LineDef, type: WallTextureType, useLeft = false) => {
     if (ld.transparentWindowHack) {
         return TransparentWindowTexture.TextureName;
@@ -176,50 +172,89 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         return geos;
     };
 
+    const maxZ = 32000;
+    // the code reads easier if we always compare partition
+    const unused = [-maxZ, maxZ];
+    const floorCeil = (partition: 'A' | 'B' | 'C', side: SideDef) => {
+        const sector = side.sector;
+        const control = side.sector.transfer?.right.sector;
+        return (
+            partition === 'A' ? [control?.zCeil ?? sector.zCeil, sector.skyHeight ?? sector.zCeil] :
+            partition === 'B' ? [control?.zFloor ?? sector.zFloor, control?.zCeil ?? sector.zCeil] :
+            partition === 'C' ? [sector.zFloor, control?.zFloor ?? sector.zFloor] : unused
+        );
+    }
+    const clipTop = (partition: 'A' | 'B' | 'C', side: SideDef, value: number) => {
+        const sector = side.sector;
+        const control = side.sector.transfer?.right.sector;
+        return (
+            partition === 'A' ? Math.min(value, sector.zCeil) :
+            partition === 'B' ? Math.min(value, control?.zCeil ?? sector.zCeil) :
+            partition === 'C' ? Math.min(value, control?.zFloor ?? maxZ, sector.zCeil) : -maxZ
+        );
+    }
+    const clipBottom = (partition: 'A' | 'B' | 'C', side: SideDef, value: number) => {
+        const sector = side.sector;
+        const control = side.sector.transfer?.right.sector;
+        return (
+            partition === 'A' ? Math.max(value, control?.zCeil ?? sector.zFloor) :
+            partition === 'B' ? Math.max(value, control?.zFloor ?? sector.zFloor) :
+            partition === 'C' ? Math.max(value, sector.zFloor) : maxZ
+        );
+    }
+    const clip = (partition: 'A' | 'B' | 'C', side: SideDef, top: number, bottom: number) => {
+        const ctop = clipTop(partition, side, top);
+        const cbottom = clipBottom(partition, side, bottom);
+        return [ctop, Math.max(0, ctop - cbottom)];
+    }
+
     // TODO: the number of parameters feels wild. This was added for transfer sectors but... can we do better?
-    type VerticalSegmentUpdater = (m: MapGeometryUpdater, idx: GeoInfo, geoN: number, textureName: string, top: number, height: number, sector: Sector, xOffset: number, yOffset: number, flipWall: boolean) => void;
-    const create2SidedLinedefUpdater = (ld: LineDef, geos: ReturnType<typeof createLinedefGeometries>, updateSection: VerticalSegmentUpdater): MapUpdater => {
+    // Honestly, I don't love how linedef geometry is computed but I don't have great ideas to improve it at the moment.
+    type VerticalSegmentUpdater = (m: MapGeometryUpdater, idx: GeoInfo, textureName: string, top: number, height: number, sector: Sector, xOffset: number, yOffset: number, flipWall: boolean) => void;
+    const create2SidedLinedefUpdater = (ld: LineDef, partition: 'A' | 'B' | 'C', geos: ReturnType<typeof createLinedefGeometries>, updateSection: VerticalSegmentUpdater): MapUpdater => {
         let upperFaceLeft = false;
         let lowerFaceLeft = false;
         const [upperIdx, lowerIdx, midLeftIdx, midRightIdx] = geos;
         return m => {
-            // TODO: do we need to choose a sector here? Or to put it another way, how can we remove this for the majority of cases that don't need it?
-            const rSec = chooseSector(ld.right.sector.transfer?.right?.sector, ld.right.sector);
-            const lSec = chooseSector(ld.left.sector.transfer?.right?.sector, ld.left.sector);
-            const floorHigh = Math.max(lSec.zFloor, rSec.zFloor);
-            const ceilLow = Math.min(lSec.zCeil, rSec.zCeil);
-            const ceilHigh = Math.max(lSec.zCeil, rSec.zCeil);
+            const [rFloor, rCeil] = floorCeil(partition, ld.right);
+            const [lFloor, lCeil] = floorCeil(partition, ld.left);
+            let floorMin = Math.min(lFloor, rFloor);
+            let floorMax = Math.max(lFloor, rFloor);
+            let ceilMin = Math.min(lCeil, rCeil);
+            let ceilMax = Math.max(lCeil, rCeil);
 
             // texture alignment info https://doomwiki.org/wiki/Texture_alignment
             // the code for aligning each wall type is inside each block
             if (upperIdx) {
-                const useLeft = lSec.zCeil > rSec.zCeil;
+                const useLeft = lCeil > rCeil;
                 const side = useLeft ? ld.left : ld.right;
-                const height = ceilHigh - ceilLow;
-                const yOffset = side.yOffset.initial + (ld.flags & 0x0008 ? 0 : -height);
-                updateSection(m, upperIdx, 0, chooseTexture(ld, 'upper', useLeft), ceilHigh, height, side.sector, side.xOffset.initial, yOffset, upperFaceLeft !== useLeft);
+                const [top, height] = clip(partition, side, ceilMax, ceilMin);
+                const yOffset = side.yOffset.initial + (ld.flags & 0x0008 ? 0 : -height) + (ceilMax - top);
+                updateSection(m, upperIdx, chooseTexture(ld, 'upper', useLeft), top, height, side.sector, side.xOffset.initial, yOffset, upperFaceLeft !== useLeft);
                 upperFaceLeft = useLeft;
             }
             if (lowerIdx) {
-                const useLeft = rSec.zFloor > lSec.zFloor;
+                const useLeft = rFloor > lFloor;
                 // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.
-                const unpeggedTop = useLeft ? lSec.skyHeight ?? lSec.zCeil : rSec.skyHeight ?? rSec.zCeil;
+                // FIXME: for transfer sectors, this is probably not the right values because it's not clipped. I need a test case...
+                const unpeggedTop = useLeft ? ld.left.sector.skyHeight ?? lCeil : ld.right.sector.skyHeight ?? rCeil;
                 const side = useLeft ? ld.left : ld.right;
-                const height = floorHigh - Math.min(rSec.zFloor, lSec.zFloor);
-                const yOffset = side.yOffset.initial + (ld.flags & 0x0010 ? unpeggedTop - floorHigh : 0);
-                updateSection(m, lowerIdx, 1, chooseTexture(ld, 'lower', useLeft), floorHigh, height, side.sector, side.xOffset.initial, yOffset, lowerFaceLeft !== useLeft);
+                const [top, height] = clip(partition, side, floorMax, floorMin);
+                const yOffset = side.yOffset.initial + (ld.flags & 0x0010 ? unpeggedTop - top : 0) + (floorMax - top);
+                updateSection(m, lowerIdx, chooseTexture(ld, 'lower', useLeft), top, height, side.sector, side.xOffset.initial, yOffset, lowerFaceLeft !== useLeft);
                 lowerFaceLeft = useLeft;
             }
 
             // A bunch of test cases for transfer sectors...
+            // http://localhost:5173/#wad=doom2&wad=sunder+2512&skill=4&map=MAP21&player-x=8996.02&player-y=4298.59&player-z=-1100.18&player-aim=-0.20&player-dir=40.94
             // For example, the green bars in Sundar map 20 need originalZFloor for top:
-            // http://localhost:5173/#wad=doom2&wad=sunder+2407&skill=4&map=MAP20&player-x=-8702.78&player-y=3756.88&player-z=179.72&player-aim=-0.07&player-dir=2.63
+            // http://localhost:5173/#wad=doom2&wad=sunder+2512&skill=4&map=MAP20&player-x=-8702.78&player-y=3756.88&player-z=179.72&player-aim=-0.07&player-dir=2.63
             // While the rev cages in profanepromiseland are clipped by the transfer zFloor
-            // http://localhost:5173/#wad=doom2&wad=profanepromiseland_rc1&skill=4&map=MAP01&player-x=-2480.63&player-y=-2639.95&player-z=375.95&player-aim=-0.17&player-dir=8.60
+            // http://localhost:5173/#wad=doom2&wad=profanepromiseland&skill=4&map=MAP01&player-x=-2480.63&player-y=-2639.95&player-z=375.95&player-aim=-0.17&player-dir=8.60
             // Some other helpful test cases for middle texture offset
-            // http://localhost:5173/#wad=doom2&wad=sunder+2407&skill=4&map=MAP20&player-x=-6510.42&player-y=4220.05&player-z=386.38&player-aim=-0.21&player-dir=-1.06
-            // http://localhost:5173/#wad=doom2&wad=profanepromiseland_rc1&skill=4&map=MAP01&player-x=-10019.15&player-y=5704.81&player-z=-147.16&player-aim=-0.06&player-dir=2.49
-            // http://localhost:5173/#wad=doom2&wad=pd2&skill=4&map=MAP01&player-x=174.85&player-y=506.97&player-z=212.69&player-aim=-0.29&player-dir=2.33
+            // http://localhost:5173/#wad=doom2&wad=sunder+2512&skill=4&map=MAP20&player-x=-6510.42&player-y=4220.05&player-z=386.38&player-aim=-0.21&player-dir=-1.06
+            // http://localhost:5173/#wad=doom2&wad=profanepromiseland&skill=4&map=MAP01&player-x=-10019.15&player-y=5704.81&player-z=-147.16&player-aim=-0.06&player-dir=2.49
+            // http://localhost:5173/#wad=doom2&wad=pd2&skill=4&map=MAP01&player-x=-10.00&player-y=1443.62&player-z=-62.79&player-aim=-0.05&player-dir=2.72
             // http://localhost:5173/#wad=tnt&skill=4&map=MAP02&player-x=1010.24&player-y=1008.64&player-z=-98.99&player-aim=-0.01&player-dir=-3.67
             // This was tricky to figure out!
             const originalZFloor = Math.max(ld.left.sector.zFloor, ld.right.sector.zFloor);
@@ -231,16 +266,16 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 if (ld.flags & 0x0010) {
                     // lower unpegged sticks to the ground
                     top = originalZFloor + pic.height + side.yOffset.val;
-                    clippedTop = Math.min(ceilLow, top);
+                    clippedTop = Math.min(ceilMin, top);
                 } else {
                     top = originalZCeil + side.yOffset.val;
-                    clippedTop = Math.min(ceilHigh, top);
+                    clippedTop = Math.min(ceilMax, top);
                 }
-                const yOffset = top - clippedTop;
+                let yOffset = top - clippedTop;
                 // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
                 // so clip height by pic height or top/floor gap
-                const height = Math.min(pic.height - yOffset, clippedTop - floorHigh);
-                updateSection(m, idx, side === ld.left ? 2 : 3, textureName, clippedTop, height, side.sector, side.xOffset.initial, yOffset, false);
+                const height = Math.max(0, Math.min(pic.height - yOffset, clippedTop - floorMax));
+                updateSection(m, idx, textureName, clippedTop, height, side.sector, side.xOffset.initial, yOffset, false);
             }
             if (midLeftIdx) {
                 updateMiddle(midLeftIdx, ld.left);
@@ -251,43 +286,8 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         };
     };
 
-    const transferLindefUpdater = (ld: LineDef, width: number, mid: Vertex, angle: number, skyHack: boolean) => {
-        // create geometries for the A, B, C partitions created from transfer sectors and then clip the walls into
-        // those partitions during update. It's not pretty... but it works.
-        if (!ld.left) {
-            const control = ld.right.sector.transfer?.right?.sector ?? ld.left.sector.transfer.right.sector;
-            const update1SidedWall: VerticalSegmentUpdater = (m, idx, n, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
-                m.changeWallHeight(idx, top, height);
-                m.applyWallTexture(idx, textureName, width, height, xOffset, yOffset);
-                m.applyLightLevel(idx, sector.num);
-            };
-
-            const [partitionA] = createLinedefGeometries(ld, width, mid, angle);
-            const [partitionB] = createLinedefGeometries(ld, width, mid, angle);
-            const [partitionC] = createLinedefGeometries(ld, width, mid, angle);
-            return m => {
-                const rSec = chooseSector(ld.right.sector.transfer?.right?.sector, ld.right.sector);
-                const textureName = chooseTexture(ld, 'middle');
-                const top = rSec.zCeil;
-                const height = top - rSec.zFloor;
-                const xOffset = ld.right.xOffset.initial;
-                const yOffset = ld.right.xOffset.initial;
-                // Partition A
-                const aTop = Math.min(top, ld.right.sector.zCeil)
-                const aHeight = Math.max(0, aTop - Math.max(top - height, control.zCeil));
-                update1SidedWall(m, partitionA, 0, textureName, aTop, aHeight, control, xOffset, yOffset + (top - aTop), false);
-                // Partition B
-                const bTop = Math.min(top, control.zCeil)
-                const bHeight = Math.max(0, bTop - Math.max(top - height, control.zFloor));
-                update1SidedWall(m, partitionB, 0, textureName, bTop, bHeight, rSec, xOffset, yOffset + (top - bTop), false);
-                // Partition C
-                const cTop = Math.min(top, control.zFloor)
-                const cHeight = Math.max(0, cTop - Math.max(top - height, ld.right.sector.zFloor));
-                update1SidedWall(m, partitionC, 0, textureName, cTop, cHeight, control, xOffset, yOffset + (top - cTop), false);
-            };
-        }
-
-        const update2SidedWall: VerticalSegmentUpdater = (m, idx, _, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
+    const transferLindefUpdater = (ld: LineDef, width: number, mid: Vertex, angle: number, skyHack: boolean): MapUpdater => {
+        const updateWallGeometry: VerticalSegmentUpdater = (m, idx, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
             m.changeWallHeight(idx, top, height);
             m.applyWallTexture(idx, textureName, width, height, xOffset, yOffset);
             if (flipWall) {
@@ -296,25 +296,59 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 m.applyLightLevel(idx, sector.num);
             }
         };
+
+        // create geometries for the A, B, C partitions created from transfer sectors and then clip the walls into
+        // those partitions during update. It's not pretty... but it works.
+        if (!ld.left) {
+            const [partitionA] = createLinedefGeometries(ld, width, mid, angle);
+            const [partitionB] = createLinedefGeometries(ld, width, mid, angle);
+            const [partitionC] = createLinedefGeometries(ld, width, mid, angle);
+            return m => {
+                const controlSec = ld.right.sector.transfer?.right.sector;
+                const textureName = chooseTexture(ld, 'middle');
+                const top = Math.max(ld.right.sector.zCeil, controlSec.zCeil);
+                const height = top - Math.min(ld.right.sector.zFloor, controlSec.zFloor);
+                const xOffset = ld.right.xOffset.initial;
+                const yOffset = ld.right.xOffset.initial;
+                // Partition A
+                const aTop = Math.min(top, ld.right.sector.zCeil)
+                const aHeight = Math.max(0, aTop - Math.max(top - height, controlSec.zCeil));
+                updateWallGeometry(m, partitionA, textureName, aTop, aHeight, controlSec, xOffset, yOffset + (top - aTop), false);
+                // Partition B
+                const bTop = Math.min(top, controlSec.zCeil)
+                const bHeight = Math.max(0, bTop - Math.max(top - height, controlSec.zFloor));
+                updateWallGeometry(m, partitionB, textureName, bTop, bHeight, ld.right.sector, xOffset, yOffset + (top - bTop), false);
+                // Partition C
+                const cTop = Math.min(top, controlSec.zFloor)
+                const cHeight = Math.max(0, cTop - Math.max(top - height, ld.right.sector.zFloor));
+                updateWallGeometry(m, partitionC, textureName, cTop, cHeight, controlSec, xOffset, yOffset + (top - cTop), false);
+            };
+        }
+
         const partitionA = createLinedefGeometries(ld, width, mid, angle, skyHack);
         const partitionB = createLinedefGeometries(ld, width, mid, angle, skyHack);
         const partitionC = createLinedefGeometries(ld, width, mid, angle, skyHack);
-        return create2SidedLinedefUpdater(ld, partitionB, (m, _, n, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
-            const control = sector.transfer?.right?.sector ?? sector;
-            const bottom = top - height;
-            // Partition A
-            const aTop = Math.min(top, sector.zCeil);
-            const aHeight = Math.max(0, aTop - Math.max(bottom, control.zCeil));
-            update2SidedWall(m, partitionA[n], n, textureName, aTop, aHeight, control, xOffset, yOffset + (top - aTop), flipWall);
-            // Partition B
-            const bTop = Math.min(top, control.zCeil);
-            const bHeight = Math.max(0, bTop - Math.max(bottom, control.zFloor));
-            update2SidedWall(m, partitionB[n], n, textureName, bTop, bHeight, sector, xOffset, yOffset + (top - bTop), flipWall);
-            // Partition C
-            const cTop = Math.min(top, control.zFloor);
-            const cHeight = Math.max(0, cTop - Math.max(bottom, sector.zFloor));
-            update2SidedWall(m, partitionC[n], n, textureName, cTop, cHeight, control, xOffset, yOffset + (top - cTop), flipWall);
+        const updateA = create2SidedLinedefUpdater(ld, 'A', partitionA, (m, idx, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
+            const control = sector.transfer?.right.sector ?? sector;
+            updateWallGeometry(m, idx, textureName, top, height, control, xOffset, yOffset, flipWall);
         });
+        const updateB = create2SidedLinedefUpdater(ld, 'B', partitionB, (m, idx, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
+            updateWallGeometry(m, idx, textureName, top, height, sector, xOffset, yOffset , flipWall);
+        });
+        const updateC = create2SidedLinedefUpdater(ld, 'C', partitionC, (m, idx, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
+            const control = sector.transfer?.right.sector ?? sector;
+            updateWallGeometry(m, idx, textureName, top, height, control, xOffset, yOffset, flipWall);
+        });
+        const controlSec = ld.right.sector.transfer?.right.sector;
+        return m => {
+            if (ld.right.sector.zCeil > controlSec?.zCeil) {
+                updateA(m);
+            }
+            updateB(m);
+            if (ld.right.sector.zFloor < controlSec?.zFloor) {
+                updateC(m);
+            }
+        }
     };
 
     const addLinedef = (ld: LineDef): MapUpdater => {
@@ -342,14 +376,14 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         // See also E3M6 https://doomwiki.org/wiki/File:E3m6_three.PNG
         // NOTE: DON'T use transfer lindef when checking for sky!!
         const needSkyWall = ld.right.sector.ceilFlat === 'F_SKY1';
-        const skyHack = (ld.left?.sector?.ceilFlat === 'F_SKY1' && needSkyWall);
+        const skyHack = (ld.left?.sector.ceilFlat === 'F_SKY1' && needSkyWall);
         const skyHeight = ld.right.sector.skyHeight;
         if (needSkyWall && !skyHack) {
             const idx = skyBuilder.addWallGeometry(width, skyHeight - ld.right.sector.zCeil, mid, skyHeight, angle, 0);
             idx.geom.setAttribute(inspectorAttributeName, int16BufferFrom([1, ld.num], idx.geom.attributes.position.count));
         }
 
-        if (ld.right.sector.transfer || ld.left?.sector?.transfer) {
+        if (ld.right.sector.transfer || ld.left?.sector.transfer) {
             return transferLindefUpdater(ld, width, mid, angle, skyHack);
         }
 
@@ -361,14 +395,14 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 m.applyWallTexture(idx, chooseTexture(ld, 'middle'), width, height, ld.right.xOffset.initial, ld.right.yOffset.initial + (ld.flags & 0x0010 ? -height : 0));
             };
         }
-        const update2SidedWall: VerticalSegmentUpdater = (m, idx, _, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
+        const update2SidedWall: VerticalSegmentUpdater = (m, idx, textureName, top, height, sector, xOffset, yOffset, flipWall) => {
             m.changeWallHeight(idx, top, height);
             m.applyWallTexture(idx, textureName, width, height, xOffset, yOffset);
             if (flipWall) {
                 m.flipWallFace(idx, sector.num);
             }
         };
-        return create2SidedLinedefUpdater(ld, createLinedefGeometries(ld, width, mid, angle, skyHack), update2SidedWall);
+        return create2SidedLinedefUpdater(ld, 'B', createLinedefGeometries(ld, width, mid, angle, skyHack), update2SidedWall);
     };
 
     const applySectorSpecials = (rs: RenderSector, geo: BufferGeometry, ceiling: boolean) => {
@@ -487,9 +521,9 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
             cacheTextures(ld.left);
 
             appendUpdater(sectorZChanges, rs.sector, updater);
-            appendUpdater(sectorZChanges, ld.right.sector.transfer?.right?.sector, updater);
+            appendUpdater(sectorZChanges, ld.right.sector.transfer?.right.sector, updater);
             appendUpdater(sectorZChanges, ld.left?.sector, updater);
-            appendUpdater(sectorZChanges, ld.left?.sector?.transfer?.right?.sector, updater);
+            appendUpdater(sectorZChanges, ld.left?.sector.transfer?.right.sector, updater);
         });
         if (!rs.geometry) {
             // Plutonia MAP29?
@@ -545,7 +579,7 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
 
                 if (rs.sector.zFloor < controlSec.zFloor) {
                     // position fake ceiling/floor to create C partition
-                    m.moveFlat(bottomCeiling, controlSec.zFloor);
+                    m.moveFlat(topFloor, controlSec.zFloor);
                     m.applyFlatTexture(bottomCeiling, controlSec.ceilFlat);
                     m.moveFlat(bottomFloor, rs.sector.zFloor);
                     m.applyFlatTexture(bottomFloor, controlSec.floorFlat);

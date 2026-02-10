@@ -738,16 +738,13 @@ export class MapData {
     }
 
     sectorNeighbours(sector: Sector): Sector[] {
-        // FIXME: can we use sector.portalSegs here instead? It looks like the same computation
         const sectors = [];
-        for (const ld of this.linedefs) {
-            if (ld.left) { // two-sided
-                if (ld.left.sector === sector) {
-                    sectors.push(ld.right.sector);
-                }
-                if (ld.right.sector === sector) {
-                    sectors.push(ld.left.sector);
-                }
+        for (const seg of sector.portalSegs) {
+            if (seg.linedef.left.sector === sector) {
+                sectors.push(seg.linedef.right.sector);
+            }
+            if (seg.linedef.right.sector === sector) {
+                sectors.push(seg.linedef.left.sector);
             }
         }
         return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);

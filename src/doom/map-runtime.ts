@@ -410,7 +410,6 @@ export class MapRuntime {
             });
 
             for (const wall of this.data.linedefs) {
-                // TODO: disable these for R2?
                 if (wall.special === 48) {
                     this.actions.add(() => wall.right.xOffset.update(n => n += 1));
                 } else if (wall.special === 85) {

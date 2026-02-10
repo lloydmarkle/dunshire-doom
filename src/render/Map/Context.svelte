@@ -1,21 +1,36 @@
 <script lang="ts" module>
-    export type MapDataCache = <T>(key: string, create: () => T, dispose?: (t: T) => void) => T;
-    const cache = new Map<string, any>();
-    const cacheDispose: (() => void)[] = [];
-    const dataCache = <T>(key: string, create: () => T, dispose?: (t: T) => void): T => {
-        const data = cache.get(key) ?? create();
-        if (dispose && !cache.has(key)) {
-            cacheDispose.push(() => dispose(data));
-        }
-        cache.set(key, data);
-        return data;
-    }
+    export type MapDataCache = typeof dataCache;
+    const dataCache = (() => {
+        const cache = new Map<string, { data: any, dispose: () => void }>();
 
-    export const clearCache = () => {
-        cacheDispose.forEach(d => d());
-        cacheDispose.length = 0;
-        cache.clear();
-    }
+        const validate = (key: string) => {
+            if (key !== cache.get('$key')?.data) {
+                cache.values().forEach(v => v.dispose?.());
+                cache.clear();
+                cache.set('$key', { data: key, dispose: null });
+            }
+        }
+
+        const fetch = <T>(key: string, create: () => T, dispose?: (t: T) => void): T => {
+            let item = cache.get(key);
+            if (!item) {
+                let data = create();
+                item = { data, dispose: dispose ? () => dispose(data) : null };
+                cache.set(key, item);
+            }
+            return item.data;
+        }
+
+        const remove = (key: string) => {
+            const item = cache.get(key);
+            item?.dispose?.();
+            cache.delete(key);
+        }
+
+        return { validate, remove, fetch };
+    })();
+
+    export const clearCache = () => dataCache.validate(null);
 </script>
 <script lang="ts">
     import { setContext } from "svelte";
@@ -26,11 +41,9 @@
 
     export let map: MapRuntime;
 
-    if (map && (map.name + ':' + map.game.wad.name) !== cache.get('$key')) {
-        clearCache();
-        cache.set('$key', (map.name + ':' + map.game.wad.name))
-    }
-    const renderSectors = map ? dataCache('renderSectors', () => buildRenderSectors(map.game.wad, map)) : [];
+    dataCache.validate(map ? map.name + ':' + map.game.wad.name : null);
+    const renderSectors = map ? dataCache.fetch('renderSectors', () => buildRenderSectors(map.game.wad, map)) : [];
+
     const camera = {
         position: store(new Vector3()),
         angle: store(new Euler(0, 0, 0, 'ZXY')),

@@ -76,7 +76,7 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
         19: () => flatMoverAction(floorDefinition('W1', -1, 1, null, highestNeighbourFloor)),
         23: () => flatMoverAction(floorDefinition('S1', -1, 1, null, lowestNeighbourFloor)),
         24: () => flatMoverAction(floorDefinition('G1', 1, 1, null, lowestNeighbourCeiling)),
-        30: () => flatMoverAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture)),
+        30: () => flatMoverAction(floorDefinition('W1', 1, 1, null, shortestLowerTexture(1))),
         36: () => flatMoverAction(floorDefinition('W1', -1, 4, null, offset(highestNeighbourFloor, 8))),
         37: () => flatMoverAction(floorDefinition('W1', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
         38: () => flatMoverAction(floorDefinition('W1', -1, 1, null, lowestNeighbourFloor)),
@@ -99,7 +99,7 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
         93: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel),  offset(floorHeight, 24))),
         94: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(lowestNeighbourCeiling, -8), true)),
         95: () => flatMoverAction(floorDefinition('WR', 1, 0.5, effect([copyFloorFlat, zeroSectorType], triggerModel), nextNeighbourFloorUp)),
-        96: () => flatMoverAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture)),
+        96: () => flatMoverAction(floorDefinition('WR', 1, 1, null, shortestLowerTexture(1))),
         98: () => flatMoverAction(floorDefinition('WR', -1, 4, null, offset(highestNeighbourFloor, 8))),
         101: () => flatMoverAction(floorDefinition('S1', 1, 1, null, lowestNeighbourCeiling)),
         102: () => flatMoverAction(floorDefinition('S1', -1, 1, null, highestNeighbourFloor)),
@@ -116,11 +116,11 @@ const doomSpecials: { [key: number]: () => SpecialAction } = {
         147: () => flatMoverAction(floorDefinition('WR', 1, 1, null, offset(floorHeight, 512))),
         153: () => flatMoverAction(floorDefinition('W1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
         154: () => flatMoverAction(floorDefinition('WR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), floorHeight)),
-        158: () => flatMoverAction(floorDefinition('S1', 1, 1, null, shortestLowerTexture)),
+        158: () => flatMoverAction(floorDefinition('S1', 1, 1, null, shortestLowerTexture(1))),
         159: () => flatMoverAction(floorDefinition('S1', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
         160: () => flatMoverAction(floorDefinition('S1', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
         161: () => flatMoverAction(floorDefinition('S1', 1, 1, null, offset(floorHeight, 24))),
-        176: () => flatMoverAction(floorDefinition('SR', 1, 1, null, shortestLowerTexture)),
+        176: () => flatMoverAction(floorDefinition('SR', 1, 1, null, shortestLowerTexture(1))),
         177: () => flatMoverAction(floorDefinition('SR', -1, 1, effect([copyFloorFlat, copySectorType], numModel('zFloor')), lowestNeighbourFloor)),
         178: () => flatMoverAction(floorDefinition('SR', 1, 1, null, offset(floorHeight, 512))),
         179: () => flatMoverAction(floorDefinition('SR', 1, 1, effect([copyFloorFlat, copySectorType], triggerModel), offset(floorHeight, 24))),
@@ -418,7 +418,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
                 direction > 0 ? nextNeighbourCeilingUp : nextNeighbourCeilingDown,
                 highestNeighbourFloor,
                 floorHeight,
-                shortestLowerTexture,
+                shortestLowerTexture(direction),
                 offset(ceilingHeight, 24),
                 offset(ceilingHeight, 32),
             ][(linedef.special & 0x0380) >> 7],
@@ -442,7 +442,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
                 direction > 0 ? nextNeighbourFloorUp : nextNeighbourFloorDown,
                 lowestNeighbourCeiling,
                 ceilingHeight,
-                shortestLowerTexture,
+                shortestLowerTexture(direction),
                 offset(floorHeight, 24),
                 offset(floorHeight, 32),
             ][(linedef.special & 0x0380) >> 7],
@@ -504,21 +504,17 @@ const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil), sector.zCeil);
 const highestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
     map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil), -maxZ);
-const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
-    let target = maxZ;
-    // https://www.doomworld.com/forum/topic/95030-why-does-raise-floor-by-shortest-lower-texture-only-half-work-on-older-ports/#comment-1770824
-    // solves a bug in Doom2's MAP15 but it really doesn't feel right. I'm guessing almost every doom "shortest lower texture"
-    // linedef out there expects 64px (or less) rise because, in my opinion, it's highly unlikely both side lower textures are set
-    const missingTextureSize = 64;
-    for (const ld of map.data.linedefs) {
-        if (ld.left?.sector === sector || ld.right.sector === sector) {
-            const ltx = map.game.wad.wallTextureData(ld.left.lower);
-            const rtx = map.game.wad.wallTextureData(ld.right.lower);
-            target = Math.min(target, (ltx?.height ?? missingTextureSize), (rtx?.height ?? missingTextureSize));
-        }
-    }
-    return sector.zFloor + target;
-};
+const shortestLowerTexture = (direction: -1 | 1) => (map: MapRuntime, sector: Sector) =>
+    sector.zFloor + direction * map.data.linedefs.reduce((target, ld) =>
+        (ld.left?.sector !== sector && ld.right.sector !== sector) ? target :
+            Math.min(target,
+                (map.game.wad.wallTextureData(ld.left.lower)?.height ?? missingTextureSize),
+                (map.game.wad.wallTextureData(ld.right.lower)?.height ?? missingTextureSize)),
+        maxZ);
+// https://www.doomworld.com/forum/topic/95030-why-does-raise-floor-by-shortest-lower-texture-only-half-work-on-older-ports/#comment-1770824
+// solves a bug in Doom2's MAP15 but it really doesn't feel right. I'm guessing almost every doom "shortest lower texture"
+// linedef out there expects 64px (or less) rise because, in my opinion, it's highly unlikely both side lower textures are set
+const missingTextureSize = 64;
 
 // effect selectors
 type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef, target: number) => Sector | undefined;
