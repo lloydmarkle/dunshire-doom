@@ -33,9 +33,8 @@ const tables = {
 }
 export class SaveGameStore {
     private db: Promise<IDBDatabase>;
-    // TODO: I wonder if this could be more svelte-y by using $derived(this.rev && ...)?
-    filters: Promise<[string, number][]>;
     rev = $state(1);
+    filters = $derived.by(() => this.rev && this.loadFilters());
 
     constructor(private restoreGame: Store<MapExport>) {
         const dbRequest = indexedDB.open('doom-saves', 1);
@@ -53,8 +52,6 @@ export class SaveGameStore {
             dbRequest.onsuccess = ev => resolve((ev.target as any).result);
             dbRequest.onerror = reject;
         });
-
-        this.filters = this.loadFilters();
     }
 
     private async loadFilters() {
@@ -131,19 +128,19 @@ export class SaveGameStore {
         });
     }
 
-    async loadGames(searchText: string): Promise<SaveGame[]> {
+    async loadGames(searchTerms: string[]): Promise<SaveGame[]> {
         const db = await this.db;
         const store = db.transaction(tables.info, 'readonly').objectStore(tables.info);
 
         const queryResults = new Map<number, SaveGame>();
-        const terms = searchText.split(' ').filter(e => e.length);
-        await Promise.all(terms.length
-            ? terms.map(term => this.querySearchText(store, term, queryResults))
+        await Promise.all(searchTerms.length
+            ? searchTerms.map(term => this.querySearchText(store, term, queryResults))
             : [this.querySearchText(store, '', queryResults)]);
 
-        const result = [...queryResults.values()]
-            .filter(e => terms.every(t => e.searchText.includes(t)))
-            .sort((a, b) => b.lastModified - a.lastModified);
+        const result = [
+            ...queryResults.values()
+            .filter(e => searchTerms.every(t => e.searchText.includes(t) || e.name.includes(t)))
+            ].sort((a, b) => b.lastModified - a.lastModified);
         result.forEach(save => {
             let restoredData: Promise<MapExport> = null;
             save.mapExport = async () => restoredData = restoredData ?? this.loadMapExport(save.id);

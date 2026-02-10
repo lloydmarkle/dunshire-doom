@@ -55,7 +55,11 @@
         ].filter((e, i, arr) => arr.indexOf(e) === i));
 
     let loadGameSearchText = $state('');
-    let filteredSaveGames = $derived(sgs.rev && sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' ')));
+    let searchTerms = $derived([
+        ...(loadGameSearchText.toUpperCase().match(/\w+|"[^"]+"/g) ?? []).map(s => s.replace(/^"|"$/g, '')),
+        ...selectedFilters,
+    ]);
+    let filteredSaveGames = $derived(sgs.rev && sgs.loadGames(searchTerms));
     let placeholderGames = $derived(!saveMenu ? [] : [{
         id: -1,
         image: $lastRenderScreenshot ?? '',

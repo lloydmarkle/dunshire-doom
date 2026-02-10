@@ -20,7 +20,11 @@
 
     let loadGameSearchText = $state('');
     let selectedFilters = $state([]);
-    let storedSaveGames = $derived(sgs.rev && sgs.loadGames([loadGameSearchText.toUpperCase(), ...selectedFilters].join(' ')));
+    let searchTerms = $derived([
+        ...(loadGameSearchText.toUpperCase().match(/\w+|"[^"]+"/g) ?? []).map(s => s.replace(/^"|"$/g, '')),
+        ...selectedFilters
+    ]);
+    let storedSaveGames = $derived(sgs.rev && sgs.loadGames(searchTerms));
     let saveGames = $derived(storedSaveGames.then(games => [
             ...games,
             ...Object.values(selected),

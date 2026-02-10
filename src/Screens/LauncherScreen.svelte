@@ -156,7 +156,7 @@
     $: sgs.filters.then(f => f.filter(e => !skipFilters.some(re => re.test(e[0])) && e[0].length > 1).map(e => e[0]))
         .then(f => lastFilters = f);
     let lastSaves: SaveGame[] = [];
-    $: saveGames = sgs.loadGames(sgs.rev && selectedFilters.join(' ')).then(sg => lastSaves = sg);
+    $: saveGames = sgs.loadGames(sgs.rev && selectedFilters).then(sg => lastSaves = sg);
     const toggleGameFilter = (name: string) => () => {
         if (selectedFilters.includes(name)) {
             selectedFilters = selectedFilters.filter(e => e !== name);
