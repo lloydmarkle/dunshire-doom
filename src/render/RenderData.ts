@@ -274,6 +274,8 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         if (doorHack) {
             // a door hack means that two flats will probably overlap. We find the sector that is not the door and
             // overwrite some properties (flats and lighting) to hide the z-fighting. It's definitely a hack.
+            // take advantage of transfer sectors to fake this
+            linedef.left.sector.transfer = { right: { sector: rightRS.sector } } as any;
             map.linedefs
                 .filter(ld => pointOnLine(linedef.v[0], ld.v) && linedef.left.sector.light !== ld.right.sector.light)
                 .map(ld => rSectors.find(sec => sec.sector === ld.right.sector))

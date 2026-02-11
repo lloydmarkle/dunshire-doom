@@ -31,8 +31,8 @@ if (texN.y > 0u) {
     vec2 animUV = vec2( mod(float(texN.x), tAtlasWidth), floor(float(texN.x) * invAtlasWidth));
     animUV = (animUV + .5) * invAtlasWidth;
     vec4 animInfo = texture2D( tAnimAtlas, animUV );
-    float animOffset = floor(mod(tic / animInfo.x + float(animInfo.y), animInfo.z));
-    txIndex = float(texN.x) + animOffset;
+    float animOffset = floor(mod(tic / animInfo.x + animInfo.y, animInfo.z));
+    txIndex = float(texN.x) + animOffset - animInfo.y;
 }
 
 vec2 atlasUV = vec2( mod(txIndex, tAtlasWidth), floor(txIndex * invAtlasWidth));

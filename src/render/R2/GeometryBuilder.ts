@@ -262,16 +262,12 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             function updateMiddle(idx: GeoInfo, side: SideDef) {
                 const textureName = chooseTexture(ld, 'middle', side === ld.left);
                 const pic = textures.wallTexture(textureName)[1];
-                let top = 0, clippedTop = 0;
-                if (ld.flags & 0x0010) {
+                const top = (ld.flags & 0x0010) ?
                     // lower unpegged sticks to the ground
-                    top = originalZFloor + pic.height + side.yOffset.val;
-                    clippedTop = Math.min(ceilMin, top);
-                } else {
-                    top = originalZCeil + side.yOffset.val;
-                    clippedTop = Math.min(ceilMax, top);
-                }
-                let yOffset = top - clippedTop;
+                    originalZFloor + pic.height + side.yOffset.val :
+                    originalZCeil + side.yOffset.val;
+                const clippedTop = Math.min(ceilMin, top);
+                const yOffset = top - clippedTop;
                 // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
                 // so clip height by pic height or top/floor gap
                 const height = Math.max(0, Math.min(pic.height - yOffset, clippedTop - floorMax));
