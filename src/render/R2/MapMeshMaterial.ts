@@ -39,7 +39,7 @@ vec2 atlasUV = vec2( mod(txIndex, tAtlasWidth), floor(txIndex * invAtlasWidth));
 atlasUV = (atlasUV + .5) * invAtlasWidth;
 vUV = texture2D( tAtlas, atlasUV );
 vDim = vec2( vUV.z - vUV.x, vUV.w - vUV.y );
-vOff = vec2( float(doomOffset.x), float(doomOffset.y) ) * tic / tWidth;
+vOff = vec2(doomOffset) * tic / tWidth;
 `;
 
 const fragment_pars = `
@@ -48,12 +48,13 @@ const fragment_pars = `
 varying vec4 vUV;
 varying vec2 vDim;
 varying vec2 vOff;
+varying vec2 uvMotion;
 `;
 const map_fragment = `
 #ifdef USE_MAP
 
-vec2 mapUV = mod( vMapUv * vDim + vOff, vDim) + vUV.xy;
-vec4 sampledDiffuseColor = texture2D( map, mapUV );
+vec2 mapUV = mod( vMapUv * vDim + vOff + uvMotion, vDim) + vUV.xy;
+vec4 sampledDiffuseColor = texture2D( map, mapUV);
 diffuseColor *= sampledDiffuseColor;
 
 #endif
@@ -95,6 +96,8 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             uniform int doomFakeContrast;
             attribute uint doomLight;
             varying float vSectorLightLevel;
+            attribute vec3 doomMotion;
+            varying vec2 uvMotion;
 
             uniform uvec2 dInspect;
             attribute uvec2 ${inspectorAttributeName};
@@ -119,6 +122,12 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
                     ))
                 );
             }
+            `)
+            .replace('#include <project_vertex>', `
+                float iTic = 1.0 - fract(tic);
+                uvMotion = doomMotion.xy * iTic / tWidth;
+                transformed.z += doomMotion.z * iTic;
+                #include <project_vertex>
             `)
             .replace('#include <uv_vertex>', uv_vertex + `
             // sector light level

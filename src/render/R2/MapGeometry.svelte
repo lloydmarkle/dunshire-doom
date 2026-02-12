@@ -19,7 +19,7 @@
     const { editor, settings } = useAppContext();
     const { fakeContrast, playerLight, useTextures } = settings;
     const { renderSectors, dataCache } = useDoomMap();
-    const { tickN, tick } = map.game.time;
+    const { tick } = map.game.time;
 
     console.time('map-geo')
     if (import.meta.hot) {
@@ -63,7 +63,7 @@
 
     const updateTime = (tic: number) =>
         $tranUniforms.tic.value = $uniforms.tic.value = tic;
-    $: updateTime($interpolateMovement ? $tick : $tickN);
+    $: updateTime($interpolateMovement ? $tick : .9999999999999);
 
     const updateExtraLight = (extraLight: number) =>
         $tranUniforms.doomExtraLight.value =

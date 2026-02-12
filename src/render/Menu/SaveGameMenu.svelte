@@ -81,6 +81,9 @@
     }
 
     async function loadGame(save: SaveGame) {
+        if (!save) {
+            return;
+        }
         menuSounds.sfx.pistol();
         window.location.hash = save.launchUrl;
         save.restoreMap();

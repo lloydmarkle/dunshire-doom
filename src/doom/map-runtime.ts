@@ -16,6 +16,7 @@ import { captureInitialMapState, type InitialMapState } from "./map-save";
 export type LineSide = 'left' | 'right';
 export type WallTextureType = 'upper' | 'lower' | 'middle';
 type MapEvents = {
+    ['tick']: [];
     // mobj changes
     ['mobj-added']: [MapObject];
     ['mobj-removed']: [MapObject];
@@ -306,6 +307,8 @@ export class MapRuntime {
     }
 
     tick() {
+        this.events.emit('tick');
+
         this.actions.forEach(actionState => {
             // having multiple types of actions is a bit messy. I need to keep all the actionState separate
             // to save/restore map state
