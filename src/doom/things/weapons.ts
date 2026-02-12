@@ -282,7 +282,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
 
         // bob the weapon based on movement speed
         let angle = (weaponBobTime * player.map.game.time.elapsed) * HALF_PI;
-        weapon.position.x = Math.cos(angle) * player.bob;
+        weapon.position.x = Math.cos(angle) * 2 * player.bob;
         weapon.position.y = weaponTop - (Math.cos(angle * 2 - Math.PI) + 1) * .5 * player.bob;
     },
     [ActionIndex.A_ReFire]: (player, weapon) => {
