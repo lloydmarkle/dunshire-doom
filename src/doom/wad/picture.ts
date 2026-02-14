@@ -83,37 +83,7 @@ export class LumpPicture implements Picture {
         });
     }
 
-    applyPatch(buff: TypedArray, width: number, height: number, originX: number, originY: number) {
-        this.pixels((col, x, y) => {
-            const tx = originX + x;
-            const ty = originY + y;
-            if (tx < 0 || tx >= width || ty < 0 || ty >= height) {
-                return;
-            }
-            const idx = 4 * (ty * width + tx);
-            buff[idx + 0] = col.r;
-            buff[idx + 1] = col.g;
-            buff[idx + 2] = col.b;
-            buff[idx + 3] = 255;
-        });
-    }
-
-    applyPatchAtlas(buff: TypedArray, aWidth: number, ax: number, ay: number, width: number, height: number, originX: number, originY: number) {
-        this.pixels((col, x, y) => {
-            const tx = originX + x;
-            const ty = originY + y;
-            if (tx < 0 || tx >= width || ty < 0 || ty >= height) {
-                return;
-            }
-            const idx = 4 * ((ty + ay) * aWidth + tx + ax);
-            buff[idx + 0] = col.r;
-            buff[idx + 1] = col.g;
-            buff[idx + 2] = col.b;
-            buff[idx + 3] = 255;
-        });
-    }
-
-    private pixels(fn: (col: Color, x: number, y: number) => void) {
+    pixels(fn: (col: Color, x: number, y: number) => void) {
         // Based on the "Converting from a doom picture" of https://doomwiki.org/wiki/Picture_format
         for (let x = 0; x < this.width; x++) {
             let seek = dword(this.lump, 8 + x * 4);
@@ -140,7 +110,6 @@ interface Patch {
     originX: number;
     originY: number;
 }
-
 export class PatchPicture implements Picture {
     readonly xOffset = 0;
     readonly yOffset = 0;
@@ -150,15 +119,41 @@ export class PatchPicture implements Picture {
         readonly height: number,
         private patches: Patch[]) {}
 
-    toAtlasBuffer(buffer: TypedArray, width: number, x: number, y: number) {
+    toAtlasBuffer(buff: TypedArray, awidth: number, ax: number, ay: number) {
         for (const patch of this.patches) {
-            patch.pic.applyPatchAtlas(buffer, width, x, y, this.width, this.height, patch.originX, patch.originY);
+            const originX = patch.originX;
+            const originY = Math.max(0, patch.originY);
+            patch.pic.pixels((col, x, y) => {
+                const tx = originX + x;
+                const ty = originY + y;
+                if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) {
+                    return;
+                }
+                const idx = 4 * ((ty + ay) * awidth + tx + ax);
+                buff[idx + 0] = col.r;
+                buff[idx + 1] = col.g;
+                buff[idx + 2] = col.b;
+                buff[idx + 3] = 255;
+            })
         }
     }
 
-    toBuffer(buffer: TypedArray): void {
+    toBuffer(buff: TypedArray): void {
         for (const patch of this.patches) {
-            patch.pic.applyPatch(buffer, this.width, this.height, patch.originX, patch.originY);
+            const originX = patch.originX;
+            const originY = Math.max(0, patch.originY);
+            patch.pic.pixels((col, x, y) => {
+                const tx = originX + x;
+                const ty = originY + y;
+                if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) {
+                    return;
+                }
+                const idx = 4 * (ty * this.width + tx);
+                buff[idx + 0] = col.r;
+                buff[idx + 1] = col.g;
+                buff[idx + 2] = col.b;
+                buff[idx + 3] = 255;
+            });
         }
     }
 }
