@@ -16,7 +16,8 @@ import { captureInitialMapState, type InitialMapState } from "./map-save";
 export type LineSide = 'left' | 'right';
 export type WallTextureType = 'upper' | 'lower' | 'middle';
 type MapEvents = {
-    ['tick']: [];
+    ['tick-start']: [];
+    ['tick-end']: [];
     // mobj changes
     ['mobj-added']: [MapObject];
     ['mobj-removed']: [MapObject];
@@ -307,7 +308,7 @@ export class MapRuntime {
     }
 
     tick() {
-        this.events.emit('tick');
+        this.events.emit('tick-start');
 
         this.actions.forEach(actionState => {
             // having multiple types of actions is a bit messy. I need to keep all the actionState separate
@@ -333,6 +334,8 @@ export class MapRuntime {
         // if (len !== this.tracers.length) {
         //     this.trev.update(v => v + 1);
         // }
+
+        this.events.emit('tick-end');
     }
 
     initializeFlatTextureAnimation(sector: Sector, prop: 'ceilFlat' | 'floorFlat') {

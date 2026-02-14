@@ -195,36 +195,33 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             partition === 'C' ? [sector.zFloor, control?.zFloor ?? sector.zFloor] : unused
         );
     }
-    const clipTop = (partition: 'A' | 'B' | 'C', side: SideDef, value: number) => {
+    const transferClipTop = (partition: 'A' | 'B' | 'C', side: SideDef, value: number) => {
         const sector = side.sector;
         const control = side.sector.transfer?.right.sector;
         return (
+            !control ? value :
             partition === 'A' ? Math.min(value, sector.zCeil) :
-            partition === 'B' ? Math.min(value, control?.zCeil ?? sector.zCeil) :
-            partition === 'C' ? Math.min(value, control?.zFloor ?? maxZ, sector.zCeil) : -maxZ
+            partition === 'B' ? Math.min(value, control.zCeil) :
+            partition === 'C' ? Math.min(value, control.zFloor) : -maxZ
         );
     }
-    const clipBottom = (partition: 'A' | 'B' | 'C', side: SideDef, value: number) => {
+    const transferClipBottom = (partition: 'A' | 'B' | 'C', side: SideDef, value: number) => {
         const sector = side.sector;
         const control = side.sector.transfer?.right.sector;
         return (
-            partition === 'A' ? Math.max(value, control?.zCeil ?? sector.zFloor) :
-            partition === 'B' ? Math.max(value, control?.zFloor ?? sector.zFloor) :
+            !control ? value :
+            partition === 'A' ? Math.max(value, control.zCeil) :
+            partition === 'B' ? Math.max(value, control.zFloor) :
             partition === 'C' ? Math.max(value, sector.zFloor) : maxZ
         );
-    }
-    const clip = (partition: 'A' | 'B' | 'C', side: SideDef, top: number, bottom: number) => {
-        const ctop = clipTop(partition, side, top);
-        const cbottom = clipBottom(partition, side, bottom);
-        return [ctop, Math.max(0, ctop - cbottom)];
     }
 
     // TODO: the number of parameters feels wild. This was added for transfer sectors but... can we do better?
     // Honestly, I don't love how linedef geometry is computed but I don't have great ideas to improve it at the moment.
     type VerticalSegmentUpdater = (m: MapGeometryUpdater, idx: GeoInfo, textureName: string, pegTop: boolean, top: number, height: number, sector: Sector, xOffset: number, yOffset: number, flipWall: boolean) => void;
     const create2SidedLinedefUpdater = (ld: LineDef, partition: 'A' | 'B' | 'C', geos: ReturnType<typeof createLinedefGeometries>, updateSection: VerticalSegmentUpdater): MapUpdater => {
-        let upperFaceLeft = false;
-        let lowerFaceLeft = false;
+        let upperLastLeft = false;
+        let lowerLastLeft = false;
         const [upperIdx, lowerIdx, midLeftIdx, midRightIdx] = geos;
         return m => {
             const [rFloor, rCeil] = floorCeil(partition, ld.right);
@@ -237,24 +234,24 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             // texture alignment info https://doomwiki.org/wiki/Texture_alignment
             // the code for aligning each wall type is inside each block
             if (upperIdx) {
-                const useLeft = lCeil > rCeil || (!upperFaceLeft && rCeil === lCeil);
+                const useLeft = lCeil > rCeil || (!upperLastLeft && lCeil === rCeil);
                 const side = useLeft ? ld.left : ld.right;
-                const [top, height] = clip(partition, side, ceilMax, ceilMin);
-                const pegTop = Boolean(ld.flags & 0x0008)
-                const yOffset = side.yOffset.initial + (pegTop ? 0 : -height) + (ceilMax - top);
-                updateSection(m, upperIdx, chooseTexture(ld, 'upper', useLeft), pegTop, top, height, side.sector, side.xOffset.initial, yOffset,  upperFaceLeft !== useLeft);
-                upperFaceLeft = useLeft;
+                const top = transferClipTop(partition, side, ceilMax);
+                const height = top - transferClipBottom(partition, side, ceilMin);
+                const unpegged = Boolean(ld.flags & 0x0008)
+                const yOffset = side.yOffset.initial + (unpegged ? 0 : -height);
+                updateSection(m, upperIdx, chooseTexture(ld, 'upper', useLeft), unpegged, top, height, side.sector, side.xOffset.initial, yOffset, upperLastLeft !== useLeft);
+                upperLastLeft = useLeft;
             }
             if (lowerIdx) {
-                const useLeft = rFloor > lFloor || (lowerFaceLeft && rFloor === lFloor);
-                // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.
+                const useLeft = rFloor > lFloor || (lowerLastLeft && rFloor === lFloor);
                 const side = useLeft ? ld.left : ld.right;
-                const unpeggedTop = clipTop(partition, side, useLeft ? ld.left.sector.skyHeight ?? lCeil : ld.right.sector.skyHeight ?? rCeil);
-                const [top, height] = clip(partition, side, floorMax, floorMin);
-                const pegTop = !Boolean(ld.flags & 0x0010);
-                const yOffset = side.yOffset.initial + (pegTop ? 0 : unpeggedTop - top) + (floorMax - top);
-                updateSection(m, lowerIdx, chooseTexture(ld, 'lower', useLeft), pegTop, top, height, side.sector, side.xOffset.initial, yOffset, lowerFaceLeft !== useLeft);
-                lowerFaceLeft = useLeft;
+                const top = transferClipTop(partition, side, floorMax);
+                const height = top - transferClipBottom(partition, side, floorMin);
+                const pegged = !Boolean(ld.flags & 0x0010);
+                const yOffset = side.yOffset.initial + (pegged ? 0 : (side.sector.skyHeight ?? side.sector.zCeil) - top);
+                updateSection(m, lowerIdx, chooseTexture(ld, 'lower', useLeft), pegged, top, height, side.sector, side.xOffset.initial, yOffset, lowerLastLeft !== useLeft);
+                lowerLastLeft = useLeft;
             }
 
             // A bunch of test cases for transfer sectors...
@@ -305,6 +302,10 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 m.applyLightLevel(idx, sector.num);
             }
         };
+        const updateWallTransferLighting: VerticalSegmentUpdater = (m, idx, textureName, pegTop, top, height, sector, xOffset, yOffset, flipWall) => {
+            const control = sector.transfer?.right.sector ?? sector;
+            updateWallGeometry(m, idx, textureName, pegTop, top, height, control, xOffset, yOffset, flipWall);
+        };
 
         // create geometries for the A, B, C partitions created from transfer sectors and then clip the walls into
         // those partitions during update. It's not pretty... but it works.
@@ -337,17 +338,9 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         const partitionA = createLinedefGeometries(ld, width, mid, angle, skyHack);
         const partitionB = createLinedefGeometries(ld, width, mid, angle, skyHack);
         const partitionC = createLinedefGeometries(ld, width, mid, angle, skyHack);
-        const updateA = create2SidedLinedefUpdater(ld, 'A', partitionA, (m, idx, textureName, pegTop, top, height, sector, xOffset, yOffset, flipWall) => {
-            const control = sector.transfer?.right.sector ?? sector;
-            updateWallGeometry(m, idx, textureName, pegTop, top, height, control, xOffset, yOffset, flipWall);
-        });
-        const updateB = create2SidedLinedefUpdater(ld, 'B', partitionB, (m, idx, textureName, pegTop, top, height, sector, xOffset, yOffset, flipWall) => {
-            updateWallGeometry(m, idx, textureName, pegTop, top, height, sector, xOffset, yOffset , flipWall);
-        });
-        const updateC = create2SidedLinedefUpdater(ld, 'C', partitionC, (m, idx, textureName, pegTop, top, height, sector, xOffset, yOffset, flipWall) => {
-            const control = sector.transfer?.right.sector ?? sector;
-            updateWallGeometry(m, idx, textureName, pegTop, top, height, control, xOffset, yOffset, flipWall);
-        });
+        const updateA = create2SidedLinedefUpdater(ld, 'A', partitionA, updateWallTransferLighting);
+        const updateB = create2SidedLinedefUpdater(ld, 'B', partitionB, updateWallGeometry);
+        const updateC = create2SidedLinedefUpdater(ld, 'C', partitionC, updateWallTransferLighting);
         const controlSec = ld.right.sector.transfer?.right.sector;
         return m => {
             if (ld.right.sector.zCeil > controlSec?.zCeil) {
@@ -498,7 +491,9 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
 
     const mapBuilder = mapGeometryBuilder(textureAtlas);
 
-    let linedefUpdaters = new Map<number, MapUpdater>();
+    const scheduledLinedefChanges = new Set<LineDef>();
+
+    const linedefUpdaters = new Map<number, MapUpdater>();
     const sectorZChanges = new Map<number, MapUpdater[]>();
     const sectorFlatChanges = new Map<number, MapUpdater[]>();
     const appendUpdater = (map: typeof sectorZChanges, sector: Sector | undefined, updater: MapUpdater) => {
@@ -522,6 +517,9 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
             const updater = mapBuilder.addLinedef(ld);
             linedefUpdaters.set(ld.num, updater);
 
+            // don't update the linedef immediately because two-sided lines may be updated multiple times
+            const linedefUpdater = ld.left ? () => scheduledLinedefChanges.add(ld) : updater;
+
             // In general, the necessary textures are cached as part of running the linedef updater however
             // if a two-sided linedef has a left and right texture then it will only use one at startup and later
             // (like, when a platform lowers) it may need the other but it may not be cached. So we explicitly cache
@@ -529,10 +527,10 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
             cacheTextures(ld.right);
             cacheTextures(ld.left);
 
-            appendUpdater(sectorZChanges, rs.sector, updater);
-            appendUpdater(sectorZChanges, ld.right.sector.transfer?.right.sector, updater);
-            appendUpdater(sectorZChanges, ld.left?.sector, updater);
-            appendUpdater(sectorZChanges, ld.left?.sector.transfer?.right.sector, updater);
+            appendUpdater(sectorZChanges, rs.sector, linedefUpdater);
+            appendUpdater(sectorZChanges, ld.right.sector.transfer?.right.sector, linedefUpdater);
+            appendUpdater(sectorZChanges, ld.left?.sector, linedefUpdater);
+            appendUpdater(sectorZChanges, ld.left?.sector.transfer?.right.sector, linedefUpdater);
         });
         if (!rs.geometry) {
             // Plutonia MAP29?
@@ -610,17 +608,14 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
     // so we don't leak memory in HMR situation (or when reloading a map)
     let disposables: (() => void)[] = [];
 
-    const updateLinedefTexture = (line: LineDef) => linedefUpdaters.get(line.num)?.(mapUpdater);
-    mapRuntime.events.on('wall-texture', updateLinedefTexture);
-    disposables.push(() => mapRuntime.events.off('wall-texture', updateLinedefTexture));
+    const updateLinedef = (line: LineDef) => linedefUpdaters.get(line.num)?.(mapUpdater);
+    disposables.push(mapRuntime.events.auto('wall-texture', updateLinedef)());
 
     const updateSectorFlat = (sector: Sector) => sectorFlatChanges.get(sector.num)?.forEach(fn => fn(mapUpdater));
-    mapRuntime.events.on('sector-flat', updateSectorFlat);
-    disposables.push(() => mapRuntime.events.off('sector-flat', updateSectorFlat));
+    disposables.push(mapRuntime.events.auto('sector-flat', updateSectorFlat)());
 
     const updateSectorZ = (sector: Sector) => sectorZChanges.get(sector.num)?.forEach(fn => fn(mapUpdater));
-    mapRuntime.events.on('sector-z', updateSectorZ);
-    disposables.push(() => mapRuntime.events.off('sector-z', updateSectorZ));
+    disposables.push(mapRuntime.events.auto('sector-z', updateSectorZ)());
 
     const resetMotion = () => {
         map.geometry.attributes.doomMotion.array.fill(0);
@@ -630,7 +625,12 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
         map.translucentGeometry.attributes.doomMotion.array.fill(0);
         map.translucentGeometry.attributes.doomMotion.needsUpdate = true;
     }
-    disposables.push(mapRuntime.events.auto('tick', resetMotion)());
+    disposables.push(mapRuntime.events.auto('tick-start', resetMotion)());
+    const update2SidedLinedefs = () => {
+        scheduledLinedefChanges.forEach(updateLinedef);
+        scheduledLinedefChanges.clear();
+    }
+    disposables.push(mapRuntime.events.auto('tick-end', update2SidedLinedefs)());
 
     mapRuntime.data.sectors.forEach(sector => {
         updateSectorFlat(sector);
@@ -639,7 +639,9 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
 
     const map = mapBuilder.build();
     mapUpdater = map.updater;
+    // all map geometry is built, so apply the update functions to position and size it
     pendingUpdates.forEach(fn => fn(mapUpdater));
+    update2SidedLinedefs();
     // reset motion params after moving sectors because maps always start in a static state
     resetMotion();
     textureAtlas.commit();
@@ -693,21 +695,18 @@ export function mapGeometryUpdater(textures: MapTextureAtlas) {
 
         // motion
         const motion = geo.attributes.doomMotion.array;
-        const topMotion = (geo.attributes.position.array[offset + 2] - top) + motion[offset + 2];
+        const topMotion = (geo.attributes.position.array[offset + 2] - top);
         motion[offset + 2] = motion[offset + 5] = topMotion;
-        const bottomMotion = (geo.attributes.position.array[offset + 8] - (top - height)) + motion[offset + 8];
+        const bottomMotion = (geo.attributes.position.array[offset + 8] - (top - height));
         motion[offset + 8] = motion[offset + 11] = bottomMotion;
         // motion has to offset texture uv too because wall can be pegged to floor (like upper textures) or ceiling (plain walls)
-        if (topMotion === bottomMotion) {
-            // clear uv motion because both top and bottom are moving in sync
-            motion[offset + 1] = motion[offset + 4] = motion[offset + 7] = motion[offset + 10] = 0;
-        }else if (pegTop) {
+        if (pegTop) {
             // like a 1 sided walls, lower walls, and upper unpegged walls
-            const topMotionV = topMotion || -bottomMotion;
+            const topMotionV = topMotion + -bottomMotion;
             motion[offset + 7] = motion[offset + 10] = topMotionV;
         } else {
             // like a upper walls and lower unpegged
-            const bottomMotionV = -topMotion || bottomMotion;
+            const bottomMotionV = -topMotion + bottomMotion;
             motion[offset + 1] = motion[offset + 4] = bottomMotionV;
         }
         geo.attributes.doomMotion.needsUpdate = true;
