@@ -72,7 +72,7 @@
     })();
     const updateTimeUniform = (time: number) =>
         $uniforms.time.value = $tranUniforms.time.value = time * tickTime;
-    $: updateInterpolationUniform = $interpolateMovement && $monsterAI !== 'disabled'
+    $: updateInterpolationUniform = $interpolateMovement
         ? (time: number) => $uniforms.tics.value = $tranUniforms.tics.value = time
         : (time: number) => $uniforms.tics.value = $tranUniforms.tics.value = 0;
     // NOTE: use a task instead of $: to make sure we have the latest value before rendering
@@ -162,6 +162,10 @@
     const updateMobjPosition = (mo: MapObject) => mo.renderData['rinfo']?.updatePosition()
 
     onMount(() => map.objs.forEach(addMobj));
+    onMount(map.events.auto('tick-start', () => {
+        opaqGeo.clearMotion();
+        tranGeo.clearMotion();
+    }));
     onMount(map.events.auto('mobj-added', addMobj));
     onMount(map.events.auto('mobj-removed', removeMobjs));
     onMount(map.events.auto('mobj-updated-sprite', updateMobjSprite));

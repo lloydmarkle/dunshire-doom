@@ -35,6 +35,7 @@ const s = new Vector3();
 
 class RenderSprite {
     private lastSector: Sector = null;
+    private lastZ = 0
     private isPlayer: boolean;
     private fixedSpriteFlags: number;
 
@@ -44,6 +45,7 @@ class RenderSprite {
         private env: { camera: string },
     ) {
         this.isPlayer = mo instanceof PlayerMapObject;
+        this.lastZ = mo.position.z;
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
         this.fixedSpriteFlags = ((mo.info.flags & MFFlags.MF_MISSILE || mo.type === MapObjectIndex.MT_EXTRABFG) ? 2 : 0);
 
@@ -89,12 +91,15 @@ class RenderSprite {
         }
 
         // NB: don't interpolate player velocity because they already update every frame
+        // NB2: treat z-interpolation differently because xy interpolation is partially handled by movedir and if we treat
+        // it the same way, we get janky results
         if (!this.isPlayer) {
             // velocity for interpolation
-            this.mesh.geometry.attributes.vel.array[this.n * 3 + 0] = this.mo.velocity.x;
-            this.mesh.geometry.attributes.vel.array[this.n * 3 + 1] = this.mo.velocity.y;
-            this.mesh.geometry.attributes.vel.array[this.n * 3 + 2] = this.mo.velocity.z;
+            this.mesh.geometry.attributes.vel.array[this.n * 3 + 0] = -this.mo.velocity.x;
+            this.mesh.geometry.attributes.vel.array[this.n * 3 + 1] = -this.mo.velocity.y;
+            this.mesh.geometry.attributes.vel.array[this.n * 3 + 2] = this.lastZ - this.mo.position.z;
             this.mesh.geometry.attributes.vel.needsUpdate = true;
+            this.lastZ = this.mo.position.z;
         }
     };
 
@@ -137,6 +142,13 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         mesh.frustumCulled = false;
         root.add(mesh);
         return mesh;
+    }
+
+    const clearMotion = () => {
+        for (const mesh of thingsMeshes) {
+            mesh.geometry.attributes.vel.array.fill(0);
+            mesh.geometry.attributes.vel.needsUpdate = true;
+        }
     }
 
     const resetGeometry = (cameraMode: string, mat: SpriteMaterial) => {
@@ -209,5 +221,5 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
 
     const root = new Object3D();
     root.frustumCulled = false;
-    return { add, remove, dispose, root, shadowState, resetGeometry };
+    return { add, remove, dispose, clearMotion, root, shadowState, resetGeometry };
 }

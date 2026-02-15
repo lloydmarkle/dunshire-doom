@@ -134,7 +134,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
     const float notMoving = -0.01;
     float useMovement = (1.0 - flagBit(texN.y, flag_isFloating)) * step(notMoving, motion.y);
     float partialMove = motion.x * max(0.0, tics - motion.z) * useMovement;
-    vec3 vMotion = vel * fract(tics);
+    vec3 vMotion = vel * (1.0 - fract(tics));
     vMotion.x += cos(motion.y) * partialMove;
     vMotion.y += sin(motion.y) * partialMove;
     transformed += vMotion;
