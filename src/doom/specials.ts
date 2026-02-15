@@ -460,6 +460,8 @@ const ignoreLines = new Set([
     48, 85, 255, 250, 251, 252, 253, 254,
     // transfer lines should generally be outside map bounds but better to ignore them too
     213, 242, 261,
+    // transparent lines
+    260,
 ]);
 
 export interface SpecialDefinition {

@@ -63,7 +63,7 @@
 
     const updateTime = (tic: number) =>
         $tranUniforms.tic.value = $uniforms.tic.value = tic;
-    $: updateTime($interpolateMovement ? $tick : .9999999999999);
+    $: updateTime($interpolateMovement ? $tick : Math.floor($tick) + .9999999999999);
 
     const updateExtraLight = (extraLight: number) =>
         $tranUniforms.doomExtraLight.value =

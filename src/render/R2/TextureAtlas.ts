@@ -193,11 +193,7 @@ export class MapTextureAtlas {
         name = name ?? TransparentWindowTexture.TextureName;
         let data = this.textures.get(name);
         if (!data) {
-            const pic = this.wad.wallTextureData(name);
-            data = this.atlas.insertTexture(pic);
-            this.textures.set(name, data);
-
-            this.tryStoreAnimationData(name, this.textures, data[0], 'wallTextureData', this.wad.animatedWalls.get(name));
+            data = this.cacheTexture(name, this.textures, 'wallTextureData', this.wad.animatedWalls.get(name));
 
             const toggle = this.wad.switchToggle(name);
             if (toggle) {
@@ -212,34 +208,29 @@ export class MapTextureAtlas {
         name = name ?? TransparentWindowTexture.TextureName;
         let data = this.flats.get(name);
         if (!data) {
-            const pic = this.wad.flatTextureData(name);
-            data = this.atlas.insertTexture(pic);
-            this.flats.set(name, data);
-
-            this.tryStoreAnimationData(name, this.flats, data[0], 'flatTextureData', this.wad.animatedFlats.get(name));
+            data = this.cacheTexture(name, this.flats, 'flatTextureData', this.wad.animatedFlats.get(name));
         }
         return data;
     }
 
-    // animations cause jank after map load as the different frames are loaded into the atlas.
-    // So we store the texture names that are part of animations and if one is loaded, we load the rest
-    private tryStoreAnimationData(textureName: string, textures: Map<string, [number, Picture]>, startIndex: number, fn: 'flatTextureData' | 'wallTextureData', animInfo: TextureAnimation) {
-        if (!animInfo) {
-            return;
-        }
-        // load the rest of the animation frames
-        const atlasAnim = { speed: animInfo.speed, frames: [startIndex] };
-        this.animationInfo.set(startIndex, atlasAnim);
+    private cacheTexture(name: string, textures: Map<string, [number, Picture]>, fn: 'flatTextureData' | 'wallTextureData', animInfo: TextureAnimation) {
+        if (animInfo) {
+            // animations cause jank after map load as the different frames are loaded into the atlas.
+            // So we store the texture names that are part of animations and if one is loaded, we load the rest
+            // load animation frames in-order. Order matters because of how the shader chooses the texture
+            const atlasAnim = { speed: animInfo.speed, frames: [] };
+            for (const frame of animInfo.frames) {
+                const pic = this.wad[fn](frame);
+                const tx = this.atlas.insertTexture(pic);
+                textures.set(frame, tx);
 
-        for (const frame of animInfo.frames) {
-            if (frame === textureName) {
-                continue;
+                atlasAnim.frames.push(tx[0]);
+                this.animationInfo.set(tx[0], atlasAnim);
             }
-            const pic = this.wad[fn](frame);
-            const tx = this.atlas.insertTexture(pic);
-            atlasAnim.frames.push(tx[0]);
-            this.animationInfo.set(tx[0], atlasAnim);
-            textures.set(frame, tx);
+        } else {
+            const pic = this.wad[fn](name);
+            textures.set(name, this.atlas.insertTexture(pic));
         }
+        return textures.get(name);
     }
 }
