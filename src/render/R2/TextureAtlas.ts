@@ -1,4 +1,4 @@
-import { DataTexture, FloatType, NearestFilter, RepeatWrapping, ShortType, SRGBColorSpace, UnsignedShortType } from "three";
+import { DataTexture, FloatType, NearestFilter, RepeatWrapping, SRGBColorSpace } from "three";
 import type { DoomWad, Picture, TextureAnimation } from "../../doom";
 
 
@@ -189,8 +189,6 @@ export class MapTextureAtlas {
         this.animation.needsUpdate = true;
     }
 
-    // animations cause jank after map load as the different frames are loaded into the atlas.
-    // So we store the texture names that are part of animations and if one is loaded, we load the rest
     wallTexture(name: string): [number, Picture] {
         name = name ?? TransparentWindowTexture.TextureName;
         let data = this.textures.get(name);
@@ -199,7 +197,7 @@ export class MapTextureAtlas {
             data = this.atlas.insertTexture(pic);
             this.textures.set(name, data);
 
-            this.tryStoreAnimationData(name, data[0], 'wallTextureData', this.wad.animatedWalls.get(name));
+            this.tryStoreAnimationData(name, this.textures, data[0], 'wallTextureData', this.wad.animatedWalls.get(name));
 
             const toggle = this.wad.switchToggle(name);
             if (toggle) {
@@ -218,12 +216,14 @@ export class MapTextureAtlas {
             data = this.atlas.insertTexture(pic);
             this.flats.set(name, data);
 
-            this.tryStoreAnimationData(name, data[0], 'flatTextureData', this.wad.animatedFlats.get(name));
+            this.tryStoreAnimationData(name, this.flats, data[0], 'flatTextureData', this.wad.animatedFlats.get(name));
         }
         return data;
     }
 
-    private tryStoreAnimationData(textureName: string, startIndex: number, fn: 'flatTextureData' | 'wallTextureData', animInfo: TextureAnimation) {
+    // animations cause jank after map load as the different frames are loaded into the atlas.
+    // So we store the texture names that are part of animations and if one is loaded, we load the rest
+    private tryStoreAnimationData(textureName: string, textures: Map<string, [number, Picture]>, startIndex: number, fn: 'flatTextureData' | 'wallTextureData', animInfo: TextureAnimation) {
         if (!animInfo) {
             return;
         }
@@ -239,7 +239,7 @@ export class MapTextureAtlas {
             const tx = this.atlas.insertTexture(pic);
             atlasAnim.frames.push(tx[0]);
             this.animationInfo.set(tx[0], atlasAnim);
-            this.flats.set(frame, tx);
+            textures.set(frame, tx);
         }
     }
 }
