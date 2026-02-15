@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { type MapData, type LineDef, type Thing, type Action, type Sector, linedefSlope } from "./map-data";
 import { Vector3 } from "three";
-import { ToRadians, ticksPerSecond } from "./math";
+import { ToDegrees, ToRadians, ticksPerSecond } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorChangeFunctions, pusherAction, sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType, type SectorChanger } from "./specials";
 import { type Game, type GameTime } from "./game";
@@ -430,21 +430,32 @@ export class MapRuntime {
             }
         }
 
+        const v1 = new Vector3();
+        const v2 = new Vector3();
+        const addScrollSpeed = (ld: LineDef, dx: number, dy: number) => {
+            // NOTE we create new objects here because otherwise we update the zeroScroll obejct and all lines change
+            if (ld.scrollSpeed.dx === 0 && ld.scrollSpeed.dy === 0) {
+                return { dx, dy };
+            } else {
+                ld.scrollSpeed.dx += dx;
+                ld.scrollSpeed.dy += dy;
+                return ld.scrollSpeed;
+            }
+        }
         for (const ld of this.data.linedefs) {
             if (ld.special === 252 || ld.special === 253) {
                 pusherAction(this, ld, linedefScrollSpeed(ld));
             }
 
-            // NOTE we create new objects here because otherwise we update the zeroScroll obejct and all lines change
             if (ld.special === 48) {
-                ld.scrollSpeed = { dx: 1, dy: 0 };
+                ld.scrollSpeed = addScrollSpeed(ld, 1, 0);
             } else if (ld.special === 85) {
-                ld.scrollSpeed = { dx: -1, dy: 0 };
+                ld.scrollSpeed = addScrollSpeed(ld, -1, 0);
             } else if (ld.special === 255) {
-                ld.scrollSpeed = { dx: ld.right.xOffset.initial, dy: ld.right.yOffset.initial };
+                ld.scrollSpeed = addScrollSpeed(ld, ld.right.xOffset.initial, ld.right.yOffset.initial);
             } else if (ld.special === 1024) {
                 for (const line of this.linedefsByTag.get(ld.tag) ?? []) {
-                    line.scrollSpeed = { dx: ld.right.xOffset.initial / 8, dy: ld.right.yOffset.initial / 8 };
+                    line.scrollSpeed = addScrollSpeed(line, ld.right.xOffset.initial / 8, ld.right.yOffset.initial / 8);
                 }
             } else if (ld.special >= 250 && ld.special <= 253) {
                 const scrollSpeed = linedefScrollSpeed(ld);
@@ -454,18 +465,18 @@ export class MapRuntime {
                 }
             } else if (ld.special === 254 || ld.special === 1025) {
                 const rate = 1.0 / (ld.special === 254 ? 32 : 8);
-                const { dx, dy, length } = linedefSlope(ld);
-                const angle = Math.atan2(dy, dx);
+                v2.set(ld.v[1].x - ld.v[0].x, ld.v[1].y - ld.v[0].y, 0);
+                const speed = v2.length() * rate;
                 for (const line of this.linedefsByTag.get(ld.tag) ?? []) {
                     if (line === ld) {
                         continue;
                     }
 
-                    let { dx, dy } = linedefSlope(line);
-                    const angleBetween = angle - Math.atan2(dy, dx);
-                    dx = -Math.cos(angleBetween) * length * rate;
-                    dy = Math.sin(angleBetween) * length * rate;
-                    line.scrollSpeed = { dx, dy };
+                    v1.set(line.v[1].x - line.v[0].x, line.v[1].y - line.v[0].y, 0);
+                    const angleDelta = v1.angleTo(v2) + Math.PI;
+                    const dx = Math.cos(angleDelta) * speed;
+                    const dy = Math.sin(angleDelta) * speed;
+                    line.scrollSpeed = addScrollSpeed(line, dx, dy);
                 }
             }
         }

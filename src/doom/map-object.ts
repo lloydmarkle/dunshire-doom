@@ -698,6 +698,7 @@ export class MapObject {
         // if the monster has no velocity, skip movement check.
         // We still do this for players though so that voodoo dolls pick up items
         if (!this._isMoving && (!this._positionChanged || this.isMonster)) {
+        // if (!this._isMoving && (!this._positionChanged || this.class !== 'S')) {
             return;
         }
         this.mover(this, this.velocity);

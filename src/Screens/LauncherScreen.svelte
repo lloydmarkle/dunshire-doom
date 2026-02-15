@@ -349,7 +349,7 @@
                 if (ev.code === 'Enter' || ev.code === 'Return' || ev.code === 'Space') {
                     rootNode.querySelector<HTMLElement>('.card-actions .btn').click();
                 } else if (ev.code === 'Escape') {
-                    rootNode.querySelector<HTMLElement>('.flex .btn').click();
+                    rootNode.querySelector<HTMLElement>('nav .btn').click();
                 } else if (ev.code === 'ArrowLeft' || ev.code === 'ArrowRight') {
                     msfx.swtchn();
                     cursor.set(0);
@@ -551,14 +551,14 @@
 
     {#if selectedIWad}
         {#if screen !== 'select-iwad'}
-        <div out:fly={{ y: '-100%' }} in:fly={{ delay: 600, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2 z-30">
+        <nav out:fly={{ y: '-100%' }} in:fly={{ delay: 600, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2 z-30">
             <a class="btn btn-secondary w-48 shadow-xl" href={"#"}><Icon src={Home} theme='solid' size="16px"/> Home</a>
             <label class="swap btn btn-secondary join-item">
                 <input type="checkbox" bind:checked={$muted} />
                 <Icon class="swap-on fill-current" src={SpeakerXMark} theme='solid' size="16px"/>
                 <Icon class="swap-off fill-current" src={SpeakerWave} theme='solid' size="16px"/>
             </label>
-        </div>
+        </nav>
         {/if}
 
     <div

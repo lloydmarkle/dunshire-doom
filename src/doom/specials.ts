@@ -423,7 +423,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
                 offset(ceilingHeight, 32),
             ][(linedef.special & 0x0380) >> 7],
             changeEffects(model)[change],
-            Boolean((linedef.special & 0x1000) >> 12));
+            !Boolean((linedef.special & 0x1000) >> 12));
         action = flatMoverAction(def);
     } else if (linedef.special >= 0x6000 && linedef.special < 0x8000) {
         // generalized floors
@@ -446,7 +446,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
                 offset(floorHeight, 24),
                 offset(floorHeight, 32),
             ][(linedef.special & 0x0380) >> 7],
-            Boolean((linedef.special & 0x1000) >> 12));
+            !Boolean((linedef.special & 0x1000) >> 12));
         action = flatMoverAction(def);
     }
 
@@ -1297,9 +1297,6 @@ const applyTeleportAction =
     if (mobj.type === MapObjectIndex.MT_PLAYER && !movePlayer) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
 
     let triggered = false;
     def.targetFn(mobj, linedef, tp => {
@@ -1307,13 +1304,15 @@ const applyTeleportAction =
         if (mobj.isMonster && isMonsterMoveBlocked(mobj, tp.position)) {
             return false;
         }
-
         // teleport success so apply fog in old and new locations
         def.specialEffects(mobj, tp);
         // move mobj
-        // TODO: preserve or reverse orientation?
         def.translateFn(mobj, tp);
         telefragTargets(mobj);
+
+        if (!def.repeatable) {
+            linedef.special = 0;
+        }
         triggered = true;
         return true;
     });
