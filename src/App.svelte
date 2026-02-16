@@ -183,9 +183,7 @@
         {/if}
     </WipeContainer>
 
-    {#if wad && screenName !== 'endoom'}
-        <MusicPlayer audioRoot={musicGain} lump={$musicTrack} />
-    {/if}
+    <MusicPlayer audioRoot={musicGain} lump={$musicTrack} looping={Boolean(game)} />
 </main>
 
 <style>

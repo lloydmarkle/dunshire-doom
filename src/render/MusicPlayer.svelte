@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
     // Our friends at EDGE-classic already have a nice soundfont in their repo so download that rather than putting one
     // in our own repo. Honestly, it wouldn't be a big deal to just have our own. Long term, I think I'd like users to
     // be able to supply their own if they want but that can be added later.
@@ -29,24 +29,27 @@
                 }
                 return mus2midi(buff.from(musicBuffer)) as Buffer<ArrayBuffer>;
             } catch {
-                console.warn('unabled to play midi', lump?.name)
+                if (musicBuffer) {
+                    console.warn('unabled to play midi', lump?.name)
+                }
             }
             return buff.from([]);
         }
     }
 
+    type MusicTrack = Awaited<ReturnType<typeof nullMusicPlayer>>;
     async function nullMusicPlayer() {
         return {
             duration: 0,
             scrub: (n: number) => {},
-            start: () => {},
-            stop: () => {},
+            play: (loop: boolean) => {},
+            pause: () => {},
         };
     }
 
     function createSpessaSynthPlayer() {
         let seq: Sequencer;
-        return async (audio: AudioContext, gain: AudioNode, name: string, midi: ArrayBuffer) =>{
+        return async (audio: AudioContext, gain: AudioNode, name: string, midi: ArrayBuffer): Promise<MusicTrack> => {
             if (!seq) {
                 const sampleStore = new MidiSampleStore();
                 const soundFontArrayBuffer = await sampleStore.fetch(defaultSF2Url).then(response => response.arrayBuffer());
@@ -57,118 +60,119 @@
                 seq.synth.connect(gain);
             }
             seq.loadNewSongList([{ binary: midi, fileName: name }]);
-            seq.loopCount = Infinity;
             const duration = (await seq.getMIDI()).duration;
             return {
                 duration,
-                scrub: (n: number) => seq.currentTime = n * duration,
-                start: () => seq.play(),
-                stop: () => seq.pause(),
+                scrub: n => seq.currentTime = n * duration,
+                play: loop => {
+                    seq.loopCount = loop ? Infinity : 0;
+                    seq.play();
+                },
+                pause: () => seq.pause(),
             };
         }
     }
 
     // mp3 or ogg
-    async function encodedMusicPlayer(audio: AudioContext, gain: AudioNode, name: string, music: ArrayBuffer) {
+    async function encodedMusicPlayer(audio: AudioContext, gain: AudioNode, name: string, music: ArrayBuffer): Promise<MusicTrack> {
         const buffer = await audio.decodeAudioData(music);
-        function createSource() {
+        function createSource(loop: boolean) {
             let node = audio.createBufferSource();
             node.buffer = buffer;
             node.connect(gain);
-            node.loop = true;
+            node.loop = loop;
             return node;
         }
 
         let source: AudioBufferSourceNode;
         return {
             duration: buffer.duration,
-            scrub: (n: number) => {
+            scrub: n => {
                 source?.stop();
-                source = createSource();
+                source = createSource(source?.loop ?? false);
                 source.start(audio.currentTime, n * buffer.duration);
             },
-            start: () => {
-                source = createSource();
+            play: loop => {
+                source = createSource(loop);
                 source.start();
             },
-            stop: () => source?.stop(),
+            pause: () => source?.stop(),
         };
     }
 
-    async function synthPlayer(audio: AudioContext, gain: AudioNode, name: string, music: ArrayBufferLike) {
+    async function synthPlayer(audio: AudioContext, gain: AudioNode, name: string, music: ArrayBufferLike): Promise<MusicTrack> {
         const synth = new WebAudioTinySynth();
         synth.setAudioContext(audio, gain);
         synth.loadMIDI(music);
-        synth.setLoop(1);
         return {
             duration: 0,
-            // does this actually work?
-            scrub: (n: number) => synth.locateMIDI(this.maxTick * n),
-            start: () => synth.playMIDI(),
-            stop: () => synth.stopMIDI(),
+            scrub: n => synth.locateMIDI(this.maxTick * n),
+            play: loop => {
+                synth.setLoop(loop);
+                synth.playMIDI();
+            },
+            pause: () => synth.stopMIDI(),
         }
-    }
-
-    function debounce(callback: (...args: any[]) => void, wait: number) {
-        let timeoutId: ReturnType<typeof setTimeout>;
-        return (...args: any[]) => new Promise(resolve => {
-            clearTimeout(timeoutId);
-            return timeoutId = setTimeout(() => resolve(callback.apply(null, args)), wait);
-        });
     }
 
     export function createMusicPlayer(audio: AudioContext, audioRoot: AudioNode) {
         let spessaSynthPlayer = createSpessaSynthPlayer();
-        let musicPlayer: ReturnType<typeof nullMusicPlayer>;
+        let currentTrack: Promise<MusicTrack>;
 
         // create our own local gain node so we can interrupt sound playback more gracefully (with fade)
         const localGain = audio.createGain();
         localGain.gain.value = 0;
         localGain.gain.setValueAtTime(0, audio.currentTime);
         localGain.connect(audioRoot);
-        const fadeTime = 0.2 // seconds
+        const fadeTime = 0.15 // seconds
         const fadeTimeMS = fadeTime * 1000;
 
-        const loadMusic = async (voice: string, musicLump: Lump) => {
-            if (musicPlayer) {
-                await stopMusic();
+        const fadeWrap = async (track: MusicTrack) => {
+            let timeoutId: ReturnType<typeof setTimeout>;
+            const schedule = (callback: (...args: any[]) => void, wait: number) =>
+                new Promise(resolve => {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => resolve(callback()), wait);
+                });
+
+            return {
+                duration: track.duration,
+                scrub: async (n: number) => {
+                    localGain.gain.linearRampToValueAtTime(0, audio.currentTime + fadeTime);
+                    return schedule(() => {
+                        localGain.gain.linearRampToValueAtTime(1, audio.currentTime + fadeTime);
+                        track.scrub(n);
+                    }, fadeTimeMS);
+                },
+                play: async (loop: boolean) => {
+                    localGain.gain.linearRampToValueAtTime(1, audio.currentTime + fadeTime);
+                    return schedule(() => track.play(loop), fadeTimeMS);
+                },
+                pause: async () => {
+                    localGain.gain.linearRampToValueAtTime(0, audio.currentTime + fadeTime);
+                    return schedule(() => track.pause(), fadeTimeMS);
+                },
+            }
+        }
+
+        const loadTrack = async (voice: string, musicLump: Lump) => {
+            if (currentTrack) {
+                (await currentTrack)?.pause();
             }
             const info = musicInfo(musicLump);
-            musicPlayer =
+            currentTrack =
                 info.music.byteLength === 0 ? nullMusicPlayer() :
                 info.isEncodedMusic ? encodedMusicPlayer(audio, localGain, musicLump.name, info.music) :
                 voice === 'soundfont' ? spessaSynthPlayer(audio, localGain, musicLump.name, info.music) :
                 voice === 'synth' ? synthPlayer(audio, localGain, musicLump.name, info.music) :
                 nullMusicPlayer();
-            return musicPlayer;
+            return fadeWrap(await currentTrack);
         }
 
-        const playMusicAfterFade = debounce(async () => (await musicPlayer).start(), fadeTimeMS);
-        function playMusic() {
-            localGain.gain.linearRampToValueAtTime(1, audio.currentTime + fadeTime);
-            playMusicAfterFade();
-        };
-
-        const stopAfterFade = debounce(async () => (await musicPlayer).stop(), fadeTimeMS);
-        async function stopMusic() {
-            localGain.gain.linearRampToValueAtTime(0, audio.currentTime + fadeTime);
-            return stopAfterFade();
-        }
-
-        const scrubAfterFade = debounce(async (position: number) => {
-            (await musicPlayer).scrub(position);
-            localGain.gain.linearRampToValueAtTime(1, audio.currentTime + fadeTime);
-        }, fadeTimeMS);
-        function scrub(position: number) {
-            localGain.gain.linearRampToValueAtTime(0, audio.currentTime + fadeTime);
-            return scrubAfterFade(position);
-        }
-
-        return { playMusic, stopMusic, loadMusic, scrub };
+        return { loadTrack };
     }
 </script>
 <script lang="ts">
-    import { onDestroy } from "svelte";
     import { Buffer as buff } from 'buffer';
     import { mus2midi } from 'mus2midi';
     import { useAppContext } from "./DoomContext";
@@ -177,12 +181,19 @@
     import type { Lump } from "../doom";
     import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
 
-    export let audioRoot: GainNode;
-    export let lump: Lump = null;
+    interface Props {
+        audioRoot: GainNode;
+        lump: Lump;
+        looping: boolean;
+    }
+    const { audioRoot, lump = null, looping = false }: Props = $props();
     const { audio, settings } = useAppContext();
     const { musicPlayback } = settings;
 
-    const player = createMusicPlayer(audio, audioRoot);
-    $: player.loadMusic($musicPlayback, lump).then(() => player.playMusic());
-    onDestroy(player.stopMusic);
+    const musicPlayer = $derived(createMusicPlayer(audio, audioRoot));
+    $effect(() => {
+        const track = musicPlayer.loadTrack($musicPlayback, lump);
+        track.then(t => t.play(looping));
+        return () => track.then(t => t.pause());
+    });
 </script>

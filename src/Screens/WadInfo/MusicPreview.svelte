@@ -13,10 +13,9 @@
     function loadMusic(voice: string, lump: Lump) {
         stopMusic();
         lastProgress = playProgress = 0;
-        return player.loadMusic(voice, lump);
+        return player.loadTrack(voice, lump);
     }
-    $: music = loadMusic($musicPlayback, lump);
-    onDestroy(player.stopMusic);
+    $: track = loadMusic($musicPlayback, lump);
 
     let playProgress = 0;
     let lastProgress = 0;
@@ -26,8 +25,8 @@
         playing = true;
         startTime = audio.currentTime;
 
-        const duration = (await music).duration;
-        player.playMusic();
+        const duration = (await track).duration;
+        (await track).play(true);
         const updateProgress = () => {
             if (playing) {
                 playProgress = lastProgress + ((audio.currentTime - startTime) / duration);
@@ -44,11 +43,11 @@
 
     async function stopMusic() {
         playing = false;
-        return player.stopMusic();
+        return (await track)?.pause();
     }
-    function scrub() {
+    async function scrub() {
         lastProgress = playProgress;
-        player.scrub(playProgress)
+        (await track).scrub(playProgress);
     }
     onDestroy(stopMusic);
 
@@ -67,8 +66,7 @@
     <button class="btn btn-lg text-4xl" on:click={playing ? stopMusic : playMusic}>
         {playing ? '⏸️' : '▶️'}
     </button>
-    {#if music}
-    {#await music}
+    {#await track}
         <div class="flex justify-center">
             <span class="loading loading-spinner loading-md"></span>
         </div>
@@ -92,7 +90,6 @@
             </div>
         </div>
     {/await}
-    {/if}
 </div>
 
 <style>
