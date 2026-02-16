@@ -1,11 +1,9 @@
 import { derived } from "svelte/store";
-import { MFFlags, SoundIndex } from "./doom-things-info";
-import type { GameTime } from "./game";
 import { ComputedRNG, HALF_PI, TableRNG, tickTime } from "./math";
 import type { InventoryWeapon } from "./things/weapons";
-import type { MapRuntime } from "./map-runtime";
 import type { Store } from "./store";
 import { Object3D, Vector3 } from "three";
+import { type GameTime, type MapRuntime, type MapObject, MFFlags, SoundIndex } from "../doom";
 
 const playerSpeeds = { // per-tick
     'run': 50,
@@ -26,6 +24,14 @@ export interface ControllerInput {
     weaponKeyNum: number;
     // directly select a weapon
     weaponIndex: number;
+}
+
+const toggleBit = (player: MapObject, bit: MFFlags) => (val: boolean) => {
+    if (val) {
+        player.info.flags |= bit;
+    } else {
+        player.info.flags &= ~bit;
+    }
 }
 
 const vec = new Vector3();
@@ -50,31 +56,13 @@ export class GameInput {
         this.alwaysRun = this.map.game.settings.alwaysRun;
         this.compassMove = this.map.game.settings.compassMove;
         this.map.disposables.push(
+            this.map.game.settings.invicibility.subscribe(toggleBit(this.player, MFFlags.NO_DAMAGE)),
+            this.map.game.settings.noclip.subscribe(toggleBit(this.player, MFFlags.MF_NOCLIP)),
+            this.map.game.settings.freeFly.subscribe(toggleBit(this.player, MFFlags.MF_NOGRAVITY)),
             // TODO: this doesn't belong here but I can't think of a better place at the moment :(
             this.map.game.settings.randomNumbers.subscribe(randomNumberGenerator => {
                 (this.map.game.rng as any) = (randomNumberGenerator === 'table')
                     ? new TableRNG() : new ComputedRNG();
-            }),
-            this.map.game.settings.invicibility.subscribe(noDamage => {
-                if (noDamage) {
-                    this.player.info.flags |= MFFlags.NO_DAMAGE;
-                } else {
-                    this.player.info.flags &= ~MFFlags.NO_DAMAGE;
-                }
-            }),
-            this.map.game.settings.noclip.subscribe(noclip => {
-                if (noclip) {
-                    this.player.info.flags |= MFFlags.MF_NOCLIP;
-                } else {
-                    this.player.info.flags &= ~MFFlags.MF_NOCLIP;
-                }
-            }),
-            this.map.game.settings.freeFly.subscribe(freefly => {
-                if (freefly) {
-                    this.player.info.flags |= MFFlags.MF_NOGRAVITY;
-                } else {
-                    this.player.info.flags &= ~MFFlags.MF_NOGRAVITY;
-                }
             }),
             derived(
                 [this.map.game.settings.freelook, this.map.game.settings.freeFly, this.map.game.settings.cameraMode],

@@ -1,3 +1,4 @@
+import { MFFlags } from "./doom-things-info";
 import type { LineDef, Sector } from "./map-data";
 import { MapObject, stopVelocity } from "./map-object";
 import type { MapRuntime } from "./map-runtime";
@@ -237,6 +238,11 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
     if (data.game.rngIndex > -1) {
         (map.game.rng as any)._index = data.game.rngIndex;
     }
+
+    // set cheats settings based on player flags
+    map.game.settings.invicibility.set(Boolean(map.player.info.flags & MFFlags.NO_DAMAGE));
+    map.game.settings.noclip.set(Boolean(map.player.info.flags & MFFlags.MF_NOCLIP));
+    map.game.settings.freeFly.set(Boolean(map.player.info.flags & MFFlags.MF_NOGRAVITY));
 };
 
 export type InitialMapState = ReturnType<typeof captureInitialMapState>;

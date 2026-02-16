@@ -4,16 +4,16 @@
     export function loadOptionalUrlParams(game: Game, params: URLSearchParams) {
         const player = game.map.val.player;
 
+        const yaw = params.has('player-dir') ? parseFloat(params.get('player-dir')) : player.direction;
+        player.direction = yaw;
+        const pitch = params.has('player-aim') ? parseFloat(params.get('player-aim')) : player.pitch;
+        player.pitch = pitch;
+
         const x = params.has('player-x') ? parseFloat(params.get('player-x')) : player.position.x;
         const y = params.has('player-y') ? parseFloat(params.get('player-y')) : player.position.y;
         const z = params.has('player-z') ? parseFloat(params.get('player-z')) : player.position.z;
         player.position.set(x, y, z);
         player.positionChanged();
-
-        const yaw = params.has('player-dir') ? parseFloat(params.get('player-dir')) : player.direction;
-        player.direction = yaw;
-        const pitch = params.has('player-aim') ? parseFloat(params.get('player-aim')) : player.pitch;
-        player.pitch = pitch;
     }
 
     function createShareUrl(game: Game) {
