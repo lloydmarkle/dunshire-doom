@@ -13,9 +13,8 @@ attribute ivec2 doomOffset;
 uniform float tic;
 uniform float tWidth;
 uniform sampler2D tAtlas;
-uniform float tAtlasWidth;
+uniform int tAtlasWidth;
 uniform sampler2D tAnimAtlas;
-uniform float tAnimAtlasWidth;
 
 varying vec4 vUV;
 varying vec2 vDim;
@@ -24,20 +23,14 @@ varying vec2 vOff;
 const uv_vertex = `
 #include <uv_vertex>
 
-float invAtlasWidth = 1.0 / tAtlasWidth;
-
-float txIndex = float(texN.x);
+int txIndex = int(texN.x);
 if (texN.y > 0u) {
-    vec2 animUV = vec2( mod(float(texN.x), tAtlasWidth), floor(float(texN.x) * invAtlasWidth));
-    animUV = (animUV + .5) * invAtlasWidth;
-    vec4 animInfo = texture2D( tAnimAtlas, animUV );
+    vec4 animInfo = texelFetch( tAnimAtlas, ivec2( txIndex % tAtlasWidth, txIndex / tAtlasWidth ), 0 );
     float animOffset = mod(floor(tic / animInfo.x + animInfo.y), animInfo.z);
-    txIndex = float(texN.x) + animOffset - animInfo.y;
+    txIndex += int(animOffset - animInfo.y);
 }
 
-vec2 atlasUV = vec2( mod(txIndex, tAtlasWidth), floor(txIndex * invAtlasWidth));
-atlasUV = (atlasUV + .5) * invAtlasWidth;
-vUV = texture2D( tAtlas, atlasUV );
+vUV = texelFetch( tAtlas, ivec2( txIndex % tAtlasWidth, txIndex / tAtlasWidth), 0 );
 vDim = vec2( vUV.z - vUV.x, vUV.w - vUV.y );
 vOff = vec2(doomOffset) * tic / tWidth;
 `;
@@ -131,11 +124,8 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             `)
             .replace('#include <uv_vertex>', uv_vertex + `
             // sector light level
-            float invLightMapWidth = 1.0 / float(tLightMapWidth);
-            vec2 lightUV = vec2(
-                mod(float(doomLight), float(tLightMapWidth)),
-                floor(float(doomLight) * invLightMapWidth) );
-            vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
+            ivec2 lightUV = ivec2(doomLight % tLightMapWidth, doomLight / tLightMapWidth);
+            vec4 sectorLight = texelFetch( tLightMap, lightUV, 0 );
 
             sectorLight.rgb += fakeContrast(normal);
             vSectorLightLevel = clamp(sectorLight.g + doomExtraLight, 0.0, 1.0);

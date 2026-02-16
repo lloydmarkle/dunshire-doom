@@ -18,7 +18,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
     uniform sampler2D tSpriteUVs;
     uniform uint tSpriteUVsWidth;
     uniform isampler2D tSpriteInfo;
-    uniform float tSpritesWidth;
+    uniform uint tSpritesWidth;
     uniform sampler2D tLightMap;
     uniform uint tLightMapWidth;
     uniform float time;
@@ -75,13 +75,10 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
     const uv_vertex = `
     #include <uv_vertex>
 
-    float fSpriteUVWidth = float(tSpriteUVsWidth);
-    float invSpriteUVsWidth = 1.0 / fSpriteUVWidth;
-    float spriteN = float(texN.x);
-    vec2 tUV = vec2( mod(spriteN, fSpriteUVWidth), floor(spriteN * invSpriteUVsWidth));
-    tUV = (tUV + .5) * invSpriteUVsWidth;
+    uint spriteN = texN.x;
+    ivec2 tUV = ivec2(spriteN % tSpriteUVsWidth, spriteN / tSpriteUVsWidth);
     // sprite info (offsets, mirrored, etc)
-    ivec4 info = texture2D( tSpriteInfo, tUV );
+    ivec4 info = texelFetch( tSpriteInfo, tUV, 0 );
 
     #ifndef BIRD_CAM
     if (info.w > 0) {
@@ -91,15 +88,14 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
         vec4 pos = instanceMatrix * vec4( 0, 0, 0, 1 );
         float rot = spriteRotation( pos, float(motion.w), camP );
 
-        spriteN += rot;
-        tUV = vec2( mod(spriteN, fSpriteUVWidth), floor(spriteN * invSpriteUVsWidth));
-        tUV = (tUV + .5) * invSpriteUVsWidth;
-        info = texture2D( tSpriteInfo, tUV );
+        spriteN += uint(rot);
+        tUV = ivec2(spriteN % tSpriteUVsWidth, spriteN / tSpriteUVsWidth);
+        info = texelFetch( tSpriteInfo, tUV, 0 );
     }
     #endif
 
     // sprite dimensions
-    sUV = texture2D( tSpriteUVs, tUV );
+    sUV = texelFetch( tSpriteUVs, tUV, 0 );
     vDim = vec2( sUV.z - sUV.x, sUV.w - sUV.y );
     `
     const begin_vertex = `
@@ -108,7 +104,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
     renderSpectre = flagBit(texN.y, flag_isSpectre);
 
     // scale based on texture size (vDim) and mirror (info.z)
-    vec2 dim = vDim * tSpritesWidth;
+    vec2 dim = vDim * float(tSpritesWidth);
     transformed *= vec3(dim.x * float(info.z), dim.y, dim.y);
 
     // and position based on texture size and offsets (info.xy)
@@ -222,12 +218,8 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             doomInspectorEmissive = step(float(${inspectorAttributeName} - dInspect), 0.0) * vec3(1.0, 0.0, 1.0) * .1;
 
             // sector light level
-            float dLf = float(doomLight);
-            float invLightMapWidth = 1.0 / float(tLightMapWidth);
-            vec2 lightUV = vec2(
-                mod(dLf, float(tLightMapWidth)),
-                floor(dLf * invLightMapWidth) );
-            vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
+            ivec2 lightUV = ivec2(doomLight % tLightMapWidth, doomLight / tLightMapWidth);
+            vec4 sectorLight = texelFetch( tLightMap, lightUV, 0 );
             vSectorLightLevel = clamp(sectorLight.g + doomExtraLight, 0.0, 1.0);
             vSpriteFullBright = flagBit(texN.y, flag_fullBright);
             `);
