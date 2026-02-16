@@ -847,7 +847,7 @@ export class PlayerMapObject extends MapObject {
                 }
             } else if (sector.type === 11) {
                 // disable invincibility to force player to be killed
-                this.map.game.settings.invicibility.set(false);
+                this.info.flags &= ~MFFlags.NO_DAMAGE;
                 if (causePain) {
                     this.damage(20);
                 }
@@ -872,7 +872,7 @@ export class PlayerMapObject extends MapObject {
         this.damageThrust(amount, inflictor, source);
 
         let inv = this.inventory.val;
-        if (inv.items.invincibilityTicks || this.map.game.settings.invicibility.val) {
+        if (inv.items.invincibilityTicks || (this.info.flags & MFFlags.NO_DAMAGE)) {
             // TODO: doom does damage to invincible players if damage is above 1000 but... why?
             return;
         }

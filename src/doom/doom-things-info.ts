@@ -1445,6 +1445,8 @@ export enum MFFlags {
 	// Only applied to puffs for now. A few other sprites may benefit from this
 	// (example: bfg/plasma/rocket)
 	BillboardSprite = 0x8000000,
+	// flag for player invicibility
+	NO_DAMAGE = 0x10000000,
 }
 
 // Info.C

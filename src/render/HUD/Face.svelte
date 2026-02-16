@@ -1,13 +1,12 @@
 <script lang="ts">
     import { randInt } from "three/src/math/MathUtils";
-    import { type PlayerMapObject, type  PlayerInventory, ToDegrees, angleBetween, normalizeAngle, QUARTER_PI } from "../../doom";
+    import { type PlayerMapObject, type  PlayerInventory, angleBetween, normalizeAngle, QUARTER_PI, MFFlags } from "../../doom";
     import Picture from "../Components/Picture.svelte";
     import { useDoom } from "../DoomContext";
 
     export let player: PlayerMapObject;
 
     const { game } = useDoom();
-    const invuln = game.settings.invicibility;
     const { tickN } = game.time;
     const { health, inventory, damageCount } = player;
 
@@ -40,7 +39,7 @@
             ) :
             $damageCount ? faceState(`STFKILL${healthIndex}`, 6, ticksPerSecond) :
             rampageTime > 2 * ticksPerSecond ? faceState(`STFKILL${healthIndex}`, 5, 1) :
-            $invuln || $inventory.items.invincibilityTicks ? faceState('STFGOD0', 4, 1) : // invincibility
+            (player.info.flags & MFFlags.NO_DAMAGE) || $inventory.items.invincibilityTicks ? faceState('STFGOD0', 4, 1) : // invincibility
             faceState(`STFST${healthIndex}${variation}`, 0, Math.trunc(ticksPerSecond * 0.5)); // straight or left/right eye brow
     }
 

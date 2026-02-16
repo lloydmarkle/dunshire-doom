@@ -55,6 +55,13 @@ export class GameInput {
                 (this.map.game.rng as any) = (randomNumberGenerator === 'table')
                     ? new TableRNG() : new ComputedRNG();
             }),
+            this.map.game.settings.invicibility.subscribe(noDamage => {
+                if (noDamage) {
+                    this.player.info.flags |= MFFlags.NO_DAMAGE;
+                } else {
+                    this.player.info.flags &= ~MFFlags.NO_DAMAGE;
+                }
+            }),
             this.map.game.settings.noclip.subscribe(noclip => {
                 if (noclip) {
                     this.player.info.flags |= MFFlags.MF_NOCLIP;
@@ -79,7 +86,8 @@ export class GameInput {
                 } else {
                     this.minPolarAngle = this.maxPolarAngle = 0;
                 }
-            }));
+            }),
+        );
     }
 
     evaluate(time: GameTime) {
