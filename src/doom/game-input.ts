@@ -1,5 +1,5 @@
 import { derived } from "svelte/store";
-import { ComputedRNG, HALF_PI, TableRNG, tickTime } from "./math";
+import { ComputedRNG, HALF_PI, TableRNG, ticksPerSecond, tickTime } from "./math";
 import type { InventoryWeapon } from "./things/weapons";
 import type { Store } from "./store";
 import { Object3D, Vector3 } from "three";
@@ -80,6 +80,7 @@ export class GameInput {
 
     evaluate(time: GameTime) {
         if (this.player.isDead) {
+            this.player.updateViewHeight(time);
             // wait till view height gets close to the ground before we allow restarting (so that the player doesn't miss out!)
             // also make sure the use/attack button has been freshly pressed since dying
             const canRestart = this.player.viewHeight.val < 10 &&
@@ -146,7 +147,6 @@ export class GameInput {
         }
 
         const freeFly = this.player.info.flags & MFFlags.MF_NOGRAVITY;
-        const dt = time.delta * time.delta / tickTime;
         let speed = this.input.slow ? playerSpeeds['crawl?'] :
             this.alwaysRun.val !== this.input.run ? playerSpeeds['run'] : playerSpeeds['walk'];
         if (this.player.onGround || freeFly) {
@@ -154,13 +154,13 @@ export class GameInput {
                 speed *= 2;
             }
             if (this.input.move.y) {
-                this.player.velocity.addScaledVector(this.forwardVec(), this.input.move.y * speed * dt);
+                this.player.velocity.addScaledVector(this.forwardVec(), this.input.move.y * speed * time.delta);
             }
             if (this.input.move.x) {
-                this.player.velocity.addScaledVector(this.rightVec(), this.input.move.x * speed * dt);
+                this.player.velocity.addScaledVector(this.rightVec(), this.input.move.x * speed * time.delta);
             }
             if (this.input.move.z && freeFly) {
-                this.player.velocity.addScaledVector(this.upVec(), this.input.move.z * speed * dt);
+                this.player.velocity.addScaledVector(this.upVec(), this.input.move.z * speed * time.delta);
             }
             if (freeFly) {
                 // apply separate friction during freefly (also scale friction slightly for lower timescale)
@@ -168,9 +168,14 @@ export class GameInput {
                 this.player.velocity.multiplyScalar(friction);
             }
         } else {
-            this.player.velocity.z -= playerSpeeds['gravity'] * dt;
+            this.player.velocity.z -= playerSpeeds['gravity'] * time.delta;
         }
+
+        const dt = time.delta * ticksPerSecond;
+        this.player.velocity.multiplyScalar(dt);
         this.player.xyMove();
+        this.player.updateViewHeight(time);
+        this.player.velocity.divideScalar(dt);
 
         // attack
         this.player.attacking = this.input.attack;

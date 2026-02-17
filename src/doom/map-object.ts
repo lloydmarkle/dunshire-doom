@@ -24,8 +24,8 @@ export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
     return Math.sqrt(_distVec.x * _distVec.x + _distVec.y * _distVec.y);
 }
 
-const velocityPerSecond = (time: number, vel: number) => vel * time / tickTime;
-const velocityPerTick = (time: number, vel: number) => vel * tickTime / time;
+const velocityPerSecond = (vel: number) => vel * ticksPerSecond;
+const velocityPerTick = (vel: number) => vel / ticksPerSecond;
 
 type Mover = (mobj: MapObject, move: Vector3) => void;
 const bodyMover: Mover = (() => {
@@ -901,18 +901,8 @@ export class PlayerMapObject extends MapObject {
         // TODO: haptic feedback for controllers?
     }
 
-    thrust(x: number, y: number, z: number) {
-        const time = this.map.game.time.delta;
-        super.thrust(velocityPerSecond(time, x), velocityPerSecond(time, y), velocityPerSecond(time, z));
-    }
-
     kill(source?: MapObject) {
         super.kill(source);
-        // when we die, we start processing moving at tick intervals so convert current velocity (in seconds) to ticks
-        // I don't love how we evaluate player movement but I do love handling input at higher than 35fps
-        const time = this.map.game.time.delta;
-        this.velocity.set(velocityPerTick(time, this.velocity.x), velocityPerTick(time, this.velocity.y), velocityPerTick(time, this.velocity.z));
-
         this.weapon.val.deactivate();
         // TODO: some map stats
     }
@@ -965,16 +955,15 @@ export class PlayerMapObject extends MapObject {
             return;
         }
 
+        const dt = ticksPerSecond * time.delta;
         if (this.isDead) {
             // Doom player falls 1 unit per tick (or 35 units per second) until 6 units above the ground so...
-            this.viewHeightOffset = Math.max(6, this.viewHeightOffset - ticksPerSecond * time.delta);
+            this.viewHeightOffset = Math.max(6, this.viewHeightOffset - dt);
             this.viewHeight.set(this.viewHeightOffset);
             return;
         }
 
-        const delta = ticksPerSecond * time.delta;
-        this.viewHeightOffset += this.deltaViewHeight * delta;
-
+        this.viewHeightOffset += this.deltaViewHeight * dt;
         if (this.viewHeightOffset > playerViewHeightDefault) {
             this.viewHeightOffset = playerViewHeightDefault;
             this.deltaViewHeight = 0;
@@ -987,14 +976,14 @@ export class PlayerMapObject extends MapObject {
         }
         if (this.deltaViewHeight) {
             // small acceleration of delta over time
-            this.deltaViewHeight += delta / 4;
+            this.deltaViewHeight += dt / 4;
         }
 
         if (this.viewHeightOffset < playerViewHeightDefault && this.deltaViewHeight === 0) {
             this.deltaViewHeight = 1;
         }
 
-        this.bob = Math.min(this.velocity.lengthSq(), playerMaxBob);
+        this.bob = Math.min(this.velocity.lengthSq() / dt, playerMaxBob);
         const bob = Math.sin(Math.PI * 2 * bobTime * time.elapsed) * this.bob * .5;
 
         let viewHeight = this.viewHeightOffset + bob;

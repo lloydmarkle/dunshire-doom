@@ -304,7 +304,6 @@ export class MapRuntime {
     timeStep(time: GameTime) {
         this.stats.elapsedTime += time.delta;
         this.input.evaluate(time);
-        this.player.updateViewHeight(time);
     }
 
     tick() {

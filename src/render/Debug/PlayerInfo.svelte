@@ -47,7 +47,6 @@
     function timeFromTicks(ticks: number) {
         return (ticks / ticksPerSecond).toFixed(2);
     }
-    const velocityPerTick = (vel: number) => vel * tickTime * (1 / player.map.game.time.delta);
 </script>
 
 <div class="root" style="right: {$editor.active ? '25em' : '0'}">
@@ -57,7 +56,7 @@
         transition:fly={{ y: 200}}
     >
         <div>pos: {vec(position)}</div>
-        <div>vel: {vec(velocity)} {velocityPerTick(velocity.length()).toFixed(2)}</div>
+        <div>vel: {vec(velocity)} {(velocity.length() * tickTime).toFixed(2)}</div>
         <div>dir: [{(direction * ToDegrees).toFixed(3)}]</div>
         <div class:hidden={!debugBuild}>sect: {sector.num}, [floor, ceil]=[{sector.zFloor}, {sector.zCeil}]</div>
         <div class:hidden={!debugBuild}>Sectors: [{sectors.map(e => e.num)}]</div>
