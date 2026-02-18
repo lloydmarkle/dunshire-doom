@@ -878,18 +878,21 @@ export function vecFromMovement(vec: Vector3, start: Vector3, move: Vector3, rad
     return vec;
 }
 
-const _findVec = new Vector3();
-function findSubSector(root: TreeNode, x: number, y: number) {
-    _findVec.set(x, y, 0);
-    let node: TreeNode | SubSector = root;
-    while (true) {
-        if ('segs' in node) {
-            return node;
+const findSubSector = (() => {
+    const v = new Vector3();
+    return (root: TreeNode, x: number, y: number) => {
+        v.set(x, y, 0);
+        let node: TreeNode | SubSector = root;
+        while (true) {
+            if ('segs' in node) {
+                return node;
+            }
+            const dy = node.v[1].y - node.v[0].y;
+            const side = signedLineDistance(node.v, v);
+            node = side < 0 || (side === 0 && dy > 0) ? node.childLeft : node.childRight;
         }
-        const side = signedLineDistance(node.v, _findVec);
-        node = side <= 0 ? node.childLeft : node.childRight;
-    }
-}
+    };
+})();
 
 function completeSubSectors(root: TreeNode, subsectors: SubSector[]) {
     let bspLines = [];
