@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { Vector3 } from "three";
 import type { MapObject } from "./map-object";
-import { AmanatidesWooTrace, centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Line, type Vertex } from "./math";
+import { AmanatidesWooTrace, centerSort, closestPoint, lineAABB, lineBounds, lineFromVertexes, lineLineIntersect, pointOnLine, reverseLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Line, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import { type Lump, int16, word, lumpString } from "../doom";
 import { readBspData } from "./wad/bsp-data";
@@ -35,9 +35,8 @@ export function thingsLump(lump: Lump) {
 }
 
 const zeroScroll = { dx: 0, dy: 0 };
-export interface LineDef {
+export interface LineDef extends Line {
     num: number;
-    v: Line;
     flags: number;
     special: number;
     tag: number;
@@ -69,7 +68,7 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
         linedefs[i] = {
             tag, special, flags,
             num: i,
-            v: [vertexes[v0], vertexes[v1]],
+            ...lineFromVertexes(vertexes[v0], vertexes[v1]),
             left: sidedefs[leftSidedef],
             right: sidedefs[rightSidedef],
             switchState: null,
@@ -84,16 +83,6 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
     }
     return linedefs;
 }
-
-export const linedefSlope = (() => {
-    const rs = { dx: 0, dy: 0, length: 0 };
-    return (ld: LineDef) => {
-        rs.dx = ld.v[1].x - ld.v[0].x;
-        rs.dy = ld.v[1].y - ld.v[0].y;
-        rs.length = Math.sqrt(rs.dx * rs.dx + rs.dy * rs.dy);
-        return rs;
-    }
-})();
 
 export interface SideDef {
     // With R2, those don't need to be stores but it also doesn't really hurt because we don't update them
@@ -249,10 +238,10 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     for (const subsector of subsectors) {
         for (const seg of subsector.segs) {
             // +/- 1 to avoid rounding errors and accidentally querying outside the blockmap
-            minX = Math.min(seg.v[0].x - 1, seg.v[1].x - 1, minX);
-            maxX = Math.max(seg.v[0].x + 1, seg.v[1].x + 1, maxX);
-            minY = Math.min(seg.v[0].y - 1, seg.v[1].y - 1, minY);
-            maxY = Math.max(seg.v[0].y + 1, seg.v[1].y + 1, maxY);
+            minX = Math.min(seg.x - 1, seg.x + seg.dx - 1, minX);
+            maxX = Math.max(seg.x + 1, seg.x + seg.dx + 1, maxX);
+            minY = Math.min(seg.y - 1, seg.y + seg.dy - 1, minY);
+            maxY = Math.max(seg.y + 1, seg.y + seg.dy + 1, maxY);
         }
     }
 
@@ -290,7 +279,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     const tracer = new AmanatidesWooTrace(dimensions.originX, dimensions.originY, blockSize, dimensions.numRows, dimensions.numCols);
     for (const subsector of subsectors) {
         for (const seg of subsector.segs) {
-            let p = tracer.initFromLine(seg.v);
+            let p = tracer.initFromLine(seg);
             while (p) {
                 blocks[p.y * dimensions.numCols + p.x].segs.push(seg);
                 p = tracer.step();
@@ -304,17 +293,14 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         regionTracer(region, block => block.subsectors.push(subsector));
     }
 
-    const checkLine: Line = [null, null];
     const pointInSubsector = (subsector: SubSector, point: Vertex) => {
         for (let i = 1; i < subsector.vertexes.length; i++) {
-            checkLine[0] = subsector.vertexes[i - 1];
-            checkLine[1] = subsector.vertexes[i];
+            const checkLine = lineFromVertexes(subsector.vertexes[i - 1], subsector.vertexes[i]);
             if (signedLineDistance(checkLine, point) < 0) {
                 return false;
             }
         }
-        checkLine[0] = subsector.vertexes[subsector.vertexes.length - 1];
-        checkLine[1] = subsector.vertexes[0];
+        const checkLine = lineFromVertexes(subsector.vertexes[subsector.vertexes.length - 1], subsector.vertexes[0]);
         return signedLineDistance(checkLine, point) > 0;
     };
     const pointInBlock = (block: Block, point: Vertex) =>
@@ -393,7 +379,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                     // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
                     // other traces.
                     // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
-                    nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
+                    nVec.set(seg.dy, -seg.dx, 0);
                     const moveDot = params.move.dot(nVec);
                     // NOTE: we allow dot === 0 because we only check dot product when we are moving
                     // (if we aren't moving, dot will always be 0 and we skip everything)
@@ -401,7 +387,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
                         continue;
                     }
                 }
-                const hit = sweepAABBLine(params.start, radius, params.move, seg.v);
+                const hit = sweepAABBLine(params.start, radius, params.move, seg);
                 if (hit && (params.radius || pointInBlock(block, hit))) {
                     seg.blockHit = scanN;
                     const point = new Vector3(hit.x, hit.y, params.start.z + params.move.z * hit.u);
@@ -559,8 +545,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
     return { dimensions, blockRegion, regionTracer, traceRay, traceMove };
 }
 
-export interface Seg {
-    v: Line;
+export interface Seg extends Line {
     linedef: LineDef;
     direction: number;
     blockHit: number;
@@ -570,7 +555,7 @@ export interface SubSector {
     num: number;
     sector: Sector;
     segs: Seg[];
-    vertexes: Vertex[];
+    vertexes: (Vertex | ImplicitVertex)[];
     bspLines: Line[]; // <-- useful for debugging but maybe we can remove it?
     // for collision detection
     mobjs: Set<MapObject>;
@@ -578,8 +563,7 @@ export interface SubSector {
     blockHit: number;
 }
 
-export interface TreeNode {
-    v: Line;
+export interface TreeNode extends Line {
     childRight: TreeNode | SubSector;
     childLeft: TreeNode | SubSector;
 }
@@ -703,19 +687,18 @@ export class MapData {
         const lineStart = new Vector3();
         const lineVec = new Vector3();
         for (const linedef of linedefsWithoutSegs) {
-            lineStart.set(linedef.v[0].x, linedef.v[0].y, 0);
-            lineVec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
+            lineStart.set(linedef.x, linedef.y, 0);
+            lineVec.set(linedef.dx, linedef.dy, 0);
             // note: offset and angle are not used
             const partialSeg = { linedef, offset: 0, angle: 0 };
 
             subsectorTrace(lineStart, lineVec, 0, subsec => {
-                const intersect = lineBounds(linedef.v, subsec.bounds);
+                const intersect = lineBounds(linedef, subsec.bounds);
                 if (intersect) {
-                    const v1 = { x: intersect[0].x, y: intersect[0].y };
-                    const v2 = { x: intersect[1].x, y: intersect[1].y };
-                    subsec.segs.push({ ...partialSeg, v: [v1, v2], direction: 0, blockHit: 0 });
+                    const line = lineFromVertexes(intersect[0], intersect[1]);
+                    subsec.segs.push({ ...partialSeg, ...line, direction: 0, blockHit: 0 });
                     if (linedef.left) {
-                        subsec.segs.push({ ...partialSeg, v: [v2, v1], direction: 1, blockHit: 0 });
+                        subsec.segs.push({ ...partialSeg, ...reverseLine(line), direction: 1, blockHit: 0 });
                     }
                 }
                 return true; // continue to next subsector
@@ -786,10 +769,10 @@ function groupSkySectors(sectors: Sector[]): Sector[][] {
 }
 
 function aabbLineOverlap(pos: Vector3, radius: number, line: LineDef) {
-    const lineMinX = Math.min(line.v[0].x, line.v[1].x);
-    const lineMaxX = Math.max(line.v[0].x, line.v[1].x);
-    const lineMinY = Math.min(line.v[0].y, line.v[1].y);
-    const lineMaxY = Math.max(line.v[0].y, line.v[1].y);
+    const lineMinX = Math.min(line.x, line.x + line.dx);
+    const lineMaxX = Math.max(line.x, line.x + line.dx);
+    const lineMinY = Math.min(line.y, line.y + line.dy);
+    const lineMaxY = Math.max(line.y, line.y + line.dy);
     if (lineMinX === lineMaxX) {
         // aabb hit a horizontal line so return y-axis overlap
         const boxMinY = pos.y - radius;
@@ -858,10 +841,10 @@ function createSubsectorTrace(root: TreeNode) {
             // (2) aabb is on the left or the right.
             //  (a) if start and end are on different sides then check both
             //  (b) else just check the start side
-            const point = radius > 0 ? lineAABB(node.v, start, radius, false) : null;
-            const side = point ? -1 : Math.sign(signedLineDistance(node.v, start));
+            const point = radius > 0 ? lineAABB(node, start, radius, false) : null;
+            const side = point ? -1 : Math.sign(signedLineDistance(node, start));
             visitNode((side <= 0) ? node.childLeft : node.childRight);
-            const eside = Math.sign(signedLineDistance(node.v, end));
+            const eside = Math.sign(signedLineDistance(node, end));
             if (point || eside !== side) {
                 visitNode((side <= 0) ? node.childRight : node.childLeft);
             }
@@ -871,7 +854,7 @@ function createSubsectorTrace(root: TreeNode) {
     };
 }
 
-export function vecFromMovement(vec: Vector3, start: Vector3, move: Vector3, radius: number) {
+const vecFromMovement = (vec: Vector3, start: Vector3, move: Vector3, radius: number) => {
     vec.copy(start).add(move);
     vec.x += Math.sign(move.x) * radius;
     vec.y += Math.sign(move.y) * radius;
@@ -887,15 +870,14 @@ const findSubSector = (() => {
             if ('segs' in node) {
                 return node;
             }
-            const dy = node.v[1].y - node.v[0].y;
-            const side = signedLineDistance(node.v, v);
-            node = side < 0 || (side === 0 && dy > 0) ? node.childLeft : node.childRight;
+            const side = signedLineDistance(node, v);
+            node = side < 0 || (side === 0 && node.dy > 0) ? node.childLeft : node.childRight;
         }
     };
 })();
 
 function completeSubSectors(root: TreeNode, subsectors: SubSector[]) {
-    let bspLines = [];
+    let bspLines: Line[] = [];
 
     function visitNodeChild(child: TreeNode | SubSector) {
         if ('segs' in child) {
@@ -911,11 +893,11 @@ function completeSubSectors(root: TreeNode, subsectors: SubSector[]) {
     }
 
     function visitNode(node: TreeNode) {
-        bspLines.push(node.v);
+        bspLines.push(node);
         visitNodeChild(node.childLeft);
         bspLines.pop();
 
-        bspLines.push([node.v[1], node.v[0]]);
+        bspLines.push(reverseLine(node));
         visitNodeChild(node.childRight);
         bspLines.pop();
     }
@@ -925,9 +907,10 @@ function completeSubSectors(root: TreeNode, subsectors: SubSector[]) {
     subsectors.forEach(subsec => addExtraImplicitVertexes(subsec, createSubsectorTrace(root)));
 }
 
+type ImplicitVertex = Vertex & { implicitLines?: Line[] };
 function subsectorVerts(segs: Seg[], bspLines: Line[]) {
     // explicit points
-    let verts = segs.map(e => e.v).flat();
+    let verts: ImplicitVertex[] = segs.map(seg => [seg, { x: seg.x + seg.dx, y: seg.y + seg.dy }]).flat();
 
     // implicit points requiring looking at bsp lines that cut this subsector. It took me a while to figure this out.
     // Here are some helpful links:
@@ -949,10 +932,10 @@ function subsectorVerts(segs: Seg[], bspLines: Line[]) {
             // the constants here are a little bit of trial and error but E1M1 had a
             // couple of subsectors in the zigzag room that helped and E3M6.
             // Also Doom2 MAP29, Plutonia MAP25. There is still a tiny gap in Doom2 MAP25 though...
-            let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .1);
-            let insideSeg = segs.map(seg => signedLineDistance(seg.v, point)).every(dist => dist >= -500);
+            let insideBsp = bspLines.map(ln => signedLineDistance(ln, point)).every(dist => dist <= .1);
+            let insideSeg = segs.map(seg => signedLineDistance(seg, point)).every(dist => dist >= -500);
             if (insideBsp && insideSeg) {
-                verts.push({ x: point.x, y: point.y, implicitLines: [bspLines[i], bspLines[j]] } as any);
+                verts.push({ x: point.x, y: point.y, implicitLines: [bspLines[i], bspLines[j]] });
             }
         }
     }
@@ -990,7 +973,7 @@ function fixVertexes(
         const ld = word(segData.data, 6 + i * 12);
         const ldv0 = word(lineDefData.data, 0 + ld * 14);
         const ldv1 = word(lineDefData.data, 2 + ld * 14);
-        const line: Line = [vertexes[ldv0], vertexes[ldv1]];
+        const line = lineFromVertexes(vertexes[ldv0], vertexes[ldv1]);
 
         const vx0 = vertexes[v0];
         if (segVerts.has(v0) && !pointOnLine(vx0, line)) {
@@ -1010,7 +993,7 @@ const _vec = new Vector3();
 function addExtraImplicitVertexes(subsector: SubSector, tracer: ReturnType<typeof createSubsectorTrace>) {
     // Because of corrections in fixVertxes(), we have to realign some points to the bsp lines (eg. sector 92 in E1M5,
     // 6 in E1M4, several in sector 7 in E1M7, sector 109 in E4M2). E3M2 has several lines that aren't right, even without
-    // the correctsion from fixVertexes() (eg. near big brown tree in sector 60, near sector 67).
+    // the correction from fixVertexes() (eg. near big brown tree in sector 60, near sector 67).
     // There are probably more in other maps but this is what I've found so far.
     //
     // This whole thing is a kludge though.
@@ -1024,17 +1007,16 @@ function addExtraImplicitVertexes(subsector: SubSector, tracer: ReturnType<typeo
             continue;
         }
 
-        const bspLines = vert.implicitLines as Line[];
         _vec.set(vert.x, vert.y, 0);
         tracer(_vec, zeroVec, 5, subs => {
             if (subs === subsector) {
                 return true; // skip this subsector
             }
 
-            const edges = [];
-            edges.push([subs.vertexes[0], subs.vertexes[subs.vertexes.length - 1]]);
+            const edges: Line[] = [];
+            edges.push({ ...lineFromVertexes(subs.vertexes[0], subs.vertexes[subs.vertexes.length - 1]) });
             for (let i = 1; i < subs.vertexes.length; i++) {
-                edges.push([subs.vertexes[i - 1], subs.vertexes[i]]);
+                edges.push({ ...lineFromVertexes(subs.vertexes[i - 1], subs.vertexes[i]) });
             }
 
             const onEdge = edges.reduce((on, line) => on || pointOnLine(vert, line), false);
@@ -1046,7 +1028,7 @@ function addExtraImplicitVertexes(subsector: SubSector, tracer: ReturnType<typeo
             let dist = 4;
             let closest = { x: 0, y: 0 };
             for (const edge of edges) {
-                for (const bspLine of bspLines) {
+                for (const bspLine of vert.implicitLines) {
                     const p = lineLineIntersect(bspLine, edge);
                     if (!p || !pointOnLine(p, edge)) {
                         continue;

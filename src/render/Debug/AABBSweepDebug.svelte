@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Vector3 } from "three";
-    import { sweepAABBLine, sweepAABBAABB, lineAABB, lineBounds } from "../../doom";
+    import { sweepAABBLine, sweepAABBAABB, lineAABB, lineBounds, lineFromVertexes } from "../../doom";
 
     const worldSize = 250;
 
@@ -52,11 +52,11 @@
         };
     }
 
-    $: hit1 = { ...sweepAABBLine(mobj1.position, mobj1.radius, mobj1.velocity, [line.start, line.end]) };
-    $: hit2 = { ...lineAABB([line.start, line.end], mobj1.position, mobj1.radius) };
+    $: hit1 = { ...sweepAABBLine(mobj1.position, mobj1.radius, mobj1.velocity, lineFromVertexes(line.start, line.end)) };
+    $: hit2 = { ...lineAABB(lineFromVertexes(line.start, line.end), mobj1.position, mobj1.radius) };
     $: hit3 = { ...sweepAABBAABB(mobj1.position, mobj1.radius, mobj1.velocity, mobj2.position, mobj2.radius) };
-    $: hit4 = { ...lineAABB([line.start, line.end], mobj1.position, mobj1.radius, false) };
-    $: hit5 = lineBounds([line.start, line.end], {
+    $: hit4 = { ...lineAABB(lineFromVertexes(line.start, line.end), mobj1.position, mobj1.radius, false) };
+    $: hit5 = lineBounds(lineFromVertexes(line.start, line.end), {
         left: mobj1.position.x - mobj1.radius,
         right: mobj1.position.x + mobj1.radius,
         top: mobj1.position.y - mobj1.radius,

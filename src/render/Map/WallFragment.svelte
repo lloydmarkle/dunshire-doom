@@ -44,8 +44,8 @@
 
     $: fakeContrastValue =
         $fakeContrast === 'classic' ? (
-            linedef.v[1].x === linedef.v[0].x ? 16 :
-            linedef.v[1].y === linedef.v[0].y ? -16 :
+            linedef.dx === 0 ? 16 :
+            linedef.dy === 0 ? -16 :
             0
         ) :
         $fakeContrast === 'gradual' ? Math.cos(angle * 2 + Math.PI) * 16 :

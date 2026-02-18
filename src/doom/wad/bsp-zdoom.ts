@@ -1,5 +1,5 @@
 import type { SubSector, TreeNode, LineDef, Seg } from "../map-data";
-import type { Line, Vertex } from "../math";
+import { lineFromVertexes, type Line, type Vertex } from "../math";
 import { _invalidBounds, type BSPData } from "./bsp-data";
 import { dword, int16, word, type Lump } from "./wadfile";
 
@@ -35,11 +35,10 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
     for (let i = 0; i < numSegs; i++) {
         const v0 = dword(buff, offset); offset += 4;
         const v1 = dword(buff, offset); offset += 4;
-        const v: Line = [fetchVert(v0), fetchVert(v1)];
         const linedefId = word(buff, offset); offset += 2;
         const linedef = linedefs[linedefId];
         const direction = buff[offset]; offset += 1;
-        segs[i] = { v, linedef, direction, blockHit: 0 };
+        segs[i] = { linedef, direction, blockHit: 0, ...lineFromVertexes(fetchVert(v0), fetchVert(v1)) };
     }
 
     // subsectors (based on segs and subsectorRefs collected above)
@@ -66,19 +65,17 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
     const numNodes = dword(buff, offset); offset += 4;
     const nodes = new Array<TreeNode>(numNodes);
     for (let i = 0; i < numNodes; i++) {
-        let xStart = int16(word(buff, offset)); offset += 2;
-        let yStart = int16(word(buff, offset)); offset += 2;
-        let xChange = int16(word(buff, offset)); offset += 2;
-        let yChange = int16(word(buff, offset)); offset += 2;
+        let x = int16(word(buff, offset)); offset += 2;
+        let y = int16(word(buff, offset)); offset += 2;
+        let dx = int16(word(buff, offset)); offset += 2;
+        let dy = int16(word(buff, offset)); offset += 2;
         offset += 4 * 2 * 2; // skip bounding box
         const childRight: any = dword(buff, offset); offset += 4;
         const childLeft: any = dword(buff, offset); offset += 4;
         nodes[i] = {
             childRight, childLeft,
-            v: [
-                { x: xStart, y: yStart },
-                { x: xStart + xChange, y: yStart + yChange },
-            ],
+            x, y,
+            dx, dy,
         };
     }
     nodes.forEach(node => {

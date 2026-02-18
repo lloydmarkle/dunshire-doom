@@ -1,5 +1,5 @@
 import type { LineDef, Seg, SubSector, TreeNode } from "../map-data";
-import { type Bounds, type Line, type Vertex } from "../math";
+import { lineFromVertexes, type Bounds, type Line, type Vertex } from "../math";
 import { int16, word, type Lump } from "./wadfile";
 import { readBspData as readZDoomBspData } from "./bsp-zdoom";
 import { readBspData as readDeepBspData } from "./bsp-deep";
@@ -32,11 +32,10 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
     for (let i = 0; i < num; i++) {
         const v0 = word(lump.data, 0 + i * len);
         const v1 = word(lump.data, 2 + i * len);
-        const v: Line = [vertexes[v0], vertexes[v1]];
         const linedefId = word(lump.data, 6 + i * len);
         const linedef = linedefs[linedefId];
         const direction = int16(word(lump.data, 8 + i * len));
-        segs[i] = { v, linedef, direction, blockHit: 0 };
+        segs[i] = { linedef, direction, blockHit: 0, ...lineFromVertexes(vertexes[v0], vertexes[v1]) };
     }
     return segs;
 }
@@ -80,18 +79,16 @@ function bspNodesLump(lump: Lump, subsectors: SubSector[]) {
     }
     let nodes = new Array<TreeNode>(num);
     for (let i = 0; i < num; i++) {
-        let xStart = int16(word(lump.data, 0 + i * len));
-        let yStart = int16(word(lump.data, 2 + i * len));
-        let xChange = int16(word(lump.data, 4 + i * len));
-        let yChange = int16(word(lump.data, 6 + i * len));
+        let x = int16(word(lump.data, 0 + i * len));
+        let y = int16(word(lump.data, 2 + i * len));
+        let dx = int16(word(lump.data, 4 + i * len));
+        let dy = int16(word(lump.data, 6 + i * len));
         const childRight: any = word(lump.data, 24 + i * len);
         const childLeft: any = word(lump.data, 26 + i * len);
         nodes[i] = {
             childRight, childLeft,
-            v: [
-                { x: xStart, y: yStart },
-                { x: xStart + xChange, y: yStart + yChange },
-            ],
+            x, y,
+            dx, dy,
         };
     }
 

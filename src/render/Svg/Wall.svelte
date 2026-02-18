@@ -20,10 +20,10 @@
 </script>
 
 <line
-    x1={linedef.v[0].x}
-    y1={linedef.v[0].y}
-    x2={linedef.v[1].x}
-    y2={linedef.v[1].y}
+    x1={linedef.x}
+    y1={linedef.y}
+    x2={linedef.x + linedef.dx}
+    y2={linedef.y + linedef.dy}
     stroke-opacity={1}
     stroke={'#' + lineStroke.getHexString()}
     stroke-width={4}

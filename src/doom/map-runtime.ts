@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { type MapData, type LineDef, type Thing, type Action, type Sector, linedefSlope } from "./map-data";
+import { type MapData, type LineDef, type Thing, type Action, type Sector } from "./map-data";
 import { Vector3 } from "three";
 import { ToDegrees, ToRadians, ticksPerSecond } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
@@ -464,14 +464,14 @@ export class MapRuntime {
                 }
             } else if (ld.special === 254 || ld.special === 1025) {
                 const rate = 1.0 / (ld.special === 254 ? 32 : 8);
-                v2.set(ld.v[1].x - ld.v[0].x, ld.v[1].y - ld.v[0].y, 0);
+                v2.set(ld.dx, ld.dy, 0);
                 const speed = v2.length() * rate;
                 for (const line of this.linedefsByTag.get(ld.tag) ?? []) {
                     if (line === ld) {
                         continue;
                     }
 
-                    v1.set(line.v[1].x - line.v[0].x, line.v[1].y - line.v[0].y, 0);
+                    v1.set(line.dx, line.dy, 0);
                     const angleDelta = v1.angleTo(v2) + Math.PI;
                     const dx = Math.cos(angleDelta) * speed;
                     const dy = Math.sin(angleDelta) * speed;
@@ -603,10 +603,7 @@ const loadMapMusicInfo = (mapName: string, lump: Lump): { [key: number]: string 
     return result;
 }
 
-const linedefScrollSpeed = (ld: LineDef) =>{
-    const slope = linedefSlope(ld);
-    return {
-        dx: Math.floor(slope.dx / 32),
-        dy: Math.floor(slope.dy / 32),
-    };
-}
+const linedefScrollSpeed = (ld: LineDef) => ({
+    dx: Math.floor(ld.dx / 32),
+    dy: Math.floor(ld.dy / 32),
+});

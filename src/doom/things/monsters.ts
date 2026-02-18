@@ -1037,11 +1037,11 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
             if (moveRadius < 0) {
                 continue; // ghost monster line checks are handled separately
             }
-            _nVec.set(hit.seg.v[1].y - hit.seg.v[0].y, hit.seg.v[0].x - hit.seg.v[1].x, 0);
+            _nVec.set(hit.seg.dy, -hit.seg.dx, 0);
             if (move.dot(_nVec) >= 0) {
                 continue;
             }
-            const point = sweepAABBLine(mobj.position, moveRadius, move, hit.seg.v);
+            const point = sweepAABBLine(mobj.position, moveRadius, move, hit.seg);
             if (!point) {
                 continue;
             }
@@ -1082,8 +1082,8 @@ function precomputedFindMoveBlocker(mobj: MapObject, move: Vector3, specialLines
 
             if (!blocking && newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
                 if (specialLines && hit.line.special) {
-                    const startSide = signedLineDistance(hit.line.v, mobj.position) < 0 ? -1 : 1;
-                    const endSide = signedLineDistance(hit.line.v, _centreMoveEnd) < 0 ? -1 : 1;
+                    const startSide = signedLineDistance(hit.line, mobj.position) < 0 ? -1 : 1;
+                    const endSide = signedLineDistance(hit.line, _centreMoveEnd) < 0 ? -1 : 1;
                     if (startSide !== endSide) {
                         specialLines.push(hit);
                     }
@@ -1103,7 +1103,7 @@ function maxFloorChange(mobj: MapObject, move: Vector3, radius: number) {
     for (let i = 0, n = _precomputedHits.length; i < n; i++) {
         const hit = _precomputedHits[i];
         if ('line' in hit) {
-            const point = sweepAABBLine(mobj.position, radius, move, hit.seg.v);
+            const point = sweepAABBLine(mobj.position, radius, move, hit.seg);
             if (!point) {
                 continue;
             }

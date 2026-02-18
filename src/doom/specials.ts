@@ -1209,20 +1209,19 @@ const lineWithTag = (() => {
             }
 
             // rotate player and velocity based on angle between teleport lines
-            v1.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
-            v2.set(ld.v[1].x - ld.v[0].x, ld.v[1].y - ld.v[0].y, 0);
+            v1.set(linedef.dx, linedef.dy, 0);
+            v2.set(ld.dx, ld.dy, 0);
             const angleDelta = v1.angleTo(v2) + angleOffset;
             mobj.direction += angleDelta;
             mobj.velocity.applyMatrix4(mat.makeRotationZ(angleDelta))
 
             // position player on exit line based on relative position on entry line
-            const dx = linedef.v[1].x - linedef.v[0].x;
-            const frac = 1 - ((dx < 0.000001 && dx > -0.000001)
-                ? (mobj.position.y - linedef.v[0].y) / (linedef.v[1].y - linedef.v[0].y)
-                : (mobj.position.x - linedef.v[0].x) / dx);
+            const frac = 1 - ((linedef.dx < 0.000001 && linedef.dx > -0.000001)
+                ? (mobj.position.y - linedef.y) / linedef.dy
+                : (mobj.position.x - linedef.x) / linedef.dx);
             mobj.position.set(
-                ld.v[0].x + (ld.v[1].x - ld.v[0].x) * frac,
-                ld.v[0].y + (ld.v[1].y - ld.v[0].y) * frac,
+                ld.x + ld.dx * frac,
+                ld.y + ld.dy * frac,
                 (ld.left?.sector?.zFloor ?? ld.right.sector.zFloor) + (mobj.position.z - linedef.right.sector.zFloor),
             );
             mobj.applyPositionChanged();

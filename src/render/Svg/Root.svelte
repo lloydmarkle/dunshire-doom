@@ -135,14 +135,14 @@
         {#if selSubSec}
             <g class="selection-info">
                 {#each selSubSec.segs as seg}
-                    <line x1={seg.v[0].x} y1={seg.v[0].y} x2={seg.v[1].x} y2={seg.v[1].y} stroke='yellow' stroke-width={3} />
+                    <line x1={seg.x} y1={seg.y} x2={seg.x + seg.dx} y2={seg.y + seg.dy} stroke='yellow' stroke-width={3} />
                     <!-- <text x={(seg.v[0].x+seg.v[1].x)/2} y={-(seg.v[0].y+seg.v[1].y)/2} fill='yellow'>{seg.linedef.num}</text> -->
                 {/each}
                 {#each selSubSec.bspLines as line}
                     {@const x = 5000}
-                    {@const m = (line[1].y - line[0].y) / (line[1].x - line[0].x + .00000001)}
-                    {@const c = (m * -line[1].x) + line[1].y}
-                    <line x1={line[0].x} y1={line[0].y} x2={line[1].x} y2={line[1].y} stroke='cyan' stroke-width={2} />
+                    {@const m = (line.dy) / (line.dx + .00000001)}
+                    {@const c = (m * -line.x) + line.y}
+                    <line x1={line.x} y1={line.y} x2={line.x + line.dx} y2={line.y + line.dy} stroke='cyan' stroke-width={2} />
                     <line x1={-x} y1={-x * m + c} x2={x} y2={x * m + c} stroke='magenta' stroke-width={.2} />
                 {/each}
                 <rect x={selSubSec.bounds.left} y={selSubSec.bounds.top}
@@ -174,7 +174,7 @@
     </g>
 </svg>
 
-<div class="dropdown dropdown-end absolute right-0">
+<div class="dropdown dropdown-end absolute right-0 z-10">
     <div tabindex="0" role="button" class="btn">Overlays</div>
     <div tabindex="-1" class="
         dropdown-content z-10 shadow bg-base-100 w-screen max-w-96 rounded-box

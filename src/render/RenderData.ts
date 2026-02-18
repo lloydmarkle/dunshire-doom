@@ -277,7 +277,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             // take advantage of transfer sectors to fake this
             linedef.left.sector.transfer = { right: { sector: rightRS.sector } } as any;
             map.linedefs
-                .filter(ld => pointOnLine(linedef.v[0], ld.v) && linedef.left.sector.light !== ld.right.sector.light)
+                .filter(ld => pointOnLine(linedef, ld) && linedef.left.sector.light !== ld.right.sector.light)
                 .map(ld => rSectors.find(sec => sec.sector === ld.right.sector))
                 .filter(rsec => rsec)
                 .forEach(rsec => {
@@ -338,7 +338,7 @@ function surroundingSector(map: MapRuntime, rs: RenderSector) {
     let result: Sector = null;
     for (let dist = 1; dist < 16 && !result; dist += 3) {
         for (const ld of rs.linedefs) {
-            const sectors = searchNeighbourSector(ld.v, map, dist);
+            const sectors = searchNeighbourSector(ld, map, dist);
             result = countResult(sectors[0]) ?? countResult(sectors[1]) ?? result;
         }
     }

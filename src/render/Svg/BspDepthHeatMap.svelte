@@ -14,7 +14,7 @@
             if ('segs' in node) {
                 break;
             }
-            const side = signedLineDistance(node.v, point);
+            const side = signedLineDistance(node, point);
             node = side <= 0 ? node.childLeft : node.childRight;
         }
         return depth;

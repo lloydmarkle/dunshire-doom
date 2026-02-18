@@ -95,8 +95,8 @@ const bodyMover: Mover = (() => {
                     // NB: if we decide to change this, we'll need to be careful about things like MT_BLOOD
                     // triggering specials when you shoot a monsters
                     if (hit.line.special && self.type === MapObjectIndex.MT_PLAYER) {
-                        const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
-                        const endSide = signedLineDistance(hit.line.v, vec) < 0 ? -1 : 1
+                        const startSide = signedLineDistance(hit.line, start) < 0 ? -1 : 1;
+                        const endSide = signedLineDistance(hit.line, vec) < 0 ? -1 : 1
                         if (startSide !== endSide) {
                             self.map.triggerSpecial(hit.line, self, 'W', hit.side);
                         }
@@ -116,7 +116,7 @@ const bodyMover: Mover = (() => {
             hit.line.hitC = hitCount;
 
             blocker = hit;
-            slideMove(move, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
+            slideMove(move, hit.line.dx, hit.line.dy);
             return !blocker;
         },
         hitFlat: hit => {
@@ -267,7 +267,7 @@ const updateBlockMapPosition = (() => {
             if (!seg.linedef.left || seg.blockHit === scanN) {
                 continue;
             }
-            const hit = sweepAABBLine(mo.position, radius, zeroVec, seg.v);
+            const hit = sweepAABBLine(mo.position, radius, zeroVec, seg);
             if (hit) {
                 seg.blockHit = scanN;
                 mo.sectorMap.set(seg.linedef.left.sector, scanN);

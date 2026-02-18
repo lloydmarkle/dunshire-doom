@@ -1,5 +1,5 @@
 import { derived } from "svelte/store";
-import { ComputedRNG, HALF_PI, TableRNG, ticksPerSecond, tickTime } from "./math";
+import { ComputedRNG, HALF_PI, TableRNG, ticksPerSecond } from "./math";
 import type { InventoryWeapon } from "./things/weapons";
 import type { Store } from "./store";
 import { Object3D, Vector3 } from "three";

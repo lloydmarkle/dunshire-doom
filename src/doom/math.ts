@@ -130,11 +130,10 @@ export function randomNorm(min, max, skew) {
     return num
 }
 
-export function signedLineDistance(l: Line, v: Vertex) {
-    // https://math.stackexchange.com/questions/274712
-    // https://www.xarg.org/book/linear-algebra/2d-perp-product/
-    return (v.x - l[0].x) * (l[1].y - l[0].y) - (v.y - l[0].y) * (l[1].x - l[0].x)
-}
+// https://math.stackexchange.com/questions/274712
+// https://www.xarg.org/book/linear-algebra/2d-perp-product/
+export const signedLineDistance = (l: Line, v: Vertex) =>
+    (v.x - l.x) * l.dy - (v.y - l.y) * l.dx;
 
 // more memory efficient to not allocate new objects all the time
 const lineLineIntersectionDetails = {
@@ -147,9 +146,9 @@ const lineLineIntersectionDetails = {
 function lineLineIntersectDetailed(l1: Line, l2: Line): typeof lineLineIntersectionDetails {
     // fantastic article https://observablehq.com/@toja/line-box-intersection
     // wikipidia was helpful too https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line_segment
-    const x1x2 = l1[0].x - l1[1].x, y1y2 = l1[0].y - l1[1].y,
-        x1x3 = l1[0].x - l2[0].x, y1y3 = l1[0].y - l2[0].y,
-        x3x4 = l2[0].x - l2[1].x, y3y4 = l2[0].y - l2[1].y;
+    const x1x2 = l1.dx, y1y2 = l1.dy,
+        x1x3 = l2.x - l1.x, y1y3 = l2.y - l1.y,
+        x3x4 = l2.dx, y3y4 = l2.dy;
 
     const d =  x1x2 * y3y4 - y1y2 * x3x4;
     // parallel or coincident
@@ -159,8 +158,8 @@ function lineLineIntersectDetailed(l1: Line, l2: Line): typeof lineLineIntersect
 
     lineLineIntersectionDetails.u = (x1x3 * y3y4 - y1y3 * x3x4) / d;
     lineLineIntersectionDetails.v = -(x1x2 * y1y3 - y1y2 * x1x3) / d;
-    lineLineIntersectionDetails.x = l1[0].x + lineLineIntersectionDetails.u * (l1[1].x - l1[0].x);
-    lineLineIntersectionDetails.y = l1[0].y + lineLineIntersectionDetails.u * (l1[1].y - l1[0].y);
+    lineLineIntersectionDetails.x = l1.x + lineLineIntersectionDetails.u * l1.dx;
+    lineLineIntersectionDetails.y = l1.y + lineLineIntersectionDetails.u * l1.dy;
     return lineLineIntersectionDetails;
 }
 
@@ -170,24 +169,25 @@ export function lineLineIntersect(l1: Line, l2: Line, bounded = false): Intersec
         ? undefined : details;
 }
 
-
 export function pointOnLine(p: Vertex, l: Line) {
     const sd = signedLineDistance(l, p);
+    const x2 = l.x + l.dx;
+    const y2 = l.y + l.dy;
     return (
         sd > -0.00001 && sd < 0.00001 &&
-        Math.min(l[0].x, l[1].x) <= p.x && p.x <= Math.max(l[0].x, l[1].x) &&
-        Math.min(l[0].y, l[1].y) <= p.y && p.y <= Math.max(l[0].y, l[1].y)
+        Math.min(l.x, x2) <= p.x && p.x <= Math.max(l.x, x2) &&
+        Math.min(l.y, y2) <= p.y && p.y <= Math.max(l.y, y2)
     );
 }
 
 export function closestPoint(l: Line, p: Vertex): Vertex {
-    let A1 = l[1].y - l[0].y;
-    let B1 = l[0].x - l[1].x;
+    let A1 = l.dy;
+    let B1 = -l.dx;
     let det = A1 * A1 + B1 * B1;
     if (det === 0) {
         return p;
     } else {
-        let C1 = A1 * l[0].x + B1 * l[0].y;
+        let C1 = A1 * l.x + B1 * l.y;
         let C2 = -B1 * p.x + A1 * p.y;
         return {
             x: (A1 * C1 - B1 * C2) / det,
@@ -235,10 +235,7 @@ const PIx2 = Math.PI * 2;
 // https://stackoverflow.com/questions/2320986
 export const normalizeAngle = (angle: number) => Math.PI + angle - (Math.floor((angle + Math.PI) / PIx2)) * PIx2;
 
-const _sweepZeroLine: Line = [
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-]
+const _sweepZeroLine: Line = { x: 0, y: 0, dx: 0, dy: 0, };
 const _sweepVec = { x: 0, y: 0, u: 0 };
 const _sweepLineNormal = { x: 0, y: 0 };
 export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex, line: Line): IntersectionPoint {
@@ -248,10 +245,10 @@ export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex
     if (radius < 0.001) {
         // when AABB "radius" is 0, we are basically testing a line from position to position+velocity against another
         // line so do that test instead because this one gets some rounding errors when radius is 0.
-        _sweepZeroLine[0].x = position.x;
-        _sweepZeroLine[0].y = position.y;
-        _sweepZeroLine[1].x = position.x + velocity.x;
-        _sweepZeroLine[1].y = position.y + velocity.y;
+        _sweepZeroLine.x = position.x;
+        _sweepZeroLine.y = position.y;
+        _sweepZeroLine.dx = velocity.x;
+        _sweepZeroLine.dy = velocity.y;
         return lineLineIntersect(_sweepZeroLine, line, true) as any;
     }
 
@@ -261,11 +258,11 @@ export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex
     const boxMinY = position.y - radius;
     const boxMaxY = position.y + radius;
 
-    _sweepLineNormal.x = line[0].y - line[1].y;
-    _sweepLineNormal.y = line[1].x - line[0].x;
+    _sweepLineNormal.x = -line.dy;
+    _sweepLineNormal.y = line.dx;
     let invVelProj = 1 / dot(velocity, _sweepLineNormal); //projected Velocity to N
-    _sweepVec.x = line[0].x - position.x;
-    _sweepVec.y = line[0].y - position.y;
+    _sweepVec.x = line.x - position.x;
+    _sweepVec.y = line.y - position.y;
     let boxProj = dot(_sweepVec, _sweepLineNormal); //projected Line distance to N
 
     let r = radius * Math.abs(_sweepLineNormal.x) + radius * Math.abs(_sweepLineNormal.y); //radius to Line
@@ -277,8 +274,8 @@ export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex
     let outTime = Math.min((boxProj + r) * invVelProj, 1);
 
     // X axis overlap
-    const lineMinX = Math.min(line[0].x, line[1].x);
-    const lineMaxX = Math.max(line[0].x, line[1].x);
+    const lineMinX = Math.min(line.x, line.x + line.dx);
+    const lineMaxX = Math.max(line.x, line.x + line.dx);
     if (velocity.x < 0) { // Sweep left
         if (boxMaxX < lineMinX) { return null; }
         hitTime = Math.max((lineMaxX - boxMinX) / velocity.x, hitTime);
@@ -292,8 +289,8 @@ export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex
     }
 
     // Y axis overlap
-    const lineMinY = Math.min(line[0].y, line[1].y);
-    const lineMaxY = Math.max(line[0].y, line[1].y);
+    const lineMinY = Math.min(line.y, line.y + line.dy);
+    const lineMaxY = Math.max(line.y, line.y + line.dy);
     if (velocity.y < 0) { // Sweep down
         if (boxMaxY < lineMinY) { return null; }
         hitTime = Math.max((lineMaxY - boxMinY) / velocity.y, hitTime);
@@ -368,12 +365,12 @@ let _lineAABB2 = [
 ];
 export function lineBounds(line: Line, bounds: Bounds) {
     // hmmm.. this function is very similar to sweepAABBAABB.. maybe we can combine them?
-    const left = bounds.left - line[0].x;
-    const right = bounds.right - line[0].x;
-    const top = bounds.top - line[0].y;
-    const bottom = bounds.bottom - line[0].y;
-    const vx = line[1].x - line[0].x;
-    const vy = line[1].y - line[0].y;
+    const left = bounds.left - line.x;
+    const right = bounds.right - line.x;
+    const top = bounds.top - line.y;
+    const bottom = bounds.bottom - line.y;
+    const vx = line.dx;
+    const vy = line.dy;
 
     // test sweeping aabb (based on https://www.amanotes.com/post/using-swept-aabb-to-detect-and-process-collision)
     const dxEntry = (vx < 0) ? right : left;
@@ -399,24 +396,50 @@ export function lineBounds(line: Line, bounds: Bounds) {
 
     tEntry = Math.max(0, tEntry);
     tExit = Math.min(1, tExit);
-    _lineAABB2[0].x = line[0].x + vx * tEntry;
-    _lineAABB2[0].y = line[0].y + vy * tEntry;
+    _lineAABB2[0].x = line.x + vx * tEntry;
+    _lineAABB2[0].y = line.y + vy * tEntry;
     _lineAABB2[0].u = tEntry;
-    _lineAABB2[1].x = line[0].x + vx * tExit;
-    _lineAABB2[1].y = line[0].y + vy * tExit;
+    _lineAABB2[1].x = line.x + vx * tExit;
+    _lineAABB2[1].y = line.y + vy * tExit;
     _lineAABB2[1].u = tExit;
     return _lineAABB2;
 }
 
-let _lineAABB = { x: 0, y: 0 };
+let _lineAABBChange = { x: 0, y: 0 };
+let _lineAABBStart = { x: 0, y: 0 };
 export function lineAABB(line: Line, pos: Vertex, radius: number, bounded = true) {
-    _lineAABB.x = line[1].x - line[0].x;
-    _lineAABB.y = line[1].y - line[0].y;
+    _lineAABBStart.x = line.x;
+    _lineAABBStart.y = line.y;
+    _lineAABBChange.x = line.dx;
+    _lineAABBChange.y = line.dy;
     // we can get lineAABB using sweep and setting the box radius to 0
-    return sweepAABBAABB(line[0], 0, _lineAABB, pos, radius, bounded);
+    return sweepAABBAABB(_lineAABBStart, 0, _lineAABBChange, pos, radius, bounded);
 }
 
-export type Line = [Vertex, Vertex];
+export type Line = {
+    x: number;
+    y: number;
+    dx: number;
+    dy: number;
+}
+export const lineFromVertexes = (() => {
+    const line: Line = { x: 0, y: 0, dx: 0, dy: 0 };
+    return (v1: Vertex, v2: Vertex) => {
+        line.x = v1.x;
+        line.y = v1.y;
+        line.dx = v2.x - v1.x;
+        line.dy = v2.y - v1.y;
+        return line;
+    };
+})();
+export const reverseLine = (line: Line) => ({
+    x: line.x + line.dx,
+    y: line.y + line.dy,
+    dx: -line.dx,
+    dy: -line.dy,
+});
+export const lineLength = (line: Line) => Math.sqrt(line.dx * line.dx + line.dy * line.dy);
+
 const decimal = (n: number) => (n % 1) + (n < 0 ? 1 : 0);
 // Classic algorithm http://www.cse.yorku.ca/~amana/research/grid.pdfs
 export class AmanatidesWooTrace {
@@ -435,7 +458,7 @@ export class AmanatidesWooTrace {
     ) {}
 
     initFromLine(line: Line) {
-        return this.init(line[0].x, line[0].y, { x: line[1].x - line[0].x, y: line[1].y - line[0].y });
+        return this.init(line.x, line.y, { x: line.dx, y: line.dy });
     }
 
     init(x: number, y: number, vel: Vertex) {

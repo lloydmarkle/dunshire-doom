@@ -1,6 +1,5 @@
 <script lang="ts">
-    import { LOD } from "three";
-    import type { LineDef } from "../../doom";
+    import { lineLength, type LineDef } from "../../doom";
     import type { RenderSector } from "../RenderData";
     import WallFragment from "./WallFragment.svelte";
 
@@ -10,13 +9,11 @@
     const vis = renderSector.visible;
     $: visible = $vis;
     const mid = {
-        x: (linedef.v[1].x + linedef.v[0].x) * 0.5,
-        y: (linedef.v[1].y + linedef.v[0].y) * 0.5,
+        x: linedef.x + linedef.dx * 0.5,
+        y: linedef.y + linedef.dy * 0.5,
     };
-    const vx = linedef.v[1].x - linedef.v[0].x;
-    const vy = linedef.v[1].y - linedef.v[0].y;
-    const width = Math.sqrt(vx * vx + vy * vy);
-    const angle = Math.atan2(vy, vx);
+    const width = lineLength(linedef);
+    const angle = Math.atan2(linedef.dy, linedef.dx);
     const leftAngle = angle + Math.PI;
 
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector?.renderData ?? {};

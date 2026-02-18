@@ -1,7 +1,7 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, FloatType, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import { TransparentWindowTexture, type MapTextureAtlas } from "./TextureAtlas";
-import { HALF_PI, linedefSlope, MapRuntime, type LineDef, type Sector, type SideDef, type Vertex, type WallTextureType } from "../../doom";
+import { HALF_PI, lineLength, MapRuntime, type LineDef, type Sector, type SideDef, type Vertex, type WallTextureType } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
 
@@ -354,15 +354,15 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
     };
 
     const addLinedef = (ld: LineDef): MapUpdater => {
-        const { dx, dy, length: width } = linedefSlope(ld);
+        const width = lineLength(ld);
         if (width === 0) {
             return () => {};
         }
 
-        const angle = Math.atan2(dy, dx);
+        const angle = Math.atan2(ld.dy, ld.dx);
         const mid = {
-            x: (ld.v[1].x + ld.v[0].x) * 0.5,
-            y: (ld.v[1].y + ld.v[0].y) * 0.5,
+            x: ld.x + ld.dx * 0.5,
+            y: ld.y + ld.dy * 0.5,
         };
 
         // Sky Hack! https://doomwiki.org/wiki/Sky_hack

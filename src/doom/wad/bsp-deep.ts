@@ -1,5 +1,5 @@
 import type { LineDef, Seg, SubSector, TreeNode } from "../map-data";
-import { type Bounds, type Line, type Vertex } from "../math";
+import { lineFromVertexes, type Bounds, type Line, type Vertex } from "../math";
 import { dword, int16, word, type Lump } from "./wadfile";
 
 // Honestly very similar to vanilla bsp but different enough that it felt better
@@ -25,11 +25,10 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
     for (let i = 0; i < num; i++) {
         const v0 = dword(lump.data, 0 + i * len);
         const v1 = dword(lump.data, 4 + i * len);
-        const v: Line = [vertexes[v0], vertexes[v1]];
         const linedefId = word(lump.data, 10 + i * len);
         const linedef = linedefs[linedefId];
         const direction = int16(word(lump.data, 12 + i * len));
-        segs[i] = { v, linedef, direction, blockHit: 0 };
+        segs[i] = { linedef, direction, blockHit: 0, ...lineFromVertexes(vertexes[v0], vertexes[v1]) };
     }
     return segs;
 }
@@ -74,19 +73,17 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
     }
     let nodes = new Array<TreeNode>(num);
     for (let i = 0; i < num; i++) {
-        let xStart = int16(word(lump.data, offset)); offset += 2;
-        let yStart = int16(word(lump.data, offset)); offset += 2;
-        let xChange = int16(word(lump.data, offset)); offset += 2;
-        let yChange = int16(word(lump.data, offset)); offset += 2;
+        let x = int16(word(lump.data, offset)); offset += 2;
+        let y = int16(word(lump.data, offset)); offset += 2;
+        let dx = int16(word(lump.data, offset)); offset += 2;
+        let dy = int16(word(lump.data, offset)); offset += 2;
         offset += 4 * 2 * 2 // skip bounds left and right
         const childRight: any = dword(lump.data, offset); offset += 4;
         const childLeft: any = dword(lump.data, offset); offset += 4;
         nodes[i] = {
             childRight, childLeft,
-            v: [
-                { x: xStart, y: yStart },
-                { x: xStart + xChange, y: yStart + yChange },
-            ],
+            x, y,
+            dx, dy,
         };
     }
 
