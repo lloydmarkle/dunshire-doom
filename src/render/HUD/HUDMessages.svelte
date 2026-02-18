@@ -7,7 +7,7 @@
 
     export let player: PlayerMapObject;
     export let scale: number;
-    export let topOffset: number;
+    export let topOffset: string;
     const hudMessage = player.hudMessage;
 
     const { visibleHudMessages } = useAppContext().settings;
@@ -33,7 +33,7 @@
 
 <div
     class="w-full absolute inset-0 overflow-hidden"
-    style="top:{topOffset}px"
+    style="top:{topOffset}"
     style:--hud-scale={scale}
 >
     <div
@@ -52,16 +52,14 @@
 </div>
 <style>
     .messages {
-        padding-bottom: 3.5px;
-        top: -3px;
-        left: 0;
+        padding-bottom: 1px;
         transform: scale(var(--hud-scale));
         transform-origin: top left;
         display: flex;
         flex-direction: column;
         flex-wrap: nowrap;
         gap: 1px;
-        /* Only show n messages: n * (7px + gap) (2px gap because each message is a message + blank message) */
+        /* Only show n messages: n * (7px + gap) (3px gap because each message is a message + blank message) */
         max-height: calc(var(--visible-messages) * (7px + 2px));
         overflow-y: scroll;
         scrollbar-width: none;

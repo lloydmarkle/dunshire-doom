@@ -84,4 +84,4 @@
 </script>
 
 <img src={dataUrl} alt={name}
-    style={type === 'sprite' ? `transform: translate(0px, ${-gfx.yOffset + .5 * gfx.height}px)` : ''} />
+    style={type === 'sprite' ? `transform: translate(${-gfx.xOffset}px, ${-gfx.yOffset}px)` : ''} />

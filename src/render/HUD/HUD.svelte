@@ -19,6 +19,8 @@
     const offsetX = (320 - gfx.width) / 2;
     $: scale = Math.min($viewSize.width / gfx.width, $viewSize.height / gfx.height, $maxHudScale);
     $: hudHeight = gfx.height * scale;
+    $: hudTopOffset = $hudStyle !== 'top' ? '0px' :
+        `calc(${hudHeight}px + 1rem + ${$extendedHud ? '2rem' : '0px'})`;
 
     let timeText = formatTime(0);
     const tick = player.map.game.time.tick;
@@ -45,7 +47,7 @@
     }
 </script>
 
-<HUDMessages {scale} topOffset={$hudStyle === 'top' ? hudHeight : 0} {player} />
+<HUDMessages {scale} topOffset={hudTopOffset} {player} />
 
 <div
     class="hud"
@@ -78,7 +80,7 @@
         <STNumber sprite='STTNUM' value={$health} percent />
     </div>
     <div class="arms">
-        <Picture name={'STARMS'} />
+        <Picture name={'STARMS'} type='sprite' />
         <span><STNumber sprite={weaponLights.includes(2) ? 'STYSNUM' : 'STGNUM'} value={2} /></span>
         <span><STNumber sprite={weaponLights.includes(3) ? 'STYSNUM' : 'STGNUM'} value={3} /></span>
         <span><STNumber sprite={weaponLights.includes(4) ? 'STYSNUM' : 'STGNUM'} value={4} /></span>
@@ -208,8 +210,7 @@
     }
 
     .face {
-        top: 2px;
-        left: 148px;
+        left: 143px;
     }
 
     .armor {

@@ -89,4 +89,4 @@
     }
 </script>
 
-<Picture name={state} />
+<Picture name={state} type='sprite'/>
