@@ -1,10 +1,10 @@
 <script lang="ts">
     import { HALF_PI } from "../../../doom";
     import { T, useTask, useThrelte } from "@threlte/core";
-    import { useDoomMap } from "../../DoomContext";
     import { expoIn, quadIn, quadOut } from "svelte/easing";
     import { Vector3 } from "three";
     import { Tween } from "svelte/motion";
+    import { useDoomMap } from "../Context.svelte";
 
     export let yScale: number;
 

@@ -1,12 +1,10 @@
 import { getContext } from 'svelte'
-import { MapTextures, type RenderSector } from './RenderData';
-import { Game, MapRuntime, type GameSettings, store, type Store, type DoomError, type Lump, type MapExport } from '../doom';
+import { MapTextures } from './RenderData';
+import { Game, type GameSettings, store, type Store, type DoomError, type Lump, type MapExport } from '../doom';
 import { derived, get, writable } from 'svelte/store';
-import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
 import { createFullscreenControls } from './Controls/FullscreenControls';
 import { menuSetting } from './Menu/menu';
-import { type MapDataCache } from './Map/Context.svelte'
 
 export const createDefaultSettings = () => {
     const gameSettings: GameSettings = {
@@ -214,10 +212,3 @@ export const createGameContext = (game: Game, viewSize: Store<{ width: number; h
 
 export const useAppContext = (): ReturnType<typeof createAppContext> => getContext('doom-app-context');
 export const useDoom = (): ReturnType<typeof createGameContext> => getContext('doom-game-context');
-export const useDoomMap = (): {
-    map: MapRuntime,
-    dataCache: MapDataCache,
-    renderSectors: RenderSector[],
-    skyColor: Color,
-    camera: { position: Store<Vector3>, angle: Store<Euler> },
-} => getContext('doom-map');

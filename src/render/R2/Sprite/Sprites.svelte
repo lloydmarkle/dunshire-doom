@@ -1,6 +1,6 @@
 <script lang="ts">
     import { T, useTask, useThrelte } from "@threlte/core";
-    import { useAppContext, useDoomMap } from "../../DoomContext";
+    import { useAppContext } from "../../DoomContext";
     import type { SpriteSheet } from "./SpriteAtlas";
     import { createSpriteMaterialTransparent, createSpriteMaterial } from "./Materials";
     import { Camera, Euler, Quaternion, Vector3 } from "three";
@@ -8,6 +8,7 @@
     import { onDestroy, onMount } from "svelte";
     import { MapRuntime, MFFlags, tickTime, type MapObject as MO, type Sprite } from "../../../doom";
     import type { MapLighting } from "../MapLighting";
+    import { useDoomMap } from "../../Map/Context.svelte";
 
     export let map: MapRuntime;
     export let spriteSheet: SpriteSheet;

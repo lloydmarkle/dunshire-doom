@@ -2,9 +2,10 @@
     import { T, useThrelte } from "@threlte/core";
     import { createSprite, weaponTop, type PlayerMapObject, type Sprite } from "../../doom";
     import WeaponSprite from "../Components/WeaponSprite.svelte";
-    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
     import { monitorMapObject } from "./SvelteBridge";
     import { onMount } from "svelte";
+    import { useDoomMap } from "./Context.svelte";
 
     interface Props {
         player: PlayerMapObject;

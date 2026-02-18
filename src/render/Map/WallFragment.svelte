@@ -7,8 +7,9 @@
     import { T } from "@threlte/core";
     import { HALF_PI, ToDegrees, type LineDef, type Vertex, normalizeAngle } from "../../doom";
     import Wireframe from "../Debug/Wireframe.svelte";
-    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
     import { namedColor } from "../RenderData";
+    import { useDoomMap } from "./Context.svelte";
 
     export let linedef: LineDef;
     export let useLeft = false;

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { T, useThrelte } from '@threlte/core';
     import { BufferGeometry, MeshBasicMaterial } from 'three';
-    import { useAppContext, useDoomMap } from '../DoomContext';
+    import { useAppContext } from '../DoomContext';
     import { MapTextureAtlas, TextureAtlas } from './TextureAtlas'
     import { buildMapGeometry } from './GeometryBuilder';
     import Wireframe from '../Debug/Wireframe.svelte';
@@ -10,6 +10,7 @@
     import type { MapRuntime } from '../../doom';
     import type { MapLighting } from './MapLighting';
     import { monitorMapObject } from '../Map/SvelteBridge';
+    import { useDoomMap } from '../Map/Context.svelte';
 
     export let map: MapRuntime;
     export let lighting: MapLighting;

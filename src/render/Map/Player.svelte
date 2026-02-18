@@ -2,13 +2,14 @@
     import { T } from "@threlte/core";
     import Thing from "./Thing.svelte";
     import { CircleGeometry, MeshStandardMaterial } from "three";
-    import { useAppContext, useDoomMap } from "../DoomContext";
+    import { useAppContext } from "../DoomContext";
     import OrthoCam from "./Camera/Orthographic.svelte";
     import FirstPersonCam from "./Camera/FirstPerson.svelte";
     import OverheadCam from "./Camera/Overhead.svelte";
     import FollowCam from "./Camera/Follow.svelte";
     import { monitorMapObject, type PlayerMapObject } from "./SvelteBridge";
     import { onDestroy } from "svelte";
+    import { useDoomMap } from "./Context.svelte";
 
     const { map, renderSectors } = useDoomMap();
     const { cameraMode, renderMode } = useAppContext().settings;

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { HALF_PI, type LineDef, type MapRuntime } from "../../doom";
-    import { useAppContext, useDoomMap } from "../DoomContext";
+    import { useAppContext } from "../DoomContext";
+    import { useDoomMap } from "../Map/Context.svelte";
     import FlagList from "./FlagList.svelte";
     import NumberChooser from "./NumberChooser.svelte";
     import SidedefEditor from "./SidedefEditor.svelte";

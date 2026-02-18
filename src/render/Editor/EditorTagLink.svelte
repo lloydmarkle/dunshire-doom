@@ -1,8 +1,9 @@
 <script lang="ts">
     import { T } from "@threlte/core";
     import type { LineDef, MapRuntime, Sector } from "../../doom";
-    import { useAppContext, useDoomMap } from "../DoomContext";
+    import { useAppContext } from "../DoomContext";
     import { BoxGeometry, BufferGeometry, Color, LineBasicMaterial, MeshBasicMaterial, Vector3 } from "three";
+    import { useDoomMap } from "../Map/Context.svelte";
 
     export let map: MapRuntime;
 

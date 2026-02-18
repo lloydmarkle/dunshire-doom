@@ -3,10 +3,11 @@
     import Wireframe from "../Debug/Wireframe.svelte";
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from "three";
     import { type Sector } from "../../doom";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useDoom } from "../DoomContext";
     import type { Sprite } from "../../doom/sprite";
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import { onMount } from "svelte";
+    import { useDoomMap } from "../Map/Context.svelte";
 
     export let sprite: Sprite;
     export let sector: Sector;

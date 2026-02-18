@@ -9,13 +9,14 @@
 <script lang="ts">
     import { T } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial, DoubleSide, BackSide } from 'three';
-    import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
+    import { useAppContext, useDoom } from '../DoomContext';
     import { EIGHTH_PI, QUARTER_PI, HALF_PI, MFFlags, normalizeAngle, MapObjectIndex } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
     import type { RenderSector } from '../RenderData';
     import { MoveDirection } from '../../doom/things/monsters';
     import type { MapObject } from './SvelteBridge';
+    import { useDoomMap } from './Context.svelte';
 
     export let thing: MapObject;
     export let renderSector: RenderSector;

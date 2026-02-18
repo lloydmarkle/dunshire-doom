@@ -3,11 +3,12 @@
     import Wall from "./Wall.svelte";
     import BspDepthHeatMap from "./BspDepthHeatMap.svelte";
     import { type MapRuntime, type SubSector } from "../../doom";
-    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
     import { Color } from "three";
     import type { RenderSector } from "../RenderData";
     import { onDestroy, onMount } from "svelte";
     import { bridgeEventsToReadables, type MapObject as MObj } from "../Map/SvelteBridge";
+    import { useDoomMap } from "../Map/Context.svelte";
 
     export let map: MapRuntime;
 

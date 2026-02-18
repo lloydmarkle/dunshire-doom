@@ -1,9 +1,10 @@
 <script lang="ts">
     import { T } from "@threlte/core";
     import { BackSide, Color, FrontSide, MeshStandardMaterial } from "three";
-    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { namedColor, type RenderSector } from "../RenderData";
+    import { useDoomMap } from "./Context.svelte";
 
     export let renderSector: RenderSector;
     export let textureName: string;

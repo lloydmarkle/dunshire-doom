@@ -1,10 +1,11 @@
 <script lang="ts">
     import { T, useTask, useThrelte } from "@threlte/core";
-    import { useAppContext, useDoomMap } from "../../DoomContext";
+    import { useAppContext } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
     import { Vector3 } from "three";
     import { Tween } from "svelte/motion";
     import { quadOut } from "svelte/easing";
+    import { useDoomMap } from "../Context.svelte";
 
     export let yScale: number;
 

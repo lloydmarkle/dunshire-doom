@@ -31,13 +31,20 @@
     })();
 
     export const clearCache = () => dataCache.validate(null);
+
+    export const useDoomMap = (): {
+        map: MapRuntime,
+        dataCache: MapDataCache,
+        renderSectors: RenderSector[],
+        skyColor: Color,
+        camera: { position: Store<Vector3>, angle: Store<Euler> },
+    } => getContext('doom-map');
 </script>
 <script lang="ts">
-    import { setContext } from "svelte";
-    import { store, type MapRuntime } from "../../doom";
-    import { buildRenderSectors } from "../RenderData";
+    import { getContext, setContext } from "svelte";
+    import { store, type MapRuntime, type Store } from "../../doom";
+    import { buildRenderSectors, type RenderSector } from "../RenderData";
     import { Color, Euler, Vector3 } from "three";
-    import { type useDoomMap } from "../DoomContext";
 
     export let map: MapRuntime;
 

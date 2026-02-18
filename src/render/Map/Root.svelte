@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { type MapRuntime, type Sprite } from "../../doom";
-    import { useAppContext, useDoomMap } from "../DoomContext";
+    import { type MapRuntime } from "../../doom";
+    import { useAppContext } from "../DoomContext";
     import BlockMap from "../Debug/BlockMap.svelte";
     import Stats from "../Debug/Stats.svelte";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";
@@ -11,6 +11,7 @@
     import ShotTrace from "./ShotTrace.svelte";
     import { onDestroy } from "svelte";
     import { bridgeEventsToReadables } from "./SvelteBridge";
+    import { useDoomMap } from "./Context.svelte";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
