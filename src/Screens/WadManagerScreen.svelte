@@ -6,7 +6,6 @@
     import WadDropbox from "../render/Components/WadDropbox.svelte";
     import WadInfoScreen from "./WadInfoScreen.svelte";
     import { WadFile } from "../doom";
-    import { flip } from "svelte/animate";
     import WadList from "./Launcher/WadList.svelte";
 
     let { wadStore }: { wadStore: WadStore } = $props();
@@ -19,7 +18,6 @@
     let selectedPWadIndex = $state(-1);
     let selectedPWad = $derived($wads[selectedPWadIndex]);
     let selectAll = $state(false);
-    const changeSelectionBox = () => selectedPWadIndex = -1;
 
     let confirmDelete = $state(false);
     function removeSelectedPWads() {
@@ -47,8 +45,8 @@
     function parseUrlHash(hash: string) {
         const params = new URLSearchParams(hash.substring(1));
         const pwadName = params.get('inspect');
+        selectedPWadIndex = $wads.findIndex(e => e.name === pwadName);
         if (pwadName && pwadName !== selectedPWad?.name) {
-            selectedPWadIndex = $wads.findIndex(e => e.name === pwadName);
             const element = document.querySelectorAll('.wad-list li').item(selectedPWadIndex);
             element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -59,13 +57,13 @@
 <svelte:window on:popstate={() => parseUrlHash(window.location.hash)} />
 
 <div class="grid grid-cols-[max-content_1fr] grid-rows-1 max-h-full overflow-y-scroll">
-    <div class="flex flex-col relative max-w-sm">
+    <div class="flex flex-col relative w-[24rem]">
         <div class="flex flex-wrap gap-4 p-2 items-center justify-start bg-base-300">
             <!-- <span class="text-xs">{selectedPWads.length} of {$wads.length} selected</span> -->
             <input type="checkbox" class="checkbox"
                 bind:checked={selectAll}
                 indeterminate={selectedPWadIndex > -1 && !selectAll}
-                onchange={changeSelectionBox}
+                onchange={() => selectedPWadIndex = -1}
             />
 
             <button class="btn" class:btn-disabled={!selectAll && selectedPWadIndex === -1} onclick={() => confirmDelete = true}>
@@ -99,8 +97,7 @@
             <WadList wads={visibleWads}>
                 {#snippet item(wad, i)}
                     <a
-                        href="#tab=wads&inspect={wad.name}"
-                        onclick={() => selectedPWadIndex = i}
+                        href={i === selectedPWadIndex ? "#tab=wads" : `#tab=wads&inspect=${wad.name}`}
                         class={[
                             "p-6",
                             (selectAll || i === selectedPWadIndex) && 'active border',
@@ -115,7 +112,7 @@
         </div>
 
         {#if selectedPWad}
-        <div in:fly={{ y: '100%' }} class="h-48 mt-auto">
+        <div class="h-48 mt-auto">
             <WadDropbox {wadStore} />
         </div>
         {/if}
