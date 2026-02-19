@@ -17,6 +17,7 @@
     import { useAppContext } from "./DoomContext";
     import { derived } from "svelte/store";
     import { type MapRuntime } from "../doom";
+    import Stats from "./Debug/Stats.svelte";
 
     export let map: MapRuntime;
     export let frameTime: number;
@@ -122,6 +123,7 @@
     });
 </script>
 
+<Stats />
 {#if $renderMode === 'r2'}
     <R2 map={map} {spriteSheet} />
 {:else}

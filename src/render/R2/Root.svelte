@@ -1,7 +1,6 @@
 <script lang="ts">
     import { type MapRuntime } from "../../doom";
     import { useAppContext } from "../DoomContext";
-    import Stats from "../Debug/Stats.svelte";
     import SkyBox from "../Map/SkyBox.svelte";
     import Player from "../Map/Player.svelte";
     import MapGeometry from "./MapGeometry.svelte";
@@ -22,8 +21,6 @@
     const interact = interactivity({ enabled: $editor.active });
     $: interact.enabled.set($editor.active);
 </script>
-
-<Stats />
 
 <SkyBox />
 
