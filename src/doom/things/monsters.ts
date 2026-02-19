@@ -309,10 +309,10 @@ export const monsterMoveActions: ActionMap = {
 
         const soundTarget = mobj.sector.soundTarget;
         if (soundTarget && soundTarget.info.flags & MFFlags.MF_SHOOTABLE) {
-            mobj.chaseTarget = soundTarget;
             if (mobj.info.flags & MFFlags.MF_AMBUSH && !hasLineOfSight(mobj, soundTarget)) {
                 return;
             }
+            mobj.chaseTarget = soundTarget;
         }
 
         mobj.chaseTarget = mobj.chaseTarget ?? findPlayerTarget(mobj);

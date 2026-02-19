@@ -102,7 +102,6 @@ export const exportMap = (map: MapRuntime) => {
         weaponTic: map.player.weapon.val.stateSM.stateTics,
         weaponFlashState: map.player.weapon.val.flashSM.stateIndex,
         weaponFlashTic: map.player.weapon.val.flashSM.stateTics,
-        soundTarget: map.data.sectors.filter(sec => sec.soundTarget === map.player).map(sec => sec.num),
         inventory: {
             ...map.player.inventory.val,
             weapons: map.game.inventory.weapons.map(e => e?.name),
@@ -190,7 +189,6 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
         // now that we have the list of mobjs, reset their chase and trace targets
         if ('chaseTargetId' in thing) mobjs[i].chaseTarget = mobjs[thing.chaseTargetId];
         if ('tracerTargetId' in thing) mobjs[i].tracerTarget = mobjs[thing.tracerTargetId];
-        if (mobjs[i].chaseTarget)console.log('chase',thing.chaseTargetId)
         // add them to the map list
         map.objs.add(mobjs[i]);
         map.events.emit('mobj-added', mobjs[i]);
@@ -198,8 +196,6 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
 
     // restore map sectors and linedefs then apply saved diffs
     map.initialMapState.restore();
-    // restoring sound target is critical to not walking up monsters on load
-    data.player.soundTarget.forEach(n => map.data.sectors[n].soundTarget = map.player);
     for (let sec of data.map.sectors) {
         const dest = map.data.sectors[sec.num];
         if ('type' in sec) dest.type = sec.type;
