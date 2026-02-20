@@ -40,8 +40,11 @@
     const tranUniforms = tranMaterial.uniforms;
     tranMaterial.material.transparent = true;
     tranMaterial.material.opacity = 0.8;
-    tranMaterial.material.depthWrite = false;
     tranMaterial.material.alphaTest = 0;
+    // based on https://discourse.threejs.org/t/does-anyone-know-how-the-depth-pre-pass-option-of-babylonjs-is-implemented/20623/11
+    tranMaterial.depthMaterial.colorWrite = false;
+    tranMaterial.depthMaterial.depthWrite = true;
+    tranMaterial.depthMaterial.transparent = true;
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
     const interpolateMovement = settings.interpolateMovement;
 
