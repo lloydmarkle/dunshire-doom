@@ -154,7 +154,7 @@ export const createAppContext = () => {
         option('advanced', settings.hudStyle, 'Status bar style', ['top', 'bottom']),
         toggle('advanced', settings.extendedHud, 'Status bar stats'),
         range('advanced', settings.visibleHudMessages, 'Visible messages', 1, 10, 1),
-        range('advanced', settings.fov, 'Field of view (FOV)', 50, 120, 2),
+        range('advanced', settings.fov, 'Field of view (FOV)', 10, 150, 2),
         range('advanced', settings.lightScale, 'Brightness', .1, 4, .1),
         toggle('advanced', settings.interpolateMovement, 'Interpolate movement'),
         range('advanced', settings.timescale, 'Timescale', 0.1, 4, .1),
