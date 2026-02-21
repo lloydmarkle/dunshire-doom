@@ -203,6 +203,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             attribute uint doomLight;
             varying float vSectorLightLevel;
             varying float vSpriteFullBright;
+            varying vec4 vPlayerPos;
 
             uniform uint dInspect;
             attribute uint ${inspectorAttributeName};
@@ -222,13 +223,19 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             vec4 sectorLight = texelFetch( tLightMap, lightUV, 0 );
             vSectorLightLevel = clamp(sectorLight.g + doomExtraLight, 0.0, 1.0);
             vSpriteFullBright = flagBit(texN.y, flag_fullBright);
+            `)
+            .replace('#include <fog_vertex>', `
+            #include <fog_vertex>
+            vPlayerPos = modelViewMatrix * vec4(cameraPosition, 1.0);
             `);
+
 
         shader.fragmentShader = shader.fragmentShader
             .replace('#include <common>', fragment_pars + `
             varying float vSectorLightLevel;
             varying float vSpriteFullBright;
             varying vec3 doomInspectorEmissive;
+            varying vec4 vPlayerPos;
             `)
             .replace('#include <map_fragment>', `
             // #include <map_fragment>
@@ -256,10 +263,9 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             #include <lights_fragment_begin>
 
             // apply lighting
-            float minLight = pow(vSectorLightLevel, 8.0);
-            float depth = pow(1.0 - pow(gl_FragDepth, vSectorLightLevel * 4.5), 6.0);
-            float light = vSpriteFullBright + clamp(vSectorLightLevel * depth + minLight, 0.0, 1.0);
-            light = ceil(light * 400.0 / 4.0 - .5) * 4.0 / 400.0;
+            float camDist = isOrthographic ? distance(vViewPosition.xy, vPlayerPos.xy) / 2.0 * vSectorLightLevel : vViewPosition.z;
+            float light = vSpriteFullBright + clamp(vSectorLightLevel + 80.0 / (camDist + 80.0) - 0.9 * (1.0 - vSectorLightLevel), 0.0, vSectorLightLevel);
+            light = isOrthographic ? light * light : ceil(light * light * 64.0) / 64.0;
             material.diffuseContribution.rgb *= clamp(light, 0.0, 1.0);
             `);
     };

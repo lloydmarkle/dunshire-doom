@@ -15,6 +15,7 @@ uniform float tWidth;
 uniform sampler2D tAtlas;
 uniform int tAtlasWidth;
 uniform sampler2D tAnimAtlas;
+varying vec2 uvMotion;
 
 varying vec4 vUV;
 varying vec2 vDim;
@@ -90,11 +91,11 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             attribute uint doomLight;
             varying float vSectorLightLevel;
             attribute vec3 doomMotion;
-            varying vec2 uvMotion;
 
             uniform uvec2 dInspect;
             attribute uvec2 ${inspectorAttributeName};
             varying vec3 doomInspectorEmissive;
+            varying vec4 vPlayerPos;
 
             const float fakeContrastStep = 16.0 / 256.0;
             float fakeContrast(vec3 normal) {
@@ -117,10 +118,10 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             }
             `)
             .replace('#include <project_vertex>', `
-                float iTic = 1.0 - fract(tic);
-                uvMotion = doomMotion.xy * iTic / tWidth;
-                transformed.z += doomMotion.z * iTic;
-                #include <project_vertex>
+            float iTic = 1.0 - fract(tic);
+            uvMotion = doomMotion.xy * iTic / tWidth;
+            transformed.z += doomMotion.z * iTic;
+            #include <project_vertex>
             `)
             .replace('#include <uv_vertex>', uv_vertex + `
             // sector light level
@@ -134,21 +135,29 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             // maybe it's better to simply have an if/else?
             vec2 insp = step(vec2(${inspectorAttributeName} - dInspect), vec2(0.0));
             doomInspectorEmissive = (1.0 - step(dot(vec2(1.0), insp), 1.0)) * vec3(1.0, 0.0, 1.0) * .1;
+            `)
+            .replace('#include <fog_vertex>', `
+            #include <fog_vertex>
+            vPlayerPos = modelViewMatrix * vec4(cameraPosition, 1.0);
             `);
+
 
         shader.fragmentShader = shader.fragmentShader
             .replace('#include <common>', fragment_pars + `
             varying float vSectorLightLevel;
             varying vec3 doomInspectorEmissive;
+            varying vec4 vPlayerPos;
             `)
             .replace('#include <map_fragment>', map_fragment)
             .replace('#include <lights_fragment_begin>', `
             #include <lights_fragment_begin>
 
-            float minLight = pow(vSectorLightLevel, 8.0);
-            float depth = pow(1.0 - pow(gl_FragDepth, vSectorLightLevel * 4.5), 6.0);
-            float light = clamp(vSectorLightLevel * depth + minLight, 0.0, 1.0);
-            light = ceil(light * 400.0 / 4.0 - .5) * 4.0 / 400.0;
+            // Inspired heavily by:
+            // https://www.doomworld.com/forum/topic/57270-things-about-doom-you-just-found-out/?do=findComment&comment=1336402
+            // There is a massive wealth of information in that forum.
+            float camDist = isOrthographic ? distance(vViewPosition.xy, vPlayerPos.xy) / 2.0 * vSectorLightLevel : vViewPosition.z;
+            float light = clamp(vSectorLightLevel + 80.0 / (camDist + 80.0) - 0.9 * (1.0 - vSectorLightLevel), 0.0, vSectorLightLevel);
+            light = isOrthographic ? light * light : ceil(light * light * 64.0) / 64.0;
             material.diffuseContribution.rgb *= clamp(light, 0.0, 1.0);
 
             totalEmissiveRadiance += doomInspectorEmissive;
