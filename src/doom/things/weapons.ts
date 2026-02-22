@@ -428,36 +428,40 @@ export const weaponActions: { [key: number]: WeaponAction } = {
 
     // This isn't really a "weapon" thing (the BFG spray comes from the missile) but because the trace is so
     // similar to firing a weapon, I'm leaving it here for now.
-    [ActionIndex.A_BFGSpray]: (mobj, weapon) => {
-        // shooter is the chaseTarget who fired this missile
+    [ActionIndex.A_BFGSpray]: (() => {
+        const pos = new Vector3();
         const tDir = new Vector3();
-        const shooter = mobj.chaseTarget;
-        const dir = mobj.direction;
-        const aim = aimTrace(shooter, shooter.position, tDir, scanRange);
-        for (let i = 0; i < 40; i++) {
-            let angle = dir - QUARTER_PI + HALF_PI / 40 * i;
+        return (mobj, weapon) => {
+            // shooter is the chaseTarget who fired this missile
+            const shooter = mobj.chaseTarget;
+            const dir = mobj.direction;
+            pos.copy(shooter.position);
+            pos.z += shooter.info.height * .5 + 8;
+            const aim = aimTrace(shooter, pos, tDir, scanRange);
+            for (let i = 0; i < 40; i++) {
+                let angle = dir - QUARTER_PI + HALF_PI / 40 * i;
 
-            // scan from the direction of the _missile_ but the position of the _shooter_ (!)
-            // https://doomwiki.org/wiki/BFG9000
-            tDir.set(
-                Math.cos(angle) * scanRange,
-                Math.sin(angle) * scanRange,
-                0);
-            const target = aim();
-            if (!target.mobj) {
-                continue;
+                // scan from the direction of the _missile_ but the position of the _shooter_ (!)
+                // https://doomwiki.org/wiki/BFG9000
+                tDir.set(
+                    Math.cos(angle) * scanRange,
+                    Math.sin(angle) * scanRange,
+                    0);
+                const target = aim();
+                if (!target.mobj) {
+                    continue;
+                }
+                const pos = target.mobj.position;
+                mobj.map.spawn(MapObjectIndex.MT_EXTRABFG, pos.x, pos.y, pos.z + target.mobj.info.height * .5);
+
+                let damage = 0;
+                for (let j = 0; j < 15; j++) {
+                    damage += mobj.rng.int(1, 8);
+                }
+                target.mobj.damage(damage, shooter, shooter);
             }
-
-            const pos = target.mobj.position;
-            mobj.map.spawn(MapObjectIndex.MT_EXTRABFG, pos.x, pos.y, pos.z + target.mobj.info.height * .5);
-
-            let damage = 0;
-            for (let j = 0; j < 15; j++) {
-                damage += mobj.rng.int(1, 8);
-            }
-            target.mobj.damage(damage, shooter, shooter);
         }
-    },
+    })(),
 };
 
 const _shotEuler = new Euler(0, 0, 0, 'ZXY');
