@@ -24,9 +24,6 @@ export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
     return Math.sqrt(_distVec.x * _distVec.x + _distVec.y * _distVec.y);
 }
 
-const velocityPerSecond = (vel: number) => vel * ticksPerSecond;
-const velocityPerTick = (vel: number) => vel / ticksPerSecond;
-
 type Mover = (mobj: MapObject, move: Vector3) => void;
 const bodyMover: Mover = (() => {
     const vec = new Vector3();
@@ -698,7 +695,6 @@ export class MapObject {
         // if the monster has no velocity, skip movement check.
         // We still do this for players though so that voodoo dolls pick up items
         if (!this._isMoving && (!this._positionChanged || this.isMonster)) {
-        // if (!this._isMoving && (!this._positionChanged || this.class !== 'S')) {
             return;
         }
         this.mover(this, this.velocity);

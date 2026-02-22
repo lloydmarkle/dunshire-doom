@@ -1518,6 +1518,10 @@ export function pusherAction(map: MapRuntime, linedef: LineDef, scrollSpeed: { d
                 moved.add(mobjs[i])
                 specials.length = 0;
                 const blocker = findMoveBlocker(mobjs[i], movement, specials);
+                if (mobjs[i].type === MapObjectIndex.MT_PLAYER) {
+                    // players always update position so that voodoo dolls, even when stuck in a corner, still pick up items
+                    mobjs[i].positionChanged();
+                }
                 if (!blocker) {
                     mobjs[i].position.add(movement);
                     mobjs[i].positionChanged();
@@ -1527,8 +1531,8 @@ export function pusherAction(map: MapRuntime, linedef: LineDef, scrollSpeed: { d
         }
 
         // for mobjs that were pushed but now are not, we add velocity so they slide off
-        // why .4? It seems to match the intro to SOD MAP12 but YMMV.
-        const mScale = 0.4;
+        // why .3? It seems to match the intro to SOD MAP12 but YMMV.
+        const mScale = 0.3;
         const left = lastMoved.difference(moved);
         left.forEach(mobj => mobj.thrust(movement.x * mScale, movement.y * mScale, movement.z * mScale));
         lastMoved = moved;

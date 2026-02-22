@@ -3,7 +3,7 @@ import { Vector3 } from "three";
 import type { MapObject } from "./map-object";
 import { AmanatidesWooTrace, centerSort, closestPoint, lineAABB, lineBounds, lineFromVertexes, lineLineIntersect, pointOnLine, reverseLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Line, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
-import { type Lump, int16, word, lumpString } from "../doom";
+import { type Lump, int16, word, lumpString, stopVelocity } from "../doom";
 import { readBspData } from "./wad/bsp-data";
 import type { SectorChanger } from "./specials";
 
@@ -333,19 +333,18 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
         }
         const radius = params.radius ?? 0;
         // only check xy move because we want to skip dot product checks when moving up or down
-        const moving = params.move.lengthSq() > .001;
+        const moving = (params.move.x * params.move.x + params.move.y * params.move.y) > stopVelocity;
 
         // collide with things
         if (params.hitObject) {
             for (const mobj of block.mobjs) {
-                // MSCP MAP14 has voodoo dolls that sit on a BIG pile of cells. We have to limit objects scanned for per    formance
+                // MSCP MAP14 has voodoo dolls that sit on a BIG pile of cells. We have to limit objects scanned for performance
                 if (hits.length === params.objectHitLimit) {
                     break;
                 }
                 if (mobj.blockHit === scanN) {
                     continue;
                 }
-                // TODO: only check xy so we don't drop or fly into mobjs?
                 if (moving) {
                     // like wall collisions, we allow the collision if the movement is away from the other mobj
                     nVec.set(params.start.x - mobj.position.x, params.start.y - mobj.position.y, 0);
