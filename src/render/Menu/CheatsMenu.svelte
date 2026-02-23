@@ -16,8 +16,8 @@
         player.map.spawn(MapObjectIndex.MT_MISC62, player.position.x, player.position.y);
         player.map.game.playSound(SoundIndex.sfx_slop, player);
         // undo effects of MapObject.kill()
-        const tw = tweened(player.health.val);
-        tw.subscribe(v => player.health.set(v));
+        const tw = tweened(player.health);
+        tw.subscribe(v => player.health = v);
         tw.set(100, { duration: 2000 });
         const mInfo = mapObjectInfo[MapObjectIndex.MT_PLAYER];
         player.setState(mInfo.spawnstate);

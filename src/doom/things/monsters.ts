@@ -768,7 +768,7 @@ export const monsterActions: ActionMap = {
     },
     // player only so maybe it could be moved to a player specific place?
 	[ActionIndex.A_PlayerScream]: player => {
-        const sound = player.health.val < -50 && !player.map.game.episodic
+        const sound = player.health < -50 && !player.map.game.episodic
             ? SoundIndex.sfx_pdiehi : SoundIndex.sfx_pldeth;
         player.map.game.playSound(sound, player);
     },

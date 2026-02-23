@@ -198,13 +198,12 @@ export class MapRuntime {
         // reset monster chase targets for monsters already chasing the player
         this.objs.forEach(mo => mo.chaseTarget = mo.chaseTarget === playerThing ? this.player : mo.chaseTarget);
         // restore values from last level (and subscribe to preserve values for next level)
-        this.player.health.set(game.inventory.health);
-        this.player.health.subscribe(health => game.inventory.health = health);
+        this.player.health = game.inventory.health;
         this.player.weapon.set(game.inventory.lastWeapon.fn());
-        this.player.weapon.subscribe(weapon => {
+        this.disposables.push(this.player.weapon.subscribe(weapon => {
             game.inventory.lastWeapon = inventoryWeapon(weapon.name);
             weapon.activate(this.player);
-        });
+        }));
 
         this.input = new GameInput(this, game.input);
     }
@@ -324,6 +323,7 @@ export class MapRuntime {
         });
 
         this.objs.forEach(thing => thing.tick());
+        this.game.inventory.health = this.player.health;
 
         // FIXME: this is apparently very expensive with lots of hit scanners
         // and rarely used. Do we need it?

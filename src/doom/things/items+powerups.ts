@@ -28,14 +28,11 @@ function giveArmor(amount: number, type: 1 | 2) {
 function healthPack(amount: number, message: MessageId, lowHealthMessage?: MessageId) {
     return (player: PlayerMapObject) => {
         let pickedUp = false;
-        const msg = player.health.val < 25 ? (lowHealthMessage ?? message) : message;
-        player.health.update(health => {
-            if (health < 100) {
-                health = Math.min(100, health + amount);
-                pickedUp = true;
-            }
-            return health;
-        });
+        const msg = player.health < 25 ? (lowHealthMessage ?? message) : message;
+        if (player.health < 100) {
+            player.health = Math.min(100, player.health + amount);
+            pickedUp = true;
+        }
         return pickedUp
             ? itemPickedUp(SoundIndex.sfx_itemup, msg)
             : noPickUp();
@@ -44,10 +41,7 @@ function healthPack(amount: number, message: MessageId, lowHealthMessage?: Messa
 
 function healthBonus(amount: number, sound: SoundIndex, message: MessageId) {
     return (player: PlayerMapObject) => {
-        player.health.update(health => {
-            health = Math.min(200, health + amount);
-            return health;
-        });
+        player.health = Math.min(200, player.health + amount);
         return itemPickedUp(sound, message);
     }
 }
@@ -67,7 +61,7 @@ const giveInvlun = updateInventory('GOTINVUL', inv => inv.items.invincibilityTic
 const giveInvis = updateInventory('GOTINVIS', inv => inv.items.invisibilityTicks = 120 * ticksPerSecond);
 const giveLightGoggles = updateInventory('GOTVISOR', inv => inv.items.nightVisionTicks = 60 * ticksPerSecond);
 const giveBerserk = (player: PlayerMapObject) => {
-    player.health.update(health => Math.max(health, 100));
+    player.health = Math.max(player.health, 100);
     player.inventory.update(inv => {
         inv.items.berserkTicks = 20 * ticksPerSecond;
         inv.items.berserk = true;
@@ -81,7 +75,7 @@ const giveBerserk = (player: PlayerMapObject) => {
 const giveMap = updateInventory('GOTMAP', inv => inv.items.computerMap = true);
 const armorBonus = updateInventory('GOTARMBONUS', inv => inv.armor = Math.min(200, inv.armor + 1), SoundIndex.sfx_itemup);
 const giveMega = (player: PlayerMapObject) => {
-    player.health.set(200);
+    player.health = 200;
     giveArmor(200, 2)(player);
     return itemPickedUp(SoundIndex.sfx_getpow, 'GOTMSPHERE');
 };

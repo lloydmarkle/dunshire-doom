@@ -176,7 +176,7 @@ describe('linedef specials (E1M2)', () => {
         it('door crunches weapons and dead things', () => {
             // door is already open from the test above
             // kill the monster and drop a chaingun for testing
-            monster.damage(monster.health.val);
+            monster.damage(monster.health);
             const mobj = map.spawn(MapObjectIndex.MT_CHAINGUN, monster.position.x, monster.position.y);
             mobj.info.flags |= MFFlags.MF_DROPPED;
 
@@ -301,10 +301,10 @@ describe('linedef specials (E2M2)', () => {
             map.player.position.set(352, -320, 64);
             map.player.applyPositionChanged();
             game.settings.invicibility.set(false);
-            let health = map.player.health.val;
+            let health = map.player.health;
 
             waitTime(game, 4);
-            expect(map.player.health.val + 10).to.equal(health);
+            expect(map.player.health + 10).to.equal(health);
             game.settings.invicibility.set(true);
         });
 

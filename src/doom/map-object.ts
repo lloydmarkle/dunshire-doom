@@ -371,14 +371,14 @@ export class MapObject {
     get sector(): Sector { return this._sector; };
 
     readonly info: MapObjectInfo;
-    readonly health: Store<number>;
+    health = 0;
     readonly position: Vector3;
     readonly velocity = new Vector3();
     readonly renderShadow = store(false);
     // misc data set and used by the renderer
     readonly renderData = {};
 
-    get isDead() { return this.health.val <= 0; }
+    get isDead() { return this.health <= 0; }
     protected _positionChanged = false;
     protected _isMoving = false;
     protected _onGround = true;
@@ -396,7 +396,7 @@ export class MapObject {
         this.originalRadius = spec.mo.radius;
         this.type = spec.moType;
         this.isMonster = spec.class === 'M';
-        this.health = store(this.info.spawnhealth);
+        this.health = this.info.spawnhealth;
         this.reactiontime = map.game.skill === 5 ? 0 : this.info.reactiontime;
 
         if (this.info.flags & MFFlags.MF_SHADOW) {
@@ -531,7 +531,7 @@ export class MapObject {
     resurrect() {
         this.velocity.set(0, 0, 0);
         this.setState(this.spec.mo.raisestate)
-        this.health.set(this.spec.mo.spawnhealth);
+        this.health = this.spec.mo.spawnhealth;
         this.info.flags = this.spec.mo.flags;
         if (this.map.game.settings.ghostMonsters.val) {
             this.info.height *= 4;
@@ -554,8 +554,8 @@ export class MapObject {
         }
 
         this.damageThrust(amount, inflictor, source);
-        this.health.update(h => h - amount);
-        if (this.health.val <= 0) {
+        this.health -= amount;
+        if (this.health <= 0) {
             this.kill(source);
             return;
         }
@@ -588,7 +588,7 @@ export class MapObject {
             let thrust = amount * 12.5 / this.info.mass;
             // as a nifty effect, fall forwards sometimes on kill shots (when player is below thing they are shooting at)
             const shouldFallForward = (amount < 40
-                && amount > this.health.val
+                && amount > this.health
                 && this.position.z - inflictor.position.z > 64
                 && (this.rng.real() < .5));
             if (shouldFallForward) {
@@ -624,7 +624,7 @@ export class MapObject {
         }
 
         this.info.height *= .25;
-        if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate !== StateIndex.S_NULL) {
+        if (this.health < -this.info.spawnhealth && this.info.xdeathstate !== StateIndex.S_NULL) {
             this.setState(this.info.xdeathstate, -this.rng.int(0, 2));
         } else {
             this.setState(this.info.deathstate, -this.rng.int(0, 2));
@@ -847,7 +847,7 @@ export class PlayerMapObject extends MapObject {
                 if (causePain) {
                     this.damage(20);
                 }
-                if (this.health.val < 11) {
+                if (this.health < 11) {
                     exitLevel(this, 'normal');
                 }
             }
@@ -887,8 +887,8 @@ export class PlayerMapObject extends MapObject {
         }
 
         // end of game hell hack
-        if (this.sector.type == 11 && amount >= this.health.val) {
-            amount = this.health.val - 1;
+        if (this.sector.type == 11 && amount >= this.health) {
+            amount = this.health - 1;
         }
         this.damageCount.update(val => Math.min(val + amount, 100));
 

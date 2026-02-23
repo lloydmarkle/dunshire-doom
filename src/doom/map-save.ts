@@ -19,7 +19,7 @@ export const exportMap = (map: MapRuntime) => {
         position: mobj.position,
         ...(mobj.velocity.lengthSq() > stopVelocity && { velocity: mobj.velocity }),
         // Many values come directly from type so only save them if they are not default values
-        ...(mobj.health.val !== (mobj as any).spec.mo.spawnhealth && { health: mobj.health.val }),
+        ...(mobj.health !== (mobj as any).spec.mo.spawnhealth && { health: mobj.health }),
         ...(mobj.info.radius !== (mobj as any).spec.mo.radius && { radius: mobj.info.radius }),
         ...(mobj.info.height !== (mobj as any).spec.mo.height && { height: mobj.info.height }),
         ...(mobj.info.flags !== (mobj as any).spec.mo.flags && { flags: mobj.info.flags }),
@@ -155,7 +155,7 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
             // player restore is a little different. Other mobjs are reset to default because they are
             // created fresh but players needs some properties to be reset manually
             restoredPlayer = true;
-            player.health.set(mo.health.val);
+            player.health = mo.health;
             (mo.info as any) = mo.info;
             player.reactiontime = mo.reactiontime;
             mo.dispose();
@@ -167,7 +167,7 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
         mo.position.set(thing.position.x, thing.position.y, thing.position.z);
         mo.applyPositionChanged();
         if ('velocity' in thing) mo.velocity.set(thing.velocity.x, thing.velocity.y, thing.velocity.z);
-        if ('health' in thing) mo.health.set(thing.health);
+        if ('health' in thing) mo.health = thing.health;
         if ('radius' in thing) mo.info.radius = thing.radius;
         if ('height' in thing) mo.info.height = thing.height;
         if ('flags' in thing) mo.info.flags = thing.flags;

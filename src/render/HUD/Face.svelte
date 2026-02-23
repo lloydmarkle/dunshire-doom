@@ -5,10 +5,11 @@
     import { useDoom } from "../DoomContext";
 
     export let player: PlayerMapObject;
+    export let health: number;
 
     const { game } = useDoom();
     const { tickN } = game.time;
-    const { health, inventory, damageCount } = player;
+    const { inventory, damageCount } = player;
 
     const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
     const ticksPerSecond = 35;
@@ -21,7 +22,7 @@
     let variation = 0;
     let rampageTime = 0;
 
-    $: healthIndex = clamp(painFaces - Math.trunc($health * painDivisor), 1, painFaces) - 1; // -1 because index is from 0 to 4
+    $: healthIndex = clamp(painFaces - Math.trunc(health * painDivisor), 1, painFaces) - 1; // -1 because index is from 0 to 4
     let state = 'STFST00';
 
     $: if ($tickN) {
@@ -29,7 +30,7 @@
         const angle = badGuyAngle();
 
         state =
-            $health <= 0 ? faceState('STFDEAD0', 10, 1) : // dead
+            health <= 0 ? faceState('STFDEAD0', 10, 1) : // dead
             hasNewWeapon($inventory) ? faceState(`STFEVL${healthIndex}`, 9, 2 * ticksPerSecond) : // grin
             $damageCount && bigHurt() ? faceState(`STFOUCH${healthIndex}`, 7, ticksPerSecond) :
             $damageCount && player.attacker && player.attacker !== player ? (
@@ -53,11 +54,11 @@
         return newWeapon;
     }
 
-    let lastHealth = $health;
+    let lastHealth = health;
     function bigHurt() {
         let last = lastHealth;
-        lastHealth = $health;
-        return (last - $health > 20);
+        lastHealth = health;
+        return (last - health > 20);
     }
 
     function badGuyAngle(): 'left' | 'right' | 'other' {

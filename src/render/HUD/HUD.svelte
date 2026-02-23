@@ -12,7 +12,7 @@
     const { viewSize } = useDoom();
 
     const yScale = (16 / 10) / (4 / 3);
-    const { health, weapon, inventory } = player;
+    const { weapon, inventory } = player;
     $: weaponLights = $inventory.weapons.map(e => e?.keynum);
     const background = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
     const gfx = player.map.game.wad.graphic('STBAR');
@@ -44,6 +44,11 @@
         killCount = player.stats.kills;
         itemCount = player.stats.items;
         secretCount = player.stats.secrets;
+    }
+
+    let health = 0;
+    $: if ($tickN) {
+        health = player.health;
     }
 </script>
 
@@ -77,7 +82,7 @@
         {/if}
     </div>
     <div class="health">
-        <STNumber sprite='STTNUM' value={$health} percent />
+        <STNumber sprite='STTNUM' value={health} percent />
     </div>
     <div class="arms">
         <Picture name={'STARMS'} type='sprite' />
@@ -89,7 +94,7 @@
         <span><STNumber sprite={weaponLights.includes(7) ? 'STYSNUM' : 'STGNUM'} value={7} /></span>
     </div>
     <div class="face">
-        <Face {player} />
+        <Face {player} {health} />
     </div>
     <div class="armor">
         <STNumber sprite='STTNUM' value={$inventory.armor} percent />

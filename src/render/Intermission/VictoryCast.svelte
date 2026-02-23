@@ -1,8 +1,9 @@
 <script lang="ts">
     import { useDoom } from "../DoomContext";
-    import { _T, MapData, MapObjectIndex, MapRuntime } from "../../doom";
+    import { _T, MapData, MapObjectIndex, MapRuntime, StateIndex, type Sprite } from "../../doom";
     import STText from "../Components/STText.svelte";
     import Picture from "../Components/Picture.svelte";
+    import { onMount } from "svelte";
 
     const { wad, game } = useDoom();
     const tickN = game.time.tickN;
@@ -33,15 +34,22 @@
     ];
 
     let mobj = map.spawn(cast[castNumber][0], 0, 0);
-    let sprite = mobj.sprite;
-    let frames = wad.spriteFrames($sprite.name);
-    let frame = frames[$sprite.frame][0];
+    let frame: ReturnType<typeof wad.spriteFrames>[0][0];
+    onMount(map.events.auto('mobj-updated-sprite', (mo, sprite) => {
+        if (mo === mobj) {
+            const frames = wad.spriteFrames(sprite.name);
+            frame = frames[sprite.frame][0];
+        }
+    }));
+
     let allowAttack = false;
     const deathPauseTicks = 15;
-
     $: if ($tickN) {
+        // players are special because the default state (S_PLAY) has no animation so put the player into the run state
+        if (mobj.stateIndex === StateIndex.S_PLAY) {
+            mobj.setState(StateIndex.S_PLAY_RUN1);
+        }
         mobj.tick();
-        frame = frames[$sprite.frame][0];
 
         let attack = false;
         if (!allowAttack) {
@@ -52,21 +60,20 @@
         }
 
         if (mobj.isDead) {
-            // This is a hack but I don't have a better idea to tell when the mobj is in a dead state
-            if ((mobj as any)._state.ticks === -1) {
+            // This is a hack but I don't have a better idea to tell when the mobj finished their death animation
+            if (mobj.stateTics < 0 || mobj.stateIndex === StateIndex.S_NULL) {
                 frameCount += 1;
+                frame = mobj.stateIndex === StateIndex.S_NULL ? null : frame;
             }
             if (frameCount > deathPauseTicks) {
                 frameCount = 0;
                 castNumber = (castNumber + 1) % cast.length;
                 mobj = map.spawn(cast[castNumber][0], 0, 0);
                 mobj.chaseTarget = map.player;
-                sprite = mobj.sprite;
-                frames = wad.spriteFrames($sprite.name);
             }
         } else if (attack) {
             frameCount = 0;
-            mobj.damage(mobj.health.val);
+            mobj.damage(mobj.health);
         }
     }
 
@@ -74,7 +81,7 @@
     let attacking = false;
     let frameCount = 0;
     // loop through a few frames of walking and a frames of attacking
-    $: if (!mobj.isDead && frames[$sprite.frame][0]) {
+    $: if (!mobj.isDead) {
         frameCount += 1;
 
         if (frameCount > 12 && !attacking) {
@@ -101,8 +108,8 @@
         >
             <Picture name={frame.name} />
         </div>
-        <div class="absolute bottom-[20px]">
-            <STText text={cast[castNumber][1]} />
-        </div>
     {/if}
+    <div class="absolute bottom-[20px]">
+        <STText text={cast[castNumber][1]} />
+    </div>
 </div>
