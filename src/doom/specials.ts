@@ -510,7 +510,7 @@ const shortestLowerTexture = (direction: -1 | 1) => (map: MapRuntime, sector: Se
     sector.zFloor + direction * map.data.linedefs.reduce((target, ld) =>
         (ld.left?.sector !== sector && ld.right.sector !== sector) ? target :
             Math.min(target,
-                (map.game.wad.wallTextureData(ld.left.lower)?.height ?? missingTextureSize),
+                (map.game.wad.wallTextureData(ld.left?.lower)?.height ?? missingTextureSize),
                 (map.game.wad.wallTextureData(ld.right.lower)?.height ?? missingTextureSize)),
         maxZ);
 // https://www.doomworld.com/forum/topic/95030-why-does-raise-floor-by-shortest-lower-texture-only-half-work-on-older-ports/#comment-1770824
