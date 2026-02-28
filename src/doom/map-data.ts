@@ -332,8 +332,7 @@ function buildBlockmap(subsectors: SubSector[], vertexes: Vertex[]) {
             return;
         }
         const radius = params.radius ?? 0;
-        // only check xy move because we want to skip dot product checks when moving up or down
-        const moving = (params.move.x * params.move.x + params.move.y * params.move.y) > stopVelocity;
+        const moving = params.move.lengthSq() > stopVelocity;
 
         // collide with things
         if (params.hitObject) {
