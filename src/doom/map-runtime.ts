@@ -307,6 +307,7 @@ export class MapRuntime {
 
     tick() {
         this.events.emit('tick-start');
+        this.player.deltaSectorZFloor = 0;
 
         this.actions.forEach(actionState => {
             // having multiple types of actions is a bit messy. I need to keep all the actionState separate

@@ -721,6 +721,9 @@ export class PlayerMapObject extends MapObject {
     readonly viewHeight = store(this.viewHeightOffset);
     readonly viewHeightNoBob = store(this.viewHeightOffset);
 
+    // for interpolation. It feels like a hack though.
+    deltaSectorZFloor = 0;
+
     // head looking up/down
     pitch = 0;
     // Hmmm... also add roll for fun? or VR? or something?
@@ -744,6 +747,13 @@ export class PlayerMapObject extends MapObject {
 
     constructor(readonly inventory: Store<PlayerInventory>, mobj: MapObject) {
         super(mobj.map, thingSpec(MapObjectIndex.MT_PLAYER), mobj.position, mobj.direction);
+
+        const base = this.sectorChanged;
+        (this as any).sectorChanged = (sec: Sector) => {
+            const zf = this._zFloor;
+            base(sec);
+            this.deltaSectorZFloor += this._zFloor - zf;
+        }
 
         this.renderShadow.subscribe(shadow => {
             if (shadow) {
