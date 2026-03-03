@@ -250,7 +250,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 const height = top - transferClipBottom(partition, side, floorMin);
                 const pegged = !Boolean(ld.flags & 0x0010);
                 const yOffset = side.yOffset.initial + (pegged ? 0 : (side.sector.skyHeight ?? side.sector.zCeil) - top);
-                updateSection(m, lowerIdx, chooseTexture(ld, 'lower', useLeft), pegged, top, height, side.sector, side.xOffset.initial, yOffset, lowerLastLeft !== useLeft);
+                updateSection(m, lowerIdx, chooseTexture(ld, 'lower', useLeft), true, top, height, side.sector, side.xOffset.initial, yOffset, lowerLastLeft !== useLeft);
                 lowerLastLeft = useLeft;
             }
 
@@ -701,13 +701,11 @@ export function mapGeometryUpdater(textures: MapTextureAtlas) {
         motion[offset + 8] = motion[offset + 11] = bottomMotion;
         // motion has to offset texture uv too because wall can be pegged to floor (like upper textures) or ceiling (plain walls)
         if (pegTop) {
-            // like a 1 sided walls, lower walls, and upper unpegged walls
-            const topMotionV = topMotion + -bottomMotion;
-            motion[offset + 7] = motion[offset + 10] = topMotionV;
+            // 1 sided walls, lower walls, and upper unpegged walls
+            motion[offset + 7] = motion[offset + 10] = topMotion - bottomMotion;
         } else {
-            // like a upper walls and lower unpegged
-            const bottomMotionV = -topMotion + bottomMotion;
-            motion[offset + 1] = motion[offset + 4] = bottomMotionV;
+            // upper walls and lower unpegged
+            motion[offset + 1] = motion[offset + 4] = -topMotion + bottomMotion;
         }
         geo.attributes.doomMotion.needsUpdate = true;
 
