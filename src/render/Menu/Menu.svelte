@@ -17,7 +17,8 @@
     }
 
     function createShareUrl(game: Game) {
-        const params = new URLSearchParams(window.location.hash.substring(1));
+        const url = new URL(window.location.href);
+        const params = new URLSearchParams(url.hash.substring(1));
         const player = game.map.val.player;
 
         const pos = player.position;
@@ -27,9 +28,9 @@
         params.set('player-aim', player.pitch.toFixed(2));
         params.set('player-dir', player.direction.toFixed(2));
 
-        window.location.hash = '#' + params.toString();
-        navigator.clipboard.writeText(window.location.href);
-        return window.location.href;
+
+        url.hash = '#' + params.toString();
+        return url.toString();
     }
 
     export const menuCategories = (settingsMenu: MenuSetting[]) => ({
@@ -155,8 +156,8 @@
     }
 
     let shared = false;
-    function share() {
-        location.href = createShareUrl(game);
+    const share: MouseEventHandler<HTMLAnchorElement> = ev => {
+        navigator.clipboard.writeText(ev.currentTarget.href);
         shared = true;
     }
 
@@ -213,6 +214,7 @@
     import { configureGain, createSoundBufferCache, interruptFadeOut, stopSound } from "../SoundPlayer.svelte";
     import { onMount, tick } from "svelte";
     import type { MenuSetting } from "./menu";
+    import type { MouseEventHandler } from "svelte/elements";
     const { audio, soundGain } = useAppContext();
     const { maxSoundChannels } = useAppContext().settings;
     $: soundCache = createSoundBufferCache(audio, game.wad);
@@ -271,11 +273,6 @@
 
             {#if hasNextEpisode}
             <button on:click={startNextEpisode} class="btn btn-secondary">Next episode</button>
-            {/if}
-            {#if !shared}
-                <button class="btn" on:click={share}>Share</button>
-            {:else}
-                <span class="text-center" transition:fly={{ duration: transitionDuration }}>Url copied to clipboard</span>
             {/if}
 
             {#if $map}
@@ -343,8 +340,15 @@
         </div>
         {/if}
 
-        <div class="fixed bottom-4 px-2">
+        <div class="fixed w-96 bottom-4 px-2 flex justify-between">
             <AppInfo />
+            <div class="text-xs">
+                {#if !shared}
+                    <a href={createShareUrl(game)} on:click={share}>Share</a>
+                {:else}
+                    <span class="text-center" transition:fly={{ duration: transitionDuration }}>Url copied to clipboard</span>
+                {/if}
+            </div>
         </div>
     </div>
 
