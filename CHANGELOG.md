@@ -5,7 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
-## [0.11.0] - 2025-01-22
+## [0.12.0] - 2026-03-03
+
+### Added
+- Save/Load game
+- Map geometry change interpolation
+- Gun swing interpolation
+- Cache map geometry for faster reload (100ms instead of seconds for large maps)
+- Map progress (time, kill count, etc.) can be displayed in HUD
+
+### Changed
+- Changed default fly controls to period/comma to match DSDA Doom
+- increase FOV min/max (just for fun)
+- More DOOM-like light diminishing (linear fall off)
+- 20-25% performance improvement through: simpler sprite state machine, animated walls/flats in shader, change line data structure
+- use pixelated images as much as possible. Feels more like DOOM
+
+### Fixed
+- Sprite alignment on HUD. Elements from custom wads (HACX, PD2) are now positioned correctly
+- BFG was not always hitting objects when player was close to ledge
+- Initial position of decorations was not correct
+- Do not loop music on wad launch screen
+- Boom special lines: incorrect scrolling calculation, teleport repeat flag cleared too early
+- Do not apply negative y-offsets from patches (fixes TEKWALL1 among others)
+- Texture alignment in some maps
+- Apply velocity when exiting pusher floors
+- Fix line teleport exit angle
+
+## [0.11.0] - 2026-01-22
 This is a kind of large release. It's been brewing on and off (mostly off) for a year so this list may be incomplete.
 
 ### Added
