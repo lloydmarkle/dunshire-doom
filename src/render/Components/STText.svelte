@@ -5,7 +5,7 @@
     let utext = $derived(text.toUpperCase());
 </script>
 
-<div class="flex flex-wrap items-center">
+<div class="flex flex-wrap items-start">
     {#each utext as char, i}
         {#if char === ' '}
             <span class="space"></span>
