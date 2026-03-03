@@ -36,8 +36,9 @@ export const createDefaultSettings = () => {
             'mb': ['KeyS', 'ArrowDown'],
             'ml': ['KeyA', 'ArrowLeft'],
             'mr': ['KeyD', 'ArrowRight'],
-            'mu': ['KeyR'],
-            'md': ['KeyT'],
+            'mu': ['Period'],
+            'md': ['Comma'],
+            // commands
             'u': ['KeyE', 'Space'],
             'a': ['KeyQ'],
             'r': ['ShiftLeft', 'ShiftRight'],
