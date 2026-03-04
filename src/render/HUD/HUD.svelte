@@ -17,7 +17,7 @@
     const background = imageDataUrl(player.map.game.wad, 'STBAR', 'any');
     const gfx = player.map.game.wad.graphic('STBAR');
     const offsetX = (320 - gfx.width) / 2;
-    $: scale = Math.min($viewSize.width / gfx.width, $viewSize.height / gfx.height, $maxHudScale);
+    $: scale = Math.min($viewSize.width / 320, $viewSize.height / gfx.height, $maxHudScale);
     $: hudHeight = gfx.height * scale;
     $: hudTopOffset = $hudStyle !== 'top' ? '0px' :
         `calc(${hudHeight}px + 1rem + ${$extendedHud ? '2rem' : '0px'})`;

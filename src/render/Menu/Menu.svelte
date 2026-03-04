@@ -19,15 +19,16 @@
     function createShareUrl(game: Game) {
         const url = new URL(window.location.href);
         const params = new URLSearchParams(url.hash.substring(1));
-        const player = game.map.val.player;
 
-        const pos = player.position;
-        params.set('player-x', pos.x.toFixed(2));
-        params.set('player-y', pos.y.toFixed(2));
-        params.set('player-z', pos.z.toFixed(2));
-        params.set('player-aim', player.pitch.toFixed(2));
-        params.set('player-dir', player.direction.toFixed(2));
-
+        const player = game.map.val?.player;
+        if (player) {
+            const pos = player.position;
+            params.set('player-x', pos.x.toFixed(2));
+            params.set('player-y', pos.y.toFixed(2));
+            params.set('player-z', pos.z.toFixed(2));
+            params.set('player-aim', player.pitch.toFixed(2));
+            params.set('player-dir', player.direction.toFixed(2));
+        }
 
         url.hash = '#' + params.toString();
         return url.toString();

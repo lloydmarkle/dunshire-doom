@@ -351,14 +351,12 @@ const searchNeighbourSector = (() => {
     const result = new Array<Sector>(2);
     return (line: Line, map: MapRuntime, dist: number) => {
         // compute linedef normal
-        const dx = line[1].x - line[0].x;
-        const dy = line[1].y - line[0].y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        norm.y = (-dx / len) * dist;
-        norm.x = (dy / len) * dist;
+        const len = Math.sqrt(line.dx * line.dx + line.dy * line.dy);
+        norm.y = (-line.dx / len) * dist;
+        norm.x = (line.dy / len) * dist;
         // and linedef midpoint
-        mid.x = (line[0].x + line[1].x) * .5;
-        mid.y = (line[0].y + line[1].y) * .5;
+        mid.x = line.x + line.dx * .5;
+        mid.y = line.y + line.dy * .5;
 
         result[0] = map.data.findSector(mid.x + norm.x, mid.y + norm.y);
         result[1] = map.data.findSector(mid.x - norm.x, mid.y - norm.y);

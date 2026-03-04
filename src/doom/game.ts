@@ -160,7 +160,7 @@ export class Game implements SoundEmitter {
             throwDoomError({
                 code: 2,
                 details: { mapName, game: this },
-                message: `Map not found: ${name}`,
+                message: `Map not found: ${mapName}`,
             });
         }
 

@@ -566,7 +566,7 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
                 // TODO: also set palette? we need to choose colours based on palette first
                 // (actually, this should be done in the player logic when the player moves into a sector with transfer then we check for palette change)
                 // Set up the B partition using the normal floor/ceiling
-                m.moveFlat(ceil, rs.sector.skyHeight ?? controlSec.zCeil);
+                m.moveFlat(ceil, controlSec.skyHeight ?? controlSec.zCeil);
                 m.applyFlatTexture(ceil, rs.sector.ceilFlat);
                 m.moveFlat(floor, controlSec.zFloor);
                 m.applyFlatTexture(floor, rs.sector.floorFlat);
@@ -586,7 +586,7 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, mapRuntime: MapR
 
                 if (rs.sector.zFloor < controlSec.zFloor) {
                     // position fake ceiling/floor to create C partition
-                    m.moveFlat(topFloor, controlSec.zFloor);
+                    m.moveFlat(bottomCeiling, controlSec.zFloor);
                     m.applyFlatTexture(bottomCeiling, controlSec.ceilFlat);
                     m.moveFlat(bottomFloor, rs.sector.zFloor);
                     m.applyFlatTexture(bottomFloor, controlSec.floorFlat);
