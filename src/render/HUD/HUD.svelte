@@ -55,8 +55,7 @@
 <HUDMessages {scale} topOffset={hudTopOffset} {player} />
 
 <div
-    class="hud"
-    style:--st-top="{$hudStyle === 'bottom' ? $viewSize.height - hudHeight - 6 * scale: 0}px"
+    class="hud" style="{$hudStyle}:0px; transform-origin: {$hudStyle} center;"
     style:--st-bg="url({background})"
     style:--st-bg-offsetx="{offsetX}px"
     style:--st-scale="{scale}, {yScale * scale}"
@@ -164,8 +163,6 @@
         width: 320px;
         height: 32px;
         transform: scale(var(--st-scale));
-        transform-origin: top center;
-        top: var(--st-top);
         background: var(--st-bg);
         background-position: var(--st-bg-offsetx) 0px;
         image-rendering: pixelated;

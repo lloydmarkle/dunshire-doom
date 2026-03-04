@@ -114,7 +114,7 @@
 
 <WipeContainer key={screenName}>
     <div
-        class="relative flex justify-center h-full w-full bg-black"
+        class="relative flex justify-center h-full w-full bg-black overflow-hidden"
         bind:clientHeight={$viewSize.height}
         bind:clientWidth={$viewSize.width}
     >
