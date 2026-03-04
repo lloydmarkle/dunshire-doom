@@ -168,6 +168,7 @@
         top: var(--st-top);
         background: var(--st-bg);
         background-position: var(--st-bg-offsetx) 0px;
+        image-rendering: pixelated;
     }
 
     .ammo {
@@ -224,20 +225,20 @@
     }
 
     .keys {
-        left: 238.5px;
+        left: 239px;
     }
     .keys span {
         width: 7px;
         position: absolute;
     }
     .keys span:nth-child(1) {
-        top: 3px;
+        top: 4px;
     }
     .keys span:nth-child(2) {
-        top: 13px;
+        top: 14px;
     }
     .keys span:nth-child(3) {
-        top: 23px;
+        top: 24px;
     }
 
     .backpack {

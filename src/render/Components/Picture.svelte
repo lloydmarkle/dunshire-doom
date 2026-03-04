@@ -85,3 +85,9 @@
 
 <img src={dataUrl} alt={name}
     style={type === 'sprite' ? `transform: translate(${-gfx.xOffset}px, ${-gfx.yOffset}px)` : ''} />
+
+<style>
+    img {
+        image-rendering: pixelated;
+    }
+</style>

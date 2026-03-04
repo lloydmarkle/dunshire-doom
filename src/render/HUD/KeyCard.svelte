@@ -16,7 +16,7 @@
         null;
 </script>
 
-{#if card1 !== null && card2 !== null}
+{#if card1 && card2}
 <div class="relative">
     <span><Picture name={'STKEYS' + card1} /></span>
     <span><Picture name={'STKEYS' + card2} /></span>
@@ -37,6 +37,6 @@
         transform: translate(-2px, -2px) scale(0.8);
     }
     span:nth-child(2) {
-        transform: translate(3px, 1px) scale(0.8);
+        transform: translate(2px, 0px) scale(0.7);
     }
 </style>

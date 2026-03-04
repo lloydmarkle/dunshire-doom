@@ -569,7 +569,7 @@
     >
         {#key bgImage}
         <figure transition:fade>
-            <img class="flex-grow"
+            <img class="flex-grow" style="image-rendering: pixelated;"
                 width="320" height="200"
                 src={bgImage} alt={'TITLEPIC'} />
         </figure>
