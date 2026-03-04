@@ -5,19 +5,14 @@
     import { useDoom } from "../DoomContext";
     import { randInt } from "three/src/math/MathUtils";
 
-    export let details: IntermissionScreen;
-    export let episode: number;
-    export let showLocation: boolean;
+    interface Props {
+        details: IntermissionScreen;
+        episode: number;
+        showLocation: boolean;
+    }
+    const { details, episode, showLocation }: Props = $props();
 
-    const { game } = useDoom();
-    const tickN = game.time.tickN;
-
-    $: nextMapNum = parseInt(details.nextMapName.substring(3, 5)) - 1;
-    $: finishedMapNum = parseInt(details.finishedMap.name.substring(3, 5)) - 1;
-    $: levelNum = (finishedMapNum === 8) ? nextMapNum - 1 : nextMapNum;
-
-    const splatImg = game.wad.graphic('WISPLAT');
-    // Animation and "splat" stuff copied from wi_stuff.c
+    // Animation and "splats" copied from wi_stuff.c
     const splatDefs: Vertex[][] = [
         [
             { x: 185, y: 164 },
@@ -53,7 +48,6 @@
             { x: 281, y: 136 },
         ],
     ];
-
     const anim = (type: 'always' | 'level', period: number, frameCount: number, point: Vertex, level: number = undefined) =>
         ({ type, period, frameCount, point, level });
     const animDefs = [
@@ -90,55 +84,47 @@
         ],
     ];
 
-    $: splats = splatDefs[episode].slice(0, levelNum);
-    $: anims = animDefs[episode].map((anim, j) => {
-        // level anims only show up if we've passed the given level
-        if (anim.type === 'level' && nextMapNum < anim.level) {
-            return null;
-        }
+    const { game } = useDoom();
+    const tickN = game.time.tickN;
 
-        // a "mondo" hack
-        j = (episode === 1 && j === 8) ? 4 : j;
-        let frames: string[] = [];
-        for (let i = 0; i < anim.frameCount; i++) {
-            frames.push('WIA' + episode + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
-        }
-        const nextTick = anim.type === 'always' ? randInt(1, anim.period) : 1;
-        return { ...anim, nextTick, frames, index: 0 };
-    }).filter(e => e);
+    const nextMapNum = $derived(parseInt(details.nextMapName.substring(3, 5)) - 1);
+    const splatImg = game.wad.graphic('WISPLAT');
 
-    $: showHere = ($tickN % ticksPerSecond) > (ticksPerSecond / 2);
-    const here1 = game.wad.graphic('WIURH0');
-    const here2 = game.wad.graphic('WIURH1');
-    $: hereSpot = splatDefs[episode][levelNum];
-    $: hereImageName = hereSpot.x + here1.width - here1.xOffset < 320 && hereSpot.y + here1.height - here1.yOffset < 200 ? 'WIURH0' : 'WIURH1';
-    $: here = {
-        x: hereSpot.x - ((hereImageName === 'WIURH0') ? here1 : here2).xOffset,
-        y: hereSpot.y - ((hereImageName === 'WIURH0') ? here1 : here2).yOffset,
-    }
-
-    $: if ($tickN) {
-        anims.forEach(anim => {
-            anim.nextTick -= 1;
-            if (anim.nextTick) {
-                return;
+    const completedMaps = Object.keys(game.mapStats);
+    const splats = $derived(splatDefs[episode].filter((_, i) => completedMaps.includes(`E${episode + 1}M${i + 1}`)));
+    const anims = $derived(animDefs[episode]
+        // level animations only play if we've passed the given level
+        .filter(anim => !(anim.type === 'level' && nextMapNum < anim.level))
+        .map((anim, j) => {
+            // a "mondo" hack
+            j = (episode === 1 && j === 8) ? 4 : j;
+            let frames: string[] = [];
+            for (let i = 0; i < anim.frameCount; i++) {
+                frames.push('WIA' + episode + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
             }
+            const offset = anim.type === 'always' ? randInt(1, anim.period) : 1;
+            return { ...anim, offset, frames };
+        }));
 
-            anim.nextTick = anim.period;
-            anim.index += 1;
-            if (anim.index === anim.frameCount) {
-                anim.index = 0;
-            }
-        });
-        anims = anims;
-    }
+    const showHere = $derived(($tickN % ticksPerSecond) > (ticksPerSecond / 2));
+    const hereImageInfo = () => {
+        const here1 = game.wad.graphic('WIURH0');
+        const here2 = game.wad.graphic('WIURH1');
+        const hereSpot = splatDefs[episode][nextMapNum];
+        const hereImageName = hereSpot.x + here1.width - here1.xOffset < 320 && hereSpot.y + here1.height - here1.yOffset < 200 ? 'WIURH0' : 'WIURH1';
+        const position = {
+            x: hereSpot.x - ((hereImageName === 'WIURH0') ? here1 : here2).xOffset,
+            y: hereSpot.y - ((hereImageName === 'WIURH0') ? here1 : here2).yOffset,
+        }
+        return { hereImageName, position }
+    };
 </script>
 
 <Picture name="WIMAP{episode}" />
 
-{#each anims as anim}
+{#each anims as anim, i}
     <div class="decal" style="top:{anim.point.y}px; left:{anim.point.x}px;"
-        ><Picture name={anim.frames[anim.index]}
+        ><Picture name={anim.frames[Math.floor($tickN / anim.period + anim.offset) % anim.frameCount]}
     /></div>
 {/each}
 
@@ -150,8 +136,8 @@
     {/each}
 
     {#if showHere}
-        <div class="decal" style="top:{here.y}px; left:{here.x}px;"
-            transition:fade={{ duration: 100 }}
+        {@const { hereImageName, position } = hereImageInfo()}
+        <div class="decal" style="top:{position.y}px; left:{position.x}px;" transition:fade={{ duration: 100 }}
             ><Picture name={hereImageName}
         /></div>
     {/if}

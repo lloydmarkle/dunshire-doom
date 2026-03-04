@@ -1463,6 +1463,7 @@ const createLevelExitAction =
 
 export function exitLevel(mobj: MapObject, target: 'secret' | 'normal', nextMapOverride?: string) {
     // figure out next map based on current map name
+    const game = mobj.map.game;
     const mapName = mobj.map.name;
     const episodeFormat = mapName.startsWith('E');
     // E1M? and MAP?? both start the map number at index 3
@@ -1485,14 +1486,15 @@ export function exitLevel(mobj: MapObject, target: 'secret' | 'normal', nextMapO
     );
 
     // intermission screen stats
-    mobj.map.game.time.playTime += mobj.map.stats.elapsedTime;
-    mobj.map.game.intermission.set({
+    game.mapStats[mapName] = { ...mobj.map.stats, ...mobj.map.player.stats };
+    game.time.playTime += mobj.map.stats.elapsedTime;
+    game.intermission.set({
         // TODO: network games should have multiple players
         playerStats: [mobj.map.player.stats],
         finishedMap: mobj.map,
         nextMapName,
     });
-    mobj.map.game.map.set(null);
+    game.map.set(null);
     mobj.map.dispose();
 }
 

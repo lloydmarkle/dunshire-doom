@@ -46,6 +46,8 @@ export interface IntermissionScreen {
     playerStats: PlayerMapObject['stats'][];
 }
 
+export type MapStats = MapRuntime['stats'] & PlayerMapObject['stats'];
+
 type SoundHandler = (snd: SoundIndex, position?: MapObject | Sector) => void;
 export interface SoundEmitter {
     onSound(handler: SoundHandler): void;
@@ -83,6 +85,8 @@ export class Game implements SoundEmitter {
     }
     // helpful for tests to allow long time deltas
     maxTimeDeltaSeconds = 2;
+    // map completions
+    mapStats: { [key: string]: MapStats } = {};
 
     readonly input: ControllerInput = {
         move: new Vector3(),

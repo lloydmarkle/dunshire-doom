@@ -125,7 +125,7 @@
     import TouchControlsMenu from "./TouchControlsMenu.svelte";
     import SaveGameMenu from "./SaveGameMenu.svelte";
     import { Icon } from '@steeze-ui/svelte-icon'
-    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica, MagnifyingGlass, Trash, ExclamationTriangle, Funnel } from '@steeze-ui/heroicons'
+    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica } from '@steeze-ui/heroicons'
 
     const { game, viewSize } = useDoom();
     const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();

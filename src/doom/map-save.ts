@@ -77,6 +77,7 @@ export const exportMap = (map: MapRuntime) => {
         elapsedTime: map.game.time.elapsed,
         playTime: map.game.time.playTime,
         rngIndex: map.game.rng.index,
+        mapStats: map.game.mapStats,
         // TODO: convert to hash of wads or some other signature?
         wads: map.game.wad.name.split('&').map(e => e.split('=')[1]),
     };
@@ -232,6 +233,7 @@ export const importMap = (map: MapRuntime, data: MapExport) => {
     data.map.actions.forEach(e => map.actions.add(e));
 
     // restore game time
+    map.game.mapStats = data.game.mapStats ?? {};
     map.game.time.playTime = data.game.playTime;
     map.game.time.elapsed = data.game.elapsedTime;
     (map.game as any).nextTickTime = Math.ceil(data.game.elapsedTime / tickTime) * tickTime;

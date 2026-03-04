@@ -205,7 +205,7 @@
 
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        gap: .75rem;
     }
 
     .content div {
@@ -226,7 +226,8 @@
 
     .time {
         justify-content: space-around;
-        margin-bottom: 2em;
+        margin-top: auto;
+        margin-bottom: 0.5rem;
     }
     .game-time {
         display: flex;
